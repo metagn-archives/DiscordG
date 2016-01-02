@@ -36,11 +36,11 @@ class Server extends Base {
 	}
 
 	TextChannel createTextChannel(String name) {
-		return null
+		return new TextChannel(api, api.getRequester().post("https://discordapp.com/api/guilds/${this.getID()}/channels", new JSONObject().put("name", name).put("type", "text")))
 	}
 
 	VoiceChannel createVoiceChannel(String name) {
-		return null
+		return new VoiceChannel(api, api.getRequester().post("https://discordapp.com/api/guilds/${this.getID()}/channels", new JSONObject().put("name", name).put("type", "voice")))
 	}
 
 	List<TextChannel> getTextChannels(){
@@ -48,7 +48,8 @@ class Server extends Base {
 		List<TextChannel> channels = new ArrayList<TextChannel>()
 		for (int i = 0; i < Short.MAX_VALUE; i++){
 			try{
-				channels.add(new TextChannel(api, array.get(i)))
+				if (array.get(i).getString("type").equals("text"))
+					channels.add(new TextChannel(api, array.get(i)))
 			}catch (e){
 				break
 			}
@@ -61,7 +62,8 @@ class Server extends Base {
 		List<VoiceChannel> channels = new ArrayList<VoiceChannel>()
 		for (int i = 0; i < Short.MAX_VALUE; i++){
 			try{
-				channels.add(new VoiceChannel(api, array.get(i)))
+				if (array.get(i).getString("type").equals("voice"))
+					channels.add(new VoiceChannel(api, array.get(i)))
 			}catch (e){
 				break
 			}
@@ -70,25 +72,29 @@ class Server extends Base {
 	}
 
 	List<Role> getRoles() {
+		JSONArray array = object.getJSONArray("roles")
 		List<Role> roles = new ArrayList<Role>()
-		JSONArray roleArray = object.getJSONArray("roles")
-		roleArray.forEach { s ->
-			roles.add(new Role(s))
+		for (int i = 0; i < Short.MAX_VALUE; i++){
+			try{
+				roles.add(new Role(api, array.get(i)))
+			}catch (e){
+				break
+			}
 		}
 		return roles
 	}
 
 	List<Member> getMembers() {
+		JSONArray array = object.getJSONArray("members")
 		List<Member> members = new ArrayList<Member>()
-		JSONArray memberArray = object.getJSONArray("members")
-		memberArray.forEach { s ->
-			members.add(new Member(api, s))
+		for (int i = 0; i < Short.MAX_VALUE; i++){
+			try{
+				members.add(new Member(api, array.get(i)))
+			}catch (e){
+				break
+			}
 		}
 		return members
-	}
-
-	Member getMemberForUser(User user) {
-		return null
 	}
 
 	void editRoles(Member member, List<Role> roles) {

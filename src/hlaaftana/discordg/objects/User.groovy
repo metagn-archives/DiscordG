@@ -18,8 +18,4 @@ class User extends Base{
 		}
 	}
 	URL getAvatarURL(){ return new URL(this.getAvatar()) }
-
-	Member getMember(Server server) {
-		return server.getMemberForUser(this)
-	}
 }

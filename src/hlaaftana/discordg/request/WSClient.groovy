@@ -8,6 +8,7 @@ import org.json.JSONObject
 
 import hlaaftana.discordg.events.Event
 import hlaaftana.discordg.objects.API;
+import hlaaftana.discordg.objects.Server
 
 @WebSocket
 class WSClient{
@@ -65,7 +66,17 @@ class WSClient{
 			api.readyData = data
 
 			//add built-in listeners
-
+			api.addListener { Event e ->
+				if (e.getType().equals("GUILD_MEMBER_ADD")){
+					Server server
+					for (s in api.client.getServers()){
+						if (s.getID().equals(e.json().getString("guild_id"))){
+							server = s
+						}
+					}
+					server.object.getJSONArray("members").put(e.json())
+				}
+			}
 		}
 		Event event = new Event(data, type)
 		if (api.isLoaded()){
