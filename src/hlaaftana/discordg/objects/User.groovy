@@ -1,15 +1,14 @@
 package hlaaftana.discordg.objects
 
 import java.net.URL
-import org.json.JSONObject
 
 class User extends Base{
-	User(API api, JSONObject object){
+	User(API api, Map object){
 		super(api, object)
 	}
 
-	String getUsername() { return object.getString("username") }
-	String getAvatarHash(){ return object.getString("avatar") }
+	String getUsername() { return object["username"] }
+	String getAvatarHash(){ return object["avatar"] }
 	String getAvatar() {
 		if (this.getAvatarHash() != null){
 			return "https://discordapp.com/api/users/${this.getID()}/avatars/${this.getAvatarHash()}.jpg"

@@ -3,10 +3,9 @@ package hlaaftana.discordg.request
 import com.sun.jersey.api.client.Client
 import com.sun.jersey.api.client.WebResource
 
-import hlaaftana.discordg.objects.API;
+import hlaaftana.discordg.objects.API
 import hlaaftana.discordg.request.Requester
-
-import org.json.JSONObject
+import hlaaftana.discordg.util.JSONUtil
 
 class Requester{
 	API api
@@ -20,12 +19,12 @@ class Requester{
         resourceFor(url).delete()
     }
 
-    def post(String url, JSONObject body){
-        return (String) resourceFor(url).post(String.class, body.toString())
+    def post(String url, Map body){
+        return (String) resourceFor(url).post(String.class, JSONUtil.json(body))
     }
 
-    def patch(String url, JSONObject body){
-        return (String) resourceFor(url).method("PATCH", String.class, body.toString())
+    def patch(String url, Map body){
+        return (String) resourceFor(url).method("PATCH", String.class, JSONUtil.json(body))
     }
 
 	def put(String url){

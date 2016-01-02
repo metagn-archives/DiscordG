@@ -4,10 +4,10 @@ import java.util.concurrent.CountDownLatch
 
 import org.eclipse.jetty.websocket.api.*
 import org.eclipse.jetty.websocket.api.annotations.*
-import org.json.JSONObject
+import hlaaftana.discordg.util.JSONUtil
 
 import hlaaftana.discordg.events.Event
-import hlaaftana.discordg.objects.API;
+import hlaaftana.discordg.objects.API
 import hlaaftana.discordg.objects.Server
 
 @WebSocket
@@ -24,36 +24,36 @@ class WSClient{
 		this.session = session
 		this.session.getPolicy().setMaxTextMessageSize(Integer.MAX_VALUE)
 		this.session.getPolicy().setMaxTextMessageBufferSize(Integer.MAX_VALUE)
-		this.send(new JSONObject()
-			.put("op", 2)
-			.put("d", new JSONObject()
-				.put("token", api.getToken())
-				.put("v", 3)
-				.put("properties", new JSONObject()
-					.put("\$os", System.getProperty("os.name"))
-					.put("\$browser", "DiscordG")
-					.put("\$device", "Groovy")
-					.put("\$referrer", "https://discordapp.com/@me")
-					.put("\$referring_domain", "discordapp.com")
-				)
-			)
-		.toString())
+		this.send([
+			"op": 2,
+			"d": [
+				"token": api.getToken(),
+				"v": 3,
+				"properties": [
+					"\$os": System.getProperty("os.name"),
+					"\$browser": "DiscordG",
+					"\$device": "Groovy",
+					"\$referrer": "https://discordapp.com/@me",
+					"\$referring_domain": "discordapp.com",
+				],
+			],
+		])
 		println "Sent API details."
 		latch.countDown()
 	}
 
 	@OnWebSocketMessage
 	void onMessage(Session session, String message) throws IOException{
-		JSONObject content = new JSONObject(message)
-		String type = content.getString("t")
-		JSONObject data = content.get("d")
-		int responseAmount = Integer.parseInt(content.get("s").toString())
+		Map content = JSONUtil.parse(message)
+		String type = content["t"]
+		Map data = content["d"]
+		int responseAmount = content["s"]
 		if (type.equals("READY") || type.equals("RESUMED")){
-			long heartbeat = data.getLong("heartbeat_interval")
+			long heartbeat = data["heartbeat_interval"]
 			try{
 				keepAliveThread = new Thread({
 					while (true){
-						this.send(new JSONObject().put("op", 1).put("d", System.currentTimeMillis()).toString())
+						this.send(["op": 1, "d": System.currentTimeMillis().toString()])
 						Thread.sleep(heartbeat)
 					}
 				})
@@ -70,11 +70,11 @@ class WSClient{
 				if (e.getType().equals("GUILD_MEMBER_ADD")){
 					Server server
 					for (s in api.client.getServers()){
-						if (s.getID().equals(e.json().getString("guild_id"))){
+						if (s.getID().equals(e.json()["guild_id"])){
 							server = s
 						}
 					}
-					server.object.getJSONArray("members").put(e.json())
+					server.object["members"].add(e.json())
 				}
 			}
 		}
@@ -98,9 +98,12 @@ class WSClient{
 		t.printStackTrace()
 	}
 
-	void send(String message){
+	void send(Object message){
 		try{
-			session.getRemote().sendString(message)
+			if (message instanceof Map)
+				session.getRemote().sendString(JSONUtil.json(message))
+			else
+				session.getRemote().sendString(message.toString())
 		}catch (e){
 			e.printStackTrace()
 		}

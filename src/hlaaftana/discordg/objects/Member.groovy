@@ -3,52 +3,36 @@ package hlaaftana.discordg.objects
 import java.util.List
 
 import java.net.URL
-import org.json.JSONArray
-import org.json.JSONObject
+import hlaaftana.discordg.util.JSONUtil
 
 class Member extends User{
-	Member(API api, JSONObject object){
+	Member(API api, Map object){
 		super(api, object)
 	}
 
-	User getUser() {
-		return new User(api, object.getJSONObject("user"))
-	}
+	User getUser(){ return new User(api, object["user"]) }
+	Server getServer(){ return api.client.getServerById(object["guild_id"]) }
 
-	Server getServer() {
-		for (s in api.client.getServers()){
-			if (s.getID().equals(object.getString("guild_id"))) return s
-		}
-	}
-
-	List<Role> getRoles() {
-		JSONArray array = object.getJSONArray("roles")
+	List<Role> getRoles(){
+		List array = object["roles"]
 		List<Role> roles = new ArrayList<Role>()
-		for (int i = 0; i < Short.MAX_VALUE; i++){
-			try{
-				for (r in this.getServer().getRoles()){
-					if (r.getID().equals(array.get(i))) roles.add(r)
-				}
-			}catch (e){
-				break
+		for (o in array){
+			for (r in this.getServer().getRoles()){
+				if (o["id"].equals(r.getID())) roles.add(r)
 			}
 		}
 		return roles
 	}
 
 	void editRoles(List<Role> roles) {
-
+		this.getServer().editRoles(this, roles)
 	}
 
 	void addRoles(List<Role> roles) {
-
-	}
-
-	void removeRoles(List<Role> roles) {
-
+		this.getServer().addRoles(this, roles)
 	}
 
 	void kick() {
-
+		this.getServer().kickMember(this)
 	}
 }

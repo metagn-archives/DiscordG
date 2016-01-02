@@ -1,13 +1,13 @@
 package hlaaftana.discordg.events
 
-import org.json.JSONObject
+import hlaaftana.discordg.util.JSONUtil
 
 class Event {
-	JSONObject jsonForEvent
+	Map jsonForEvent
 	String type
-	Event (JSONObject json, String type){ jsonForEvent = json; this.type = type }
+	Event (Map json, String type){ jsonForEvent = json; this.type = type }
 
-	JSONObject json(){
+	Map json(){
 		return jsonForEvent
 	}
 

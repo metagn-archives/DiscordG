@@ -4,17 +4,16 @@ import java.net.URL;
 import java.util.List
 import java.util.Map
 
-import org.json.JSONArray
-import org.json.JSONObject
+import hlaaftana.discordg.util.JSONUtil
 
 class Server extends Base {
-	Server(API api, JSONObject object){
+	Server(API api, Map object){
 		super(api, object)
 	}
 
-	String getRegion(){ return object.getString("region") }
-	String getCreatedTimestamp(){ return object.getString("joined_at") }
-	String getIconHash(){ return object.getString("icon") }
+	String getRegion(){ return object["region"] }
+	String getCreatedTimestamp(){ return object["joined_at"] }
+	String getIconHash(){ return object["icon"] }
 	String getIcon() {
 		if (this.getIconHash != null){
 			return "https://discordapp.com/api/users/${this.getID()}/icons/${this.getIconHash()}.jpg"
@@ -23,12 +22,13 @@ class Server extends Base {
 		}
 	}
 	URL getIconURL() { return new URL(this.getIcon()) }
-	public Member getOwner() {
+
+	Member getOwner() {
 		return
 	}
 
 	Server edit(String newName) {
-		return new Server(api, new JSONObject(api.getRequester().patch("https://discordapp.com/api/guilds/${this.getID()}", new JSONObject().put("name", newName))))
+		return new Server(api, JSONUtil.parse(api.getRequester().patch("https://discordapp.com/api/guilds/${this.getID()}", new HashMap().put("name", newName))))
 	}
 
 	void delete() {
@@ -36,93 +36,79 @@ class Server extends Base {
 	}
 
 	TextChannel createTextChannel(String name) {
-		return new TextChannel(api, api.getRequester().post("https://discordapp.com/api/guilds/${this.getID()}/channels", new JSONObject().put("name", name).put("type", "text")))
+		return new TextChannel(api, api.getRequester().post("https://discordapp.com/api/guilds/${this.getID()}/channels", ["name": name, "type": "text"]))
 	}
 
 	VoiceChannel createVoiceChannel(String name) {
-		return new VoiceChannel(api, api.getRequester().post("https://discordapp.com/api/guilds/${this.getID()}/channels", new JSONObject().put("name", name).put("type", "voice")))
+		return new VoiceChannel(api, api.getRequester().post("https://discordapp.com/api/guilds/${this.getID()}/channels", ["name": name, "type": "voice"]))
 	}
 
 	List<TextChannel> getTextChannels(){
-		JSONArray array = new JSONArray(api.getRequester().get("https://discordapp.com/api/guilds/${this.getID()}/channels"))
+		List array = JSONUtil.parse(api.getRequester().get("https://discordapp.com/api/guilds/${this.getID()}/channels"))
 		List<TextChannel> channels = new ArrayList<TextChannel>()
-		for (int i = 0; i < Short.MAX_VALUE; i++){
-			try{
-				if (array.get(i).getString("type").equals("text"))
-					channels.add(new TextChannel(api, array.get(i)))
-			}catch (e){
-				break
-			}
+		for (o in array){
+			if (o["type"].equals("text")) channels.add(new TextChannel(api, o))
 		}
 		return channels
 	}
 
 	List<VoiceChannel> getVoiceChannels(){
-		JSONArray array = new JSONArray(api.getRequester().get("https://discordapp.com/api/guilds/${this.getID()}/channels"))
+		List array = JSONUtil.parse(api.getRequester().get("https://discordapp.com/api/guilds/${this.getID()}/channels"))
 		List<VoiceChannel> channels = new ArrayList<VoiceChannel>()
-		for (int i = 0; i < Short.MAX_VALUE; i++){
-			try{
-				if (array.get(i).getString("type").equals("voice"))
-					channels.add(new VoiceChannel(api, array.get(i)))
-			}catch (e){
-				break
-			}
+		for (o in array){
+			if (o["type"].equals("voice")) channels.add(new VoiceChannel(api, o))
+		}
+		return channels
+	}
+
+	List<Channel> getChannels(){
+		List array = JSONUtil.parse(api.getRequester().get("https://discordapp.com/api/guilds/${this.getID()}/channels"))
+		List<Channel> channels = new ArrayList<Channel>()
+		for (o in array){
+			channels.add(new Channel(api, o))
 		}
 		return channels
 	}
 
 	List<Role> getRoles() {
-		JSONArray array = object.getJSONArray("roles")
+		List array = object["roles"]
 		List<Role> roles = new ArrayList<Role>()
-		for (int i = 0; i < Short.MAX_VALUE; i++){
-			try{
-				roles.add(new Role(api, array.get(i)))
-			}catch (e){
-				break
-			}
+		for (o in array){
+			roles.add(new Role(api, o))
 		}
 		return roles
 	}
 
 	List<Member> getMembers() {
-		JSONArray array = object.getJSONArray("members")
+		List array = object["members"]
 		List<Member> members = new ArrayList<Member>()
-		for (int i = 0; i < Short.MAX_VALUE; i++){
-			try{
-				members.add(new Member(api, array.get(i)))
-			}catch (e){
-				break
-			}
+		for (o in array){
+			members.add(new Member(api, o))
 		}
 		return members
 	}
 
 	void editRoles(Member member, List<Role> roles) {
-		JSONObject object = new JSONObject()
-		JSONArray rolesArray = new JSONArray()
+		List rolesArray = new ArrayList()
 		for (r in roles){
-			rolesArray.put(r.getID())
+			rolesArray.add(r.getID())
 		}
-		api.getRequester().patch("https://discordapp.com/api/guilds/${this.getID()}/members/${member.getID()}", object.put("roles", rolesArray))
+		api.getRequester().patch("https://discordapp.com/api/guilds/${this.getID()}/members/${member.getID()}", ["roles": rolesArray])
 	}
 
 	void addRoles(Member member, List<Role> roles) {
-
-	}
-
-	void removeRoles(Member member, List<Role> roles) {
-
+		this.editRoles(member, member.getRoles().addAll(roles))
 	}
 
 	void kickMember(Member member) {
-
+		member.kick()
 	}
 
 	List<User> getBans() {
-		JSONArray array = new JSONArray(api.getRequester().get("https://discordapp.com/api/guilds/${this.getID()}/bans"))
+		List array = JSONUtil.parse(api.getRequester().get("https://discordapp.com/api/guilds/${this.getID()}/bans"))
 		List<User> bans = new ArrayList<User>()
-		array.forEach { JSONObject s ->
-			bans.add(new User(s.getJSONObject("user")))
+		for (o in array){
+			bans.add(new User(api, o))
 		}
 		return bans
 	}
@@ -136,16 +122,12 @@ class Server extends Base {
 	}
 
 	Role createRole(Map<String, Object> data) {
-		Role createdRole = new Role(new JSONObject(api.getRequester().post("https://discordapp.com/api/guilds/${this.getID()}/roles", null)))
+		Role createdRole = new Role(api, JSONUtil.parse(api.getRequester().post("https://discordapp.com/api/guilds/${this.getID()}/roles", [:])))
 		return editRole(createdRole, data)
 	}
 
 	Role editRole(Role role, Map<String, Object> data) {
-		JSONObject obj = new JSONObject()
-		for (k in data.keySet()){
-			obj.put(k, data.get(k))
-		}
-		return new Role(new JSONObject(api.getRequester().patch("https://discordapp.com/api/guilds/${this.getID()}/roles/${role.getID()}", obj)))
+		return new Role(api, JSONUtil.parse(api.getRequester().patch("https://discordapp.com/api/guilds/${this.getID()}/roles/${role.getID()}", data)))
 	}
 
 	void deleteRole(Role role) {
