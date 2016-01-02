@@ -3,38 +3,14 @@ package hlaaftana.discordg.objects
 import java.util.List
 
 import java.net.URL
+import org.json.JSONObject
 
-class Member{
-
-	String getUsername() {
-		return null
-	}
-
-	String getDiscriminator() {
-		return null
-	}
-
-	String getAvatarHash() {
-		return null
-	}
-
-	String getAvatar() {
-		return null
-	}
-
-	URL getAvatarURL() {
-		return null
+class Member extends User{
+	Member(API api, JSONObject object){
+		super(api, object)
 	}
 
 	Member getMember(Server server) {
-		return null
-	}
-
-	String getID() {
-		return null
-	}
-
-	String getName() {
 		return null
 	}
 

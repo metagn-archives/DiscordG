@@ -4,10 +4,8 @@ import java.net.URL
 import org.json.JSONObject
 
 class User extends Base{
-	JSONObject object
-	User(JSONObject object){
-		super(object)
-		this.object = object
+	User(API api, JSONObject object){
+		super(api, object)
 	}
 
 	String getUsername() { return object.getString("username") }

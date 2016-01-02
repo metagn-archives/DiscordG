@@ -6,12 +6,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class Message extends Base{
-	JSONObject object
-	API api
 	Message(API api, JSONObject object){
-		super(object)
-		this.api = api
-		this.object = object
+		super(api, object)
 	}
 
 	String getContent(){ return object.getString("content") }
@@ -20,15 +16,19 @@ class Message extends Base{
 	JSONArray getEmbeds() { return object.getJSONArray("embeds") }
 
 	User getAuthor() {
-		return null
+		return new User(api, object.getJSONObject("author"))
 	}
 
 	User getSender() {
-		return null
+		return this.getAuthor()
 	}
 
-	Channel getChannel() {
-		return null
+	TextChannel getTextChannel() {
+		for (s in api.client.getServers()){
+			for (c in s.getTextChannels()){
+				if (c.getID().equals(object.getString("channel_id"))) return c
+			}
+		}
 	}
 
 	Message edit(String newContent) {
@@ -36,10 +36,10 @@ class Message extends Base{
 	}
 
 	void delete() {
-
+		api.getRequester().delete("https://discordapp.com/api/channels/${object.getString("channel_id")}/messages/${this.getID()}")
 	}
 
 	void acknowledge() {
-
+		api.getRequester().post("https://discordapp.com/api/channels/${object.getString("channel_id")}/messages/${this.getID()}/ack")
 	}
 }
