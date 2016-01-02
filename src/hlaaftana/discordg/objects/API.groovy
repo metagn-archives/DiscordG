@@ -2,10 +2,10 @@ package hlaaftana.discordg.objects
 
 import com.sun.jersey.api.client.Client
 
-import groovy.json.*
 import groovy.lang.Closure
 import hlaaftana.discordg.request.Requester
 import hlaaftana.discordg.request.WSClient
+import hlaaftana.discordg.util.JSONUtil
 
 import javax.websocket.WebSocketContainer
 import javax.websocket.ContainerProvider
@@ -36,14 +36,12 @@ class API{
 	void login(String email, String password){
 		Thread thread = new Thread({
 			try{
-				Map loginInfo = new HashMap()
-				loginInfo.put("email", email); loginInfo.put("password", password)
-				Map response = new JsonSlurper().parseText(this.getRequester().post("https://discordapp.com/api/auth/login", JsonOutput.toJson(loginInfo)))
+				Map response = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))
 				token = response["token"]
 				SslContextFactory sslFactory = new SslContextFactory()
 				WebSocketClient client = new WebSocketClient(sslFactory)
 				WSClient socket = new WSClient(this)
-				String gateway = new JsonSlurper().parseText(this.getRequester().get("https://discordapp.com/api/gateway"))["url"]
+				String gateway = JSONUtil.parse(this.getRequester().get("https://discordapp.com/api/gateway"))["url"]
 				client.start()
 				ClientUpgradeRequest upgreq = new ClientUpgradeRequest()
 				client.connect(socket, new URI(gateway), upgreq)
@@ -70,17 +68,7 @@ class API{
 		listeners.remove(event.toUpperCase().replace(' ', '_'), closure)
 	}
 
-	void removeListenersFor(String event){
-		for (entry in listeners.entrySet()){
-			if (entry.getKey().equals(event.toUpperCase().replace(' ', '_'))){
-
-			}
-		}
-	}
-
-	Map<String, Closure> getListeners() {
-		return listeners
-	}
+	Map<String, Closure> getListeners(){ return listeners }
 
 	boolean isLoaded(){
 		return restClient != null && requester != null && token != null && wsClient != null && client != null

@@ -8,6 +8,7 @@ import hlaaftana.discordg.util.JSONUtil
 
 import hlaaftana.discordg.events.Event
 import hlaaftana.discordg.objects.API
+import hlaaftana.discordg.objects.Member
 import hlaaftana.discordg.objects.Server
 
 @WebSocket
@@ -66,22 +67,30 @@ class WSClient{
 			api.readyData = data
 
 			//add built-in listeners
-			api.addListener { Event e ->
-				if (e.getType().equals("GUILD_MEMBER_ADD")){
-					Server server
-					for (s in api.client.getServers()){
-						if (s.getID().equals(e.json()["guild_id"])){
-							server = s
-						}
-					}
-					server.object["members"].add(e.json())
-				}
-			}
+			//works
+			api.addListener("guild member add", { Event e ->
+				Server server = new Member(api, e.json()).getServer()
+				Map serverInReady = api.readyData["guilds"].find { it["id"].equals(server.getID()) }
+				Map serverInReady2 = serverInReady
+				serverInReady2["members"].add(e.json())
+				api.readyData["guilds"].remove(serverInReady)
+				api.readyData["guilds"].add(serverInReady2)
+			})
+			//works
+			api.addListener("guild member remove", { Event e ->
+				Server server = new Member(api, e.json()).getServer()
+				Member memberToRemove = server.getMembers().find { it.getUser().getID().equals(e.json()["user"]["id"]) }
+				Map serverInReady = api.readyData["guilds"].find { it["id"].equals(server.getID()) }
+				Map serverInReady2 = serverInReady
+				serverInReady2["members"].remove(memberToRemove.object)
+				api.readyData["guilds"].remove(serverInReady)
+				api.readyData["guilds"].add(serverInReady2)
+			})
 		}
 		Event event = new Event(data, type)
 		if (api.isLoaded()){
-			for (listener in api.getListeners()){
-				listener(event)
+			api.listeners.each { Map.Entry<String, Closure> entry ->
+				if (type.equals(entry.key)) entry.value.call(event)
 			}
 		}
 	}
