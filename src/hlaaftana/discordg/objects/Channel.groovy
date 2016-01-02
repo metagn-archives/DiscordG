@@ -1,20 +1,20 @@
 package hlaaftana.discordg.objects
 
 import java.util.Map
-import org.json.JSONObject
+import hlaaftana.discordg.util.JSONUtil
 
 class Channel extends Base{
-	Channel(API api, JSONObject object){
+	Channel(API api, Map object){
 		super(api, object)
 	}
 
-	boolean isPrivate(){ return object.getBoolean("is_private") }
-	String getPosition(){ return object.getInt("position") }
-	String getType(){ return object.getString("type") }
-	String getTopic(){ return object.getString("topic") }
+	boolean isPrivate(){ return object["is_private"] }
+	String getPosition(){ return object["position"] }
+	String getType(){ return object["type"] }
+	String getTopic(){ return object["topic"] }
 	Server getServer(){ if (this.isPrivate()) return null
 		for (s in api.client.getServers()){
-			if (s.getID().equals(object.getString("guild_id"))) return s
+			if (s.getID().equals(object["guild_id"])) return s
 		}
 	}
 
@@ -23,6 +23,6 @@ class Channel extends Base{
 	}
 
 	Channel edit(Map<String, Object> data) {
-		return new Channel(api, api.getRequester().patch("https://discordapp.com/api/channels/${this.getID()}", new JSONObject().put("name", (data.containsKey("name")) ? data["name"].toString() : this.getName()).put("position", (data.containsKey("position")) ? data["position"] : this.getPosition()).put("topic", (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic())))
+		return new Channel(api, api.getRequester().patch("https://discordapp.com/api/channels/${this.getID()}", ["name": (data.containsKey("name")) ? data["name"].toString() : this.getName(), "position": (data.containsKey("position")) ? data["position"] : this.getPosition(), "topic": (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic()]))
 	}
 }

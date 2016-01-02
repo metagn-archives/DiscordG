@@ -3,20 +3,15 @@ package hlaaftana.discordg.objects
 import java.util.List
 import java.util.Map
 
-import org.json.JSONArray
-import org.json.JSONObject
+import hlaaftana.discordg.util.JSONUtil
 
 class Client{
 	API api
 	Client(API api){ this.api = api }
 
-	User getUser() {
-		return new User(api, api.readyData.getJSONObject("user"))
-	}
+	User getUser(){ return new User(api, api.readyData["user"]) }
 
-	String getSessionId(){
-		return api.readyData.getString("session_id")
-	}
+	String getSessionId(){ return api.readyData["session_id"] }
 
 	TextChannel createTextChannel(Server server, String name) {
 		return server.createTextChannel(name)
@@ -35,7 +30,7 @@ class Client{
 	}
 
 	Server createServer(String name) {
-		return new Server(api, new JSONObject(api.getRequester().post("https://discordapp.com/api/guilds", new JSONObject().put("name", name))))
+		return new Server(api, JSONUtil.parse(api.getRequester().post("https://discordapp.com/api/guilds", ["name": name])))
 	}
 
 	Server editServer(Server server, String newName) {
@@ -63,14 +58,10 @@ class Client{
 	}
 
 	List<Server> getServers() {
-		JSONArray array = new JSONArray(api.getRequester().get("https://discordapp.com/api/users/@me/guilds"))
+		List array = JSONUtil.parse(api.getRequester().get("https://discordapp.com/api/users/@me/guilds"))
 		List<Server> servers = new ArrayList<Server>()
-		for (int i = 0; i < Short.MAX_VALUE; i++){
-			try{
-				servers.add(new Server(api, array.get(i)))
-			}catch (e){
-				break
-			}
+		for (o in array){
+			servers.add(new Server(api, o))
 		}
 		return servers
 	}
@@ -83,32 +74,40 @@ class Client{
 		return server.getVoiceChannels()
 	}
 
-	Member getMemberFromServer(Server server, User user) {
-		return server.getMemberForUser(user)
-	}
-
 	List<User> getAllUsers() {
-
+		List<User> users = new ArrayList<User>()
+		for (s in this.getServers()){
+			for (m in s.getMembers()){
+				boolean isThere
+				for (u in users){
+					if (!u.getID().equals(m.getUser().getID())){ isThere = isThere || false }
+					if (isThere){ break }
+				}
+				if (!isThere){ users.add(m.getUser()) }
+			}
+		}
 	}
 
 	List<Member> getAllMembers() {
-		return null
+		List<Member> members = new ArrayList<Member>()
+		for (s in this.getServers()){
+			for (m in s.getMembers()){
+				members.add(m)
+			}
+		}
+		return members
 	}
 
 	void editRoles(Member member, List<Role> roles) {
-
+		member.getServer().editRoles(member, roles)
 	}
 
 	void addRoles(Member member, List<Role> roles) {
-
-	}
-
-	void removeRoles(Member member, List<Role> roles) {
-
+		member.getServer().addRoles(member, roles)
 	}
 
 	void kickMember(Member member) {
-
+		member.kick()
 	}
 
 	void ban(Server server, User user, int days=0) {
@@ -132,10 +131,22 @@ class Client{
 	}
 
 	void changeStatus(Map<String, Object> data) {
-		api.getWebSocketClient().send(new JSONObject().put("op", 3).put("d", new JSONObject().put("game", new JSONObject().put("name", data.get("game"))).put("idle_since", (data.get("idle") != null) ? System.currentTimeMillis() : JSONObject.NULL)))
+		api.getWebSocketClient().send(["op": 3, "d": ["game": ["name": data["game"]], "idle_since": (data.get("idle") != null) ? System.currentTimeMillis() : null]])
 	}
 
 	Map<String, Object> editProfile(Map<String, Object> data) {
 		return null
+	}
+
+	User getUserById(String id){
+		for (u in this.getAllUsers()){
+			if (u.getID().equals(id)) return u
+		}
+	}
+
+	Server getServerById(String id){
+		for (s in this.getServers()){
+			if (s.getID().equals(id)) return s
+		}
 	}
 }

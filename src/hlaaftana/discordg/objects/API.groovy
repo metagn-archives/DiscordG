@@ -2,6 +2,7 @@ package hlaaftana.discordg.objects
 
 import com.sun.jersey.api.client.Client
 
+import groovy.json.*
 import groovy.lang.Closure
 import hlaaftana.discordg.request.Requester
 import hlaaftana.discordg.request.WSClient
@@ -12,7 +13,6 @@ import javax.websocket.ContainerProvider
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest
 import org.eclipse.jetty.websocket.client.WebSocketClient
-import org.json.JSONObject
 
 class API{
 	private Client restClient
@@ -20,8 +20,8 @@ class API{
 	private String token
 	private WSClient wsClient
 	private hlaaftana.discordg.objects.Client client
-	private List<Closure> listeners = new ArrayList<Closure>()
-	JSONObject readyData
+	private Map<String, Closure> listeners = new HashMap<String, Closure>()
+	Map readyData
 
 	API(){
 		restClient = Client.create()
@@ -36,12 +36,14 @@ class API{
 	void login(String email, String password){
 		Thread thread = new Thread({
 			try{
-				JSONObject response = new JSONObject(this.getRequester().post("https://discordapp.com/api/auth/login", new JSONObject().put("email", email).put("password", password)))
-				token = response.get("token")
+				Map loginInfo = new HashMap()
+				loginInfo.put("email", email); loginInfo.put("password", password)
+				Map response = new JsonSlurper().parseText(this.getRequester().post("https://discordapp.com/api/auth/login", JsonOutput.toJson(loginInfo)))
+				token = response["token"]
 				SslContextFactory sslFactory = new SslContextFactory()
 				WebSocketClient client = new WebSocketClient(sslFactory)
 				WSClient socket = new WSClient(this)
-				String gateway = new JSONObject(this.getRequester().get("https://discordapp.com/api/gateway")).get("url")
+				String gateway = new JsonSlurper().parseText(this.getRequester().get("https://discordapp.com/api/gateway"))["url"]
 				client.start()
 				ClientUpgradeRequest upgreq = new ClientUpgradeRequest()
 				client.connect(socket, new URI(gateway), upgreq)
@@ -60,15 +62,23 @@ class API{
 		return client
 	}
 
-	void addListener(Closure closure) {
-		listeners.add(closure)
+	void addListener(String event, Closure closure) {
+		listeners.put(event.toUpperCase().replace(' ', '_'), closure)
 	}
 
-	void removeListener(Closure closure) {
-		listeners.remove(closure)
+	void removeListener(String event, Closure closure) {
+		listeners.remove(event.toUpperCase().replace(' ', '_'), closure)
 	}
 
-	List<Closure> getListeners() {
+	void removeListenersFor(String event){
+		for (entry in listeners.entrySet()){
+			if (entry.getKey().equals(event.toUpperCase().replace(' ', '_'))){
+
+			}
+		}
+	}
+
+	Map<String, Closure> getListeners() {
 		return listeners
 	}
 
