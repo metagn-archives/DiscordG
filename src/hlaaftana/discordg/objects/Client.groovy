@@ -58,7 +58,7 @@ class Client{
 	}
 
 	List<Server> getServers() {
-		List array = JSONUtil.parse(api.getRequester().get("https://discordapp.com/api/users/@me/guilds"))
+		List array = api.readyData["guilds"]
 		List<Server> servers = new ArrayList<Server>()
 		for (o in array){
 			servers.add(new Server(api, o))
