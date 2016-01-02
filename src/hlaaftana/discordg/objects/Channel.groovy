@@ -4,18 +4,21 @@ import java.util.Map
 import org.json.JSONObject
 
 class Channel extends Base{
-	JSONObject object
-	Channel(JSONObject object){
-		super(object)
-		this.object = object
+	Channel(API api, JSONObject object){
+		super(api, object)
 	}
 
+	boolean isPrivate(){ return object.getBoolean("is_private") }
 	String getPosition(){ return object.getInt("position") }
 	String getType(){ return object.getString("type") }
-	Server getServer(){ return }
+	Server getServer(){ if (this.isPrivate()) return null
+		for (s in api.client.getServers()){
+			if (s.getID().equals(object.getString("guild_id"))) return s
+		}
+	}
 
 	void delete() {
-
+		api.getRequester().delete("https://discordapp.com/api/channels/${this.getID()}")
 	}
 
 	Channel edit(Map<String, Object> data) {

@@ -19,7 +19,7 @@ class API{
 	private Requester requester
 	private String token
 	private WSClient wsClient
-	private hlaaftana.discordg.objects.Client discordClient
+	private hlaaftana.discordg.objects.Client client
 	private List<Closure> listeners = new ArrayList<Closure>()
 	JSONObject readyData
 
@@ -46,7 +46,7 @@ class API{
 				ClientUpgradeRequest upgreq = new ClientUpgradeRequest()
 				client.connect(socket, new URI(gateway), upgreq)
 				this.wsClient = socket
-				discordClient = new hlaaftana.discordg.objects.Client(this)
+				this.client = new hlaaftana.discordg.objects.Client(this)
 				println "Successfully logged in!"
 			}catch (e){
 				e.printStackTrace()
@@ -57,7 +57,7 @@ class API{
 	}
 
 	hlaaftana.discordg.objects.Client getClient() {
-		return discordClient
+		return client
 	}
 
 	void addListener(Closure closure) {
@@ -73,6 +73,6 @@ class API{
 	}
 
 	boolean isLoaded(){
-		return restClient != null && requester != null && token != null && wsClient != null && discordClient != null
+		return restClient != null && requester != null && token != null && wsClient != null && client != null
 	}
 }

@@ -6,12 +6,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class TextChannel extends Channel {
-	API api
-	JSONObject object
 	TextChannel(API api, JSONObject object){
-		super(object)
-		this.object = object
-		this.api = api
+		super(api, object)
 	}
 
 	String getTopic() { return object.getString("topic") }

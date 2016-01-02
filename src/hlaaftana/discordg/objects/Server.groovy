@@ -8,12 +8,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class Server extends Base {
-	API api
-	JSONObject object
 	Server(API api, JSONObject object){
-		super(object)
-		this.api = api
-		this.object = object
+		super(api, object)
 	}
 
 	String getRegion(){ return object.getString("region") }
@@ -65,7 +61,7 @@ class Server extends Base {
 		List<VoiceChannel> channels = new ArrayList<VoiceChannel>()
 		for (int i = 0; i < Short.MAX_VALUE; i++){
 			try{
-				channels.add(new VoiceChannel(array.get(i)))
+				channels.add(new VoiceChannel(api, array.get(i)))
 			}catch (e){
 				break
 			}
@@ -86,7 +82,7 @@ class Server extends Base {
 		List<Member> members = new ArrayList<Member>()
 		JSONArray memberArray = object.getJSONArray("members")
 		memberArray.forEach { s ->
-			members.add(new Member(s))
+			members.add(new Member(api, s))
 		}
 		return members
 	}
