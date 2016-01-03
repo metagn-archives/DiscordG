@@ -134,8 +134,14 @@ class Client{
 		api.getWebSocketClient().send(["op": 3, "d": ["game": ["name": data["game"]], "idle_since": (data.get("idle") != null) ? System.currentTimeMillis() : null]])
 	}
 
-	Map<String, Object> editProfile(Map<String, Object> data) {
+	Map editProfile(Map<String, Object> data) {
 		return null
+	}
+
+	// will change to new Invite object later
+	Map acceptInvite(String invite){
+		String id = invite.replace("https://discord.gg/", "").replace("http://discord.gg/", "").replace("discord.gg/", "")
+		return JSONUtil.parse(api.getRequester().post("https://discordapp.com/api/invite/${id}", []))
 	}
 
 	User getUserById(String id){
