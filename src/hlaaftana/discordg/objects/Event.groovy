@@ -1,4 +1,4 @@
-package hlaaftana.discordg.events
+package hlaaftana.discordg.objects
 
 import hlaaftana.discordg.util.JSONUtil
 
