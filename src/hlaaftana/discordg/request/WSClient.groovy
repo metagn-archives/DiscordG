@@ -109,29 +109,33 @@ class WSClient{
 			// members request already
 			// feel free to add your own listener in your code / PR
 			// to make sure this works to read from READY too
+			// works
 			api.addListener("channel create", { Event e ->
 				Server server = e.data.server
 				if (server == null){
-					api.readyData["private_channels"].add(e.data)
+					api.readyData["private_channels"].add(e.channel.object)
 				}
 			})
+			// works
 			api.addListener("channel delete", { Event e ->
 				Server server = e.data.server
 				if (server == null){
 					Map channelToRemove = api.readyData["private_channels"].find { it["id"].equals(e.data.channel.getID()) }
 					api.readyData["private_channels"].remove(channelToRemove)
-					api.readyData["private_channels"].add(e.data.channel.object)
 				}
 			})
+			// works
 			api.addListener("guild create", { Event e ->
 				Server server = e.data.server
 				api.readyData["guilds"].add(server.object)
 			})
-			api.addListener("guild remove", { Event e ->
+			// works
+			api.addListener("guild delete", { Event e ->
 				Server server = e.data.server
 				Map serverToRemove = api.readyData["guilds"].find { it["id"].equals(server.getID()) }
 				api.readyData["guilds"].remove(serverToRemove)
 			})
+			// works
 			api.addListener("guild member update", { Event e ->
 				Server server = e.data.server
 				Member member = e.data.member
@@ -144,6 +148,7 @@ class WSClient{
 				serverToRemove["members"] = membersToEdit
 				api.readyData["guilds"].add(serverToRemove)
 			})
+			// works
 			api.addListener("guild role update", { Event e ->
 				Server server = e.data.server
 				Role role = e.data.role
@@ -156,6 +161,7 @@ class WSClient{
 				serverToRemove["roles"] = rolesToEdit
 				api.readyData["guilds"].add(serverToRemove)
 			})
+			// works
 			api.addListener("guild update", { Event e ->
 				Server newServer = e.data.server
 				Map serverToRemove = api.readyData["guilds"].find { it["id"].equals(newServer.getID()) }
@@ -211,7 +217,7 @@ class WSClient{
 					eventData = data
 				}
 				break
-			case "GUILD_REMOVE":
+			case "GUILD_DELETE":
 				if (!data.containsKey("unavailable")){
 					eventData = [
 						server: api.client.getServerById(data["id"]),
