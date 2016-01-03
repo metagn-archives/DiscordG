@@ -170,7 +170,6 @@ class WSClient{
 			})
 			println "Done loading."
 		}
-		println type
 		Map eventData
 		switch (type){
 			case "READY":
