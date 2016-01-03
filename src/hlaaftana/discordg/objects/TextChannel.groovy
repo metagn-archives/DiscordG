@@ -20,6 +20,11 @@ class TextChannel extends Channel {
 		return new Message(api, JSONUtil.parse(api.getRequester().post("https://discordapp.com/api/channels/${this.getID()}/messages", ["content": content, "tts": tts, "channel_id": this.getID()])))
 	}
 
+	/*Message sendFile(String fileName, File file){
+		FileDataBodyPart filePart = new FileDataBodyPart(fileName, file);
+
+	}*/
+
 	List<Message> getLogs(int max=100) {
 		List<Message> logs = new ArrayList<Message>()
 		List array = JSONUtil.parse(api.getRequester().get("https://discordapp.com/api/channels/${this.getID()}/messages?limit=50"))
