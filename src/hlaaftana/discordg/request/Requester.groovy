@@ -1,10 +1,10 @@
 package hlaaftana.discordg.request
 
 import com.sun.jersey.api.client.Client
+import com.sun.jersey.api.client.GenericType
 import com.sun.jersey.api.client.WebResource
 
 import hlaaftana.discordg.objects.API
-import hlaaftana.discordg.request.Requester
 import hlaaftana.discordg.util.JSONUtil
 
 class Requester{
