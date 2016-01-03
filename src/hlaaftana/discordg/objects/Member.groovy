@@ -1,8 +1,8 @@
 package hlaaftana.discordg.objects
 
 import java.util.List
-
 import java.net.URL
+
 import hlaaftana.discordg.util.JSONUtil
 
 class Member extends User{
@@ -10,6 +10,12 @@ class Member extends User{
 		super(api, object)
 	}
 
+	String getID(){ return this.getUser().getID() }
+	String getName(){ return this.getUser().getName() }
+	String getUsername() { return this.getUser().getUsername() }
+	String getAvatarHash(){ return this.getUser().getAvatarHash() }
+	String getAvatar() { return this.getUser().getAvatar() }
+	URL getAvatarURL(){ return this.getUser().getAvatarURL() }
 	User getUser(){ return new User(api, object["user"]) }
 	Server getServer(){ return api.client.getServerById(object["guild_id"]) }
 	String getJoinDate(){ return object["joined_at"] }
