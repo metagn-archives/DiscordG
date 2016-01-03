@@ -16,6 +16,7 @@ class TextChannel extends Channel {
 	}
 
 	Message sendMessage(String content, boolean tts=false) {
+		if (content.length() > 2000) throw new Exception("You tried to send a message longer than 2000 characters.")
 		return new Message(api, JSONUtil.parse(api.getRequester().post("https://discordapp.com/api/channels/${this.getID()}/messages", ["content": content, "tts": tts, "channel_id": this.getID()])))
 	}
 

@@ -7,6 +7,7 @@ class User extends Base{
 		super(api, object)
 	}
 
+	String getName(){ return this.getUsername() }
 	String getUsername() { return object["username"] }
 	String getAvatarHash(){ return object["avatar"] }
 	String getAvatar() {

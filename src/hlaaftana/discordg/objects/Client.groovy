@@ -156,7 +156,7 @@ class Client{
 		List channels = api.readyData["private_channels"]
 		List<PrivateChannel> pcs = new ArrayList<PrivateChannel>()
 		for (pc in channels){
-			pcs.add(new PrivateChannel(api, pcs))
+			pcs.add(new PrivateChannel(api, pc))
 		}
 		return pcs
 	}

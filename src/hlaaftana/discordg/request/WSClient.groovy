@@ -5,6 +5,8 @@ import java.util.concurrent.CountDownLatch
 import org.eclipse.jetty.websocket.api.*
 import org.eclipse.jetty.websocket.api.annotations.*
 
+import java.util.Map
+
 import hlaaftana.discordg.util.JSONUtil
 import hlaaftana.discordg.objects.*
 
@@ -66,24 +68,103 @@ class WSClient{
 			//add built-in listeners
 			//works
 			api.addListener("guild member add", { Event e ->
-				Server server = new Member(api, e.json()).getServer()
+				Server server = e.data.server
 				Map serverInReady = api.readyData["guilds"].find { it["id"].equals(server.getID()) }
 				Map serverInReady2 = serverInReady
-				serverInReady2["members"].add(e.json())
+				serverInReady2["members"].add(e.data)
 				api.readyData["guilds"].remove(serverInReady)
 				api.readyData["guilds"].add(serverInReady2)
 			})
 			//works
 			api.addListener("guild member remove", { Event e ->
-				Server server = new Member(api, e.json()).getServer()
-				Member memberToRemove = server.getMembers().find { it.getUser().getID().equals(e.json()["user"]["id"]) }
+				Server server = e.data.server
+				Member memberToRemove = e.data.member
 				Map serverInReady = api.readyData["guilds"].find { it["id"].equals(server.getID()) }
 				Map serverInReady2 = serverInReady
 				serverInReady2["members"].remove(memberToRemove.object)
 				api.readyData["guilds"].remove(serverInReady)
 				api.readyData["guilds"].add(serverInReady2)
 			})
+			//works
+			api.addListener("guild role create", { Event e ->
+				Server server = e.data.server
+				Map serverInReady = api.readyData["guilds"].find { it["id"].equals(server.getID()) }
+				Map serverInReady2 = serverInReady
+				serverInReady2["roles"].add(e.data.role.object)
+				api.readyData["guilds"].remove(serverInReady)
+				api.readyData["guilds"].add(serverInReady2)
+			})
+			//works
+			api.addListener("guild role delete", { Event e ->
+				Server server = e.data.server
+				Role roleToRemove = e.data.role
+				Map serverInReady = api.readyData["guilds"].find { it["id"].equals(server.getID()) }
+				Map serverInReady2 = serverInReady
+				serverInReady2["roles"].remove(roleToRemove.object)
+				api.readyData["guilds"].remove(serverInReady)
+				api.readyData["guilds"].add(serverInReady2)
+			})
+			// our (my) server objects don't read from READY to get their channels
+			// however we might in the future because they did that to the
+			// members request already
+			// feel free to add your own listener in your code / PR
+			// to make sure this works to read from READY too
+			api.addListener("channel create", { Event e ->
+				Server server = e.data.server
+				if (server == null){
+					api.readyData["private_channels"].add(e.data)
+				}
+			})
+			api.addListener("channel delete", { Event e ->
+				Server server = e.data.server
+				if (server == null){
+					Map channelToRemove = api.readyData["private_channels"].find { it["id"].equals(e.data.channel.getID()) }
+					api.readyData["private_channels"].remove(channelToRemove)
+					api.readyData["private_channels"].add(e.data.channel.object)
+				}
+			})
+			api.addListener("guild create", { Event e ->
+				Server server = e.data.server
+				api.readyData["guilds"].add(server.object)
+			})
+			api.addListener("guild remove", { Event e ->
+				Server server = e.data.server
+				Map serverToRemove = api.readyData["guilds"].find { it["id"].equals(server.getID()) }
+				api.readyData["guilds"].remove(serverToRemove)
+			})
+			api.addListener("guild member update", { Event e ->
+				Server server = e.data.server
+				Member member = e.data.member
+				Map serverToRemove = api.readyData["guilds"].find { it["id"].equals(server.getID()) }
+				List membersToEdit = serverToRemove["members"]
+				Map memberToEdit = membersToEdit.find { it["id"].equals(member.getID()) }
+				membersToEdit.remove(memberToEdit)
+				membersToEdit.add(member.object)
+				api.readyData["guilds"].remove(serverToRemove)
+				serverToRemove["members"] = membersToEdit
+				api.readyData["guilds"].add(serverToRemove)
+			})
+			api.addListener("guild role update", { Event e ->
+				Server server = e.data.server
+				Role role = e.data.role
+				Map serverToRemove = api.readyData["guilds"].find { it["id"].equals(server.getID()) }
+				List rolesToEdit = serverToRemove["roles"]
+				Map roleToEdit = rolesToEdit.find { it["id"].equals(role.getID()) }
+				rolesToEdit.remove(roleToEdit)
+				rolesToEdit.add(role.object)
+				api.readyData["guilds"].remove(serverToRemove)
+				serverToRemove["roles"] = rolesToEdit
+				api.readyData["guilds"].add(serverToRemove)
+			})
+			api.addListener("guild update", { Event e ->
+				Server newServer = e.data.server
+				Map serverToRemove = api.readyData["guilds"].find { it["id"].equals(newServer.getID()) }
+				api.readyData["guilds"].remove(serverToRemove)
+				api.readyData["guilds"].add(newServer.object)
+			})
+			println "Done loading."
 		}
+		println type
 		Map eventData
 		switch (type){
 			case "READY":
@@ -142,8 +223,8 @@ class WSClient{
 				break
 			case "GUILD_INTEGRATIONS_UPDATE":
 				eventData = [
-					server: api.client.getServerById(data["id"]),
-					guild: api.client.getServerById(data["id"])
+					server: api.client.getServerById(data["guild_id"]),
+					guild: api.client.getServerById(data["guild_id"])
 					]
 				break
 			case "GUILD_MEMBER_ADD":
@@ -158,7 +239,7 @@ class WSClient{
 				eventData = [
 					server: api.client.getServerById(data["guild_id"]),
 					guild: api.client.getServerById(data["guild_id"]),
-					member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getID().equals(data["user"]["id"]) }
+					member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getUser().getID().equals(data["user"]["id"]) }
 					]
 				break
 			case "GUILD_ROLE_CREATE":
@@ -173,7 +254,7 @@ class WSClient{
 				eventData = [
 					server: api.client.getServerById(data["guild_id"]),
 					guild: api.client.getServerById(data["guild_id"]),
-					member: api.client.getServerById(data["guild_id"]).getRoles().find { it.getID().equals(data["role_id"]) }
+					role: api.client.getServerById(data["guild_id"]).getRoles().find { it.getID().equals(data["role_id"]) }
 					]
 				break
 			case "GUILD_UPDATE":
@@ -216,13 +297,14 @@ class WSClient{
 						]
 				}
 				break
-			case "PRESENCE_UPDATE":
+			// this is acting weird
+			/*case "PRESENCE_UPDATE":
 				eventData = [
-					member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getID().equals(data["user"]["id"]) },
-					game: data["game"]["name"],
+					member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getUser().getID().equals(data["user"]["id"]) },
+					//game: data["game"]["name"],
 					status: data["status"]
 					]
-				break
+				break*/
 			case "TYPING_START":
 				eventData = [
 					channel: api.client.getTextChannelById(data["channel_id"]),
@@ -240,6 +322,7 @@ class WSClient{
 				try{
 					if (type.equals(entry.key)) entry.value.call(event)
 				}catch (ex){
+					ex.printStackTrace()
 					println "Ignoring exception from event " + entry.key
 				}
 			}
