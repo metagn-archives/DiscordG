@@ -18,6 +18,7 @@ class Message extends Base{
 	User getSender() { return this.getAuthor() }
 	Server getServer() { return this.getTextChannel().getServer() }
 	TextChannel getTextChannel() { return api.client.getTextChannelById(object["channel_id"]) }
+	TextChannel getChannel() { return this.getTextChannel() }
 
 	Message edit(String newContent) {
 		return new Message(api, JSONUtil.parse(api.getRequester().patch("https://discordapp.com/api/channels/${object["channel_id"]}/messages/${this.getID()}", ["content": newContent])))

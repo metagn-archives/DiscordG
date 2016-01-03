@@ -4,9 +4,8 @@ import java.util.concurrent.CountDownLatch
 
 import org.eclipse.jetty.websocket.api.*
 import org.eclipse.jetty.websocket.api.annotations.*
-import hlaaftana.discordg.util.JSONUtil
 
-import hlaaftana.discordg.events.Event
+import hlaaftana.discordg.util.JSONUtil
 import hlaaftana.discordg.objects.*
 
 @WebSocket
