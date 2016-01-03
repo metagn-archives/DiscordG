@@ -170,155 +170,160 @@ class WSClient{
 			})
 			println "Done loading."
 		}
-		Map eventData
-		switch (type){
-			case "READY":
-				eventData = data
-				break
-			case "CHANNEL_CREATE":
-			case "CHANNEL_DELETE":
-			case "CHANNEL_UPDATE":
-				if (!data.containsKey("guild_id")){
-					eventData = [
-						server: null,
-						guild: null,
-						channel: new PrivateChannel(api, data)
-						]
-				}else if (data["type"].equals("text")){
+		Map eventData = [:]
+		try{
+			switch (type){
+				case "READY":
+					eventData = data
+					break
+				case "CHANNEL_CREATE":
+				case "CHANNEL_DELETE":
+				case "CHANNEL_UPDATE":
+					if (!data.containsKey("guild_id")){
+						eventData = [
+							server: null,
+							guild: null,
+							channel: new PrivateChannel(api, data)
+							]
+					}else if (data["type"].equals("text")){
+						eventData = [
+							server: api.client.getServerById(data["guild_id"]),
+							guild: api.client.getServerById(data["guild_id"]),
+							channel: new TextChannel(api, data)
+							]
+					}else if (data["type"].equals("voice")){
+						eventData = [
+							server: api.client.getServerById(data["guild_id"]),
+							guild: api.client.getServerById(data["guild_id"]),
+							channel: new VoiceChannel(api, data)
+							]
+					}
+					break
+				case "GUILD_BAN_ADD":
+				case "GUILD_BAN_REMOVE":
 					eventData = [
 						server: api.client.getServerById(data["guild_id"]),
 						guild: api.client.getServerById(data["guild_id"]),
-						channel: new TextChannel(api, data)
+						user: new User(api, data["user"])
 						]
-				}else if (data["type"].equals("voice")){
+					break
+				case "GUILD_CREATE":
+					if (!data.containsKey("unavailable")){
+						eventData = [
+							server: new Server(api, data),
+							guild: new Server(api, data)
+							]
+					}else{
+						eventData = data
+					}
+					break
+				case "GUILD_DELETE":
+					if (!data.containsKey("unavailable")){
+						eventData = [
+							server: api.client.getServerById(data["id"]),
+							guild: api.client.getServerById(data["id"])
+							]
+					}else{
+						eventData = data
+					}
+					break
+				case "GUILD_INTEGRATIONS_UPDATE":
+					eventData = [
+						server: api.client.getServerById(data["guild_id"]),
+						guild: api.client.getServerById(data["guild_id"])
+						]
+					break
+				case "GUILD_MEMBER_ADD":
+				case "GUILD_MEMBER_UPDATE":
 					eventData = [
 						server: api.client.getServerById(data["guild_id"]),
 						guild: api.client.getServerById(data["guild_id"]),
-						channel: new VoiceChannel(api, data)
+						member: new Member(api, data)
 						]
-				}
-				break
-			case "GUILD_BAN_ADD":
-			case "GUILD_BAN_REMOVE":
-				eventData = [
-					server: api.client.getServerById(data["guild_id"]),
-					guild: api.client.getServerById(data["guild_id"]),
-					user: new User(api, data["user"])
-					]
-				break
-			case "GUILD_CREATE":
-				if (!data.containsKey("unavailable")){
+					break
+				case "GUILD_MEMBER_REMOVE":
 					eventData = [
-						server: new Server(api, data),
-						guild: new Server(api, data)
+						server: api.client.getServerById(data["guild_id"]),
+						guild: api.client.getServerById(data["guild_id"]),
+						member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getUser().getID().equals(data["user"]["id"]) }
 						]
-				}else{
-					eventData = data
-				}
-				break
-			case "GUILD_DELETE":
-				if (!data.containsKey("unavailable")){
+					break
+				case "GUILD_ROLE_CREATE":
+				case "GUILD_ROLE_UPDATE":
 					eventData = [
-						server: api.client.getServerById(data["id"]),
-						guild: api.client.getServerById(data["id"])
+						server: api.client.getServerById(data["guild_id"]),
+						guild: api.client.getServerById(data["guild_id"]),
+						role: new Role(api, data["role"])
 						]
-				}else{
-					eventData = data
-				}
-				break
-			case "GUILD_INTEGRATIONS_UPDATE":
-				eventData = [
-					server: api.client.getServerById(data["guild_id"]),
-					guild: api.client.getServerById(data["guild_id"])
-					]
-				break
-			case "GUILD_MEMBER_ADD":
-			case "GUILD_MEMBER_UPDATE":
-				eventData = [
-					server: api.client.getServerById(data["guild_id"]),
-					guild: api.client.getServerById(data["guild_id"]),
-					member: new Member(api, data)
-					]
-				break
-			case "GUILD_MEMBER_REMOVE":
-				eventData = [
-					server: api.client.getServerById(data["guild_id"]),
-					guild: api.client.getServerById(data["guild_id"]),
-					member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getUser().getID().equals(data["user"]["id"]) }
-					]
-				break
-			case "GUILD_ROLE_CREATE":
-			case "GUILD_ROLE_UPDATE":
-				eventData = [
-					server: api.client.getServerById(data["guild_id"]),
-					guild: api.client.getServerById(data["guild_id"]),
-					role: new Role(api, data["role"])
-					]
-				break
-			case "GUILD_ROLE_DELETE":
-				eventData = [
-					server: api.client.getServerById(data["guild_id"]),
-					guild: api.client.getServerById(data["guild_id"]),
-					role: api.client.getServerById(data["guild_id"]).getRoles().find { it.getID().equals(data["role_id"]) }
-					]
-				break
-			case "GUILD_UPDATE":
-				Map newData = data
-				Server oldServer = api.client.getServerById(newData["id"])
-				List<Map> memberJsons = new ArrayList<Map>()
-				for (m in oldServer.getMembers()){
-					memberJsons.add(m.object)
-				}
-				newData.put("members", memberJsons)
-				eventData = [
-					server: new Server(api, newData),
-					guild: new Server(api, newData)
-					]
-				break
-			case "MESSAGE_CREATE":
-				eventData = [
-					message: new Message(api, data)
-					]
-				break
-			case "MESSAGE_DELETE":
-				List<TextChannel> channels = new ArrayList<TextChannel>()
-				for (s in api.client.getServers()) channels.addAll(s.getTextChannels())
-				channels.addAll(api.client.getPrivateChannels())
-				eventData = [
-					channel: channels.find { it.getID().equals(data["channel_id"]) },
-					messageID: data["id"]
-					]
-				break
-			case "MESSAGE_UPDATE":
-				if (data.containsKey("content")){
+					break
+				case "GUILD_ROLE_DELETE":
+					eventData = [
+						server: api.client.getServerById(data["guild_id"]),
+						guild: api.client.getServerById(data["guild_id"]),
+						role: api.client.getServerById(data["guild_id"]).getRoles().find { it.getID().equals(data["role_id"]) }
+						]
+					break
+				case "GUILD_UPDATE":
+					Map newData = data
+					Server oldServer = api.client.getServerById(newData["id"])
+					List<Map> memberJsons = new ArrayList<Map>()
+					for (m in oldServer.getMembers()){
+						memberJsons.add(m.object)
+					}
+					newData.put("members", memberJsons)
+					eventData = [
+						server: new Server(api, newData),
+						guild: new Server(api, newData)
+						]
+					break
+				case "MESSAGE_CREATE":
 					eventData = [
 						message: new Message(api, data)
 						]
-				}else{
+					break
+				case "MESSAGE_DELETE":
+					List<TextChannel> channels = new ArrayList<TextChannel>()
+					for (s in api.client.getServers()) channels.addAll(s.getTextChannels())
+					channels.addAll(api.client.getPrivateChannels())
+					eventData = [
+						channel: channels.find { it.getID().equals(data["channel_id"]) },
+						messageID: data["id"]
+						]
+					break
+				case "MESSAGE_UPDATE":
+					if (data.containsKey("content")){
+						eventData = [
+							message: new Message(api, data)
+							]
+					}else{
+						eventData = [
+							channel: api.client.getTextChannelById(data["channel_id"]),
+							messageID: data["id"],
+							embeds: data["embeds"]
+							]
+					}
+					break
+				// this is acting weird
+				/*case "PRESENCE_UPDATE":
+					eventData = [
+						member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getUser().getID().equals(data["user"]["id"]) },
+						//game: data["game"]["name"],
+						status: data["status"]
+						]
+					break*/
+				case "TYPING_START":
 					eventData = [
 						channel: api.client.getTextChannelById(data["channel_id"]),
-						messageID: data["id"],
-						embeds: data["embeds"]
+						user: api.client.getUserById(data["user_id"])
 						]
-				}
-				break
-			// this is acting weird
-			/*case "PRESENCE_UPDATE":
-				eventData = [
-					member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getUser().getID().equals(data["user"]["id"]) },
-					//game: data["game"]["name"],
-					status: data["status"]
-					]
-				break*/
-			case "TYPING_START":
-				eventData = [
-					channel: api.client.getTextChannelById(data["channel_id"]),
-					user: api.client.getUserById(data["user_id"])
-					]
-				break
-			default:
-				eventData = data
-				break
+					break
+				default:
+					eventData = data
+					break
+			}
+		}catch (ex){
+			ex.printStackTrace()
+			println "Ignoring exception from event object registering"
 		}
 		eventData.put("fullData", data)
 		Event event = new Event(eventData, type)
