@@ -12,6 +12,7 @@ class Member extends User{
 
 	User getUser(){ return new User(api, object["user"]) }
 	Server getServer(){ return api.client.getServerById(object["guild_id"]) }
+	String getJoinDate(){ return object["joined_at"] }
 
 	List<Role> getRoles(){
 		List array = object["roles"]

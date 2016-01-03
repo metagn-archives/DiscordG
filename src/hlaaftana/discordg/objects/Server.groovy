@@ -24,7 +24,12 @@ class Server extends Base {
 	URL getIconURL() { return new URL(this.getIcon()) }
 
 	Member getOwner() {
-		return
+		for (m in this.getMembers()){
+			if (m.getID().equals(object["owner_id"])){
+				return m
+			}
+		}
+		return null
 	}
 
 	Server edit(String newName) {
