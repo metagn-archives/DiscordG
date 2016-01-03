@@ -15,12 +15,12 @@ import org.eclipse.jetty.websocket.client.ClientUpgradeRequest
 import org.eclipse.jetty.websocket.client.WebSocketClient
 
 class API{
-	private Client restClient
-	private Requester requester
-	private String token
-	private WSClient wsClient
-	private hlaaftana.discordg.objects.Client client
-	private Map<String, Closure> listeners = new HashMap<String, Closure>()
+	Client restClient
+	Requester requester
+	String token
+	WSClient wsClient
+	hlaaftana.discordg.objects.Client client
+	Map<String, Closure> listeners = new HashMap<String, Closure>()
 	Map readyData
 
 	API(){
@@ -32,6 +32,7 @@ class API{
 	Requester getRequester() { return requester }
 	WSClient getWebSocketClient(){ return wsClient }
 	String getToken(){ return token }
+	Map getReadyData(){ return readyData }
 
 	void login(String email, String password){
 		Thread thread = new Thread({
