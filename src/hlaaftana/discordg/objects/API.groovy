@@ -61,16 +61,16 @@ class API{
 	}
 
 	void addListener(String event, Closure closure) {
-		listeners.put(event.toUpperCase().replace(' ', '_'), closure)
+		listeners.put(event.replace("change", "update").replace("update".toUpperCase(), "change".toUpperCase()).toUpperCase().replace(' ', '_'), closure)
 	}
 
 	void removeListener(String event, Closure closure) {
-		listeners.remove(event.toUpperCase().replace(' ', '_'), closure)
+		listeners.remove(event.replace("change", "update").replace("update".toUpperCase(), "change".toUpperCase()).toUpperCase().replace(' ', '_'), closure)
 	}
 
 	Map<String, Closure> getListeners(){ return listeners }
 
 	boolean isLoaded(){
-		return restClient != null && requester != null && token != null && wsClient != null && client != null
+		return restClient != null && requester != null && token != null && wsClient != null && client != null && readyData != null
 	}
 }

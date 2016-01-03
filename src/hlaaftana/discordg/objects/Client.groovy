@@ -142,11 +142,33 @@ class Client{
 		for (u in this.getAllUsers()){
 			if (u.getID().equals(id)) return u
 		}
+		return null
 	}
 
 	Server getServerById(String id){
 		for (s in this.getServers()){
 			if (s.getID().equals(id)) return s
+		}
+		return null
+	}
+
+	List<PrivateChannel> getPrivateChannels(){
+		List channels = api.readyData["private_channels"]
+		List<PrivateChannel> pcs = new ArrayList<PrivateChannel>()
+		for (pc in channels){
+			pcs.add(new PrivateChannel(api, pcs))
+		}
+		return pcs
+	}
+
+	TextChannel getTextChannelById(String id){
+		for (s in this.getServers()){
+			for (c in s.getTextChannels()){
+				if (c.getID().equals(id)) return c
+			}
+		}
+		for (pc in this.getPrivateChannels()){
+			if (pc.getID().equals(id)) return pc
 		}
 	}
 }

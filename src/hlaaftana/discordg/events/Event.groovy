@@ -3,12 +3,12 @@ package hlaaftana.discordg.events
 import hlaaftana.discordg.util.JSONUtil
 
 class Event {
-	Map jsonForEvent
+	Map data
 	String type
-	Event (Map json, String type){ jsonForEvent = json; this.type = type }
+	Event (Map data, String type){ this.data = data; this.type = type }
 
-	Map json(){
-		return jsonForEvent
+	Map data(){
+		return data
 	}
 
 	String getType(){
