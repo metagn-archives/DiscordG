@@ -12,10 +12,11 @@ class User extends Base{
 	String getAvatarHash(){ return object["avatar"] }
 	String getAvatar() {
 		if (this.getAvatarHash() != null){
-			return "https://discordapp.com/api/users/${this.getID()}/avatars/${this.getAvatarHash()}.jpg"
+			return "https://discordapp.com/api/users/${this.getId()}/avatars/${this.getAvatarHash()}.jpg"
 		}else{
 			return ""
 		}
 	}
 	URL getAvatarURL(){ return new URL(this.getAvatar()) }
+	String getMention(){ return "<@${this.id}>" }
 }

@@ -10,7 +10,7 @@ class Member extends User{
 		super(api, object)
 	}
 
-	String getID(){ return this.getUser().getID() }
+	String getId(){ return this.getUser().getId() }
 	String getName(){ return this.getUser().getName() }
 	String getUsername() { return this.getUser().getUsername() }
 	String getAvatarHash(){ return this.getUser().getAvatarHash() }
@@ -25,7 +25,7 @@ class Member extends User{
 		List<Role> roles = new ArrayList<Role>()
 		for (o in array){
 			for (r in this.getServer().getRoles()){
-				if (o["id"].equals(r.getID())) roles.add(r)
+				if (o["id"].equals(r.getId())) roles.add(r)
 			}
 		}
 		return roles

@@ -33,8 +33,8 @@ class Requester{
 
 	WebResource.Builder resourceFor(String url, boolean isGet=false){
 		def resource = ((WebResource) api.getRESTClient().resource(url))
-		if (api.getToken() != null)
-			resource = resource.header("Authorization", api.getToken().replace("\"", ""))
+		if (api.token != null)
+			resource = resource.header("Authorization", api.token.replace("\"", ""))
 		if (!isGet){
 			resource = resource.header("Content-Type", "application/json")
 		}

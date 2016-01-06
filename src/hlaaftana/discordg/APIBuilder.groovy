@@ -1,6 +1,7 @@
 package hlaaftana.discordg
 
 import hlaaftana.discordg.objects.API
+import hlaaftana.discordg.util.Log
 
 class APIBuilder {
 	static API build(String email, String password){
