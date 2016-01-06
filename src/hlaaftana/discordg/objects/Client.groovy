@@ -53,9 +53,7 @@ class Client{
 		message.delete()
 	}
 
-	void acknowledgeMessage(Message message) {
-		message.acknowledge()
-	}
+	// removed ack method because of discord dev request
 
 	List<Server> getServers() {
 		List array = api.readyData["guilds"]
@@ -80,7 +78,11 @@ class Client{
 			for (m in s.getMembers()){
 				boolean isThere
 				for (u in users){
-					if (!u.getID().equals(m.getUser().getID())){ isThere = isThere || false }
+					try{
+						if (!u.getId().equals(m.getUser().getId())){ isThere = isThere || false }
+					}catch (ex){
+						isThere = isThere || false
+					}
 					if (isThere){ break }
 				}
 				if (!isThere){ users.add(m.getUser()) }
@@ -141,19 +143,19 @@ class Client{
 	// will change to new Invite object later
 	Map acceptInvite(String invite){
 		String id = invite.replace("https://discord.gg/", "").replace("http://discord.gg/", "").replace("discord.gg/", "")
-		return JSONUtil.parse(api.getRequester().post("https://discordapp.com/api/invite/${id}", []))
+		return JSONUtil.parse(api.getRequester().post("https://discordapp.com/api/invite/${id}", [:]))
 	}
 
 	User getUserById(String id){
 		for (u in this.getAllUsers()){
-			if (u.getID().equals(id)) return u
+			if (u.getId().equals(id)) return u
 		}
 		return null
 	}
 
 	Server getServerById(String id){
 		for (s in this.getServers()){
-			if (s.getID().equals(id)) return s
+			if (s.getId().equals(id)) return s
 		}
 		return null
 	}
@@ -170,11 +172,11 @@ class Client{
 	TextChannel getTextChannelById(String id){
 		for (s in this.getServers()){
 			for (c in s.getTextChannels()){
-				if (c.getID().equals(id)) return c
+				if (c.getId().equals(id)) return c
 			}
 		}
 		for (pc in this.getPrivateChannels()){
-			if (pc.getID().equals(id)) return pc
+			if (pc.getId().equals(id)) return pc
 		}
 	}
 }

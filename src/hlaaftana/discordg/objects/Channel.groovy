@@ -14,15 +14,15 @@ class Channel extends Base{
 	String getTopic(){ return object["topic"] }
 	Server getServer(){ if (this.isPrivate()) return null
 		for (s in api.client.getServers()){
-			if (s.getID().equals(object["guild_id"])) return s
+			if (s.getId().equals(object["guild_id"])) return s
 		}
 	}
 
 	void delete() {
-		api.getRequester().delete("https://discordapp.com/api/channels/${this.getID()}")
+		api.getRequester().delete("https://discordapp.com/api/channels/${this.getId()}")
 	}
 
 	Channel edit(Map<String, Object> data) {
-		return new Channel(api, api.getRequester().patch("https://discordapp.com/api/channels/${this.getID()}", ["name": (data.containsKey("name")) ? data["name"].toString() : this.getName(), "position": (data.containsKey("position")) ? data["position"] : this.getPosition(), "topic": (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic()]))
+		return new Channel(api, api.getRequester().patch("https://discordapp.com/api/channels/${this.getId()}", ["name": (data.containsKey("name")) ? data["name"].toString() : this.getName(), "position": (data.containsKey("position")) ? data["position"] : this.getPosition(), "topic": (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic()]))
 	}
 }

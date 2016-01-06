@@ -21,14 +21,12 @@ class Message extends Base{
 	TextChannel getChannel() { return this.getTextChannel() }
 
 	Message edit(String newContent) {
-		return new Message(api, JSONUtil.parse(api.getRequester().patch("https://discordapp.com/api/channels/${object["channel_id"]}/messages/${this.getID()}", ["content": newContent])))
+		return new Message(api, JSONUtil.parse(api.getRequester().patch("https://discordapp.com/api/channels/${object["channel_id"]}/messages/${this.getId()}", ["content": newContent])))
 	}
 
 	void delete() {
-		api.getRequester().delete("https://discordapp.com/api/channels/${object["channel_id"]}/messages/${this.getID()}")
+		api.getRequester().delete("https://discordapp.com/api/channels/${object["channel_id"]}/messages/${this.getId()}")
 	}
 
-	void acknowledge() {
-		api.getRequester().post("https://discordapp.com/api/channels/${object["channel_id"]}/messages/${this.getID()}/ack", [:])
-	}
+	// removed ack method because of discord dev request
 }
