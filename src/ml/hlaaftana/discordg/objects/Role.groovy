@@ -1,4 +1,4 @@
-package hlaaftana.discordg.objects
+package ml.hlaaftana.discordg.objects
 
 class Role extends Base{
 	Role(API api, Map object){

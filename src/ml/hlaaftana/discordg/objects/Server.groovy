@@ -1,10 +1,10 @@
-package hlaaftana.discordg.objects
+package ml.hlaaftana.discordg.objects
 
 import java.net.URL;
 import java.util.List
 import java.util.Map
 
-import hlaaftana.discordg.util.JSONUtil
+import ml.hlaaftana.discordg.util.JSONUtil
 
 class Server extends Base {
 	Server(API api, Map object){

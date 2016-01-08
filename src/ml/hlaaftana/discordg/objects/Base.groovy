@@ -1,4 +1,4 @@
-package hlaaftana.discordg.objects
+package ml.hlaaftana.discordg.objects
 
 class Base {
 	API api

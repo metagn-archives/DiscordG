@@ -1,8 +1,8 @@
-package hlaaftana.discordg.objects
+package ml.hlaaftana.discordg.objects
 
 import java.util.List
 
-import hlaaftana.discordg.util.JSONUtil
+import ml.hlaaftana.discordg.util.JSONUtil
 
 class Message extends Base{
 	Message(API api, Map object){

@@ -1,6 +1,6 @@
-package hlaaftana.discordg.objects
+package ml.hlaaftana.discordg.objects
 
-import hlaaftana.discordg.util.JSONUtil
+import ml.hlaaftana.discordg.util.JSONUtil
 
 class Event {
 	Map data
