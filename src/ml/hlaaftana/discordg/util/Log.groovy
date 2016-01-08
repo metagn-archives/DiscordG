@@ -1,9 +1,9 @@
-package hlaaftana.discordg.util
+package ml.hlaaftana.discordg.util
 
 import java.time.*
 import java.util.logging.Level
 
-import hlaaftana.discordg.objects.API
+import ml.hlaaftana.discordg.objects.API
 
 class Log {
 	static log(String str, String level, String by="DiscordG"){

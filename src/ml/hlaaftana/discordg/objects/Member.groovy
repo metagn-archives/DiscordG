@@ -1,9 +1,9 @@
-package hlaaftana.discordg.objects
+package ml.hlaaftana.discordg.objects
 
 import java.util.List
 import java.net.URL
 
-import hlaaftana.discordg.util.JSONUtil
+import ml.hlaaftana.discordg.util.JSONUtil
 
 class Member extends User{
 	Member(API api, Map object){

@@ -1,6 +1,6 @@
-import hlaaftana.discordg.objects.API
-import hlaaftana.discordg.objects.Event
-import hlaaftana.discordg.APIBuilder
+import ml.hlaaftana.discordg.objects.API
+import ml.hlaaftana.discordg.objects.Event
+import ml.hlaaftana.discordg.APIBuilder
 
 API api
 // This part should be easy to understand.

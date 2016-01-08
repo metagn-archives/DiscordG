@@ -1,4 +1,4 @@
-package hlaaftana.discordg.request
+package ml.hlaaftana.discordg.request
 
 import java.util.concurrent.*
 
@@ -7,8 +7,8 @@ import org.eclipse.jetty.websocket.api.annotations.*
 
 import java.util.Map
 
-import hlaaftana.discordg.util.*
-import hlaaftana.discordg.objects.*
+import ml.hlaaftana.discordg.util.*
+import ml.hlaaftana.discordg.objects.*
 
 @WebSocket
 class WSClient{

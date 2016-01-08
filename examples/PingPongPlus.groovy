@@ -1,7 +1,7 @@
-import hlaaftana.discordg.objects.API
-import hlaaftana.discordg.objects.Event
-import hlaaftana.discordg.objects.Message
-import hlaaftana.discordg.APIBuilder
+import ml.hlaaftana.discordg.objects.API
+import ml.hlaaftana.discordg.objects.Event
+import ml.hlaaftana.discordg.objects.Message
+import ml.hlaaftana.discordg.APIBuilder
 
 // This example doesn't really teach you anything about the API, just wanted to help beginners.
 API api

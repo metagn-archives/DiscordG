@@ -1,9 +1,9 @@
-package hlaaftana.discordg.objects
+package ml.hlaaftana.discordg.objects
 
 import java.util.List
 import java.util.Map
 
-import hlaaftana.discordg.util.JSONUtil
+import ml.hlaaftana.discordg.util.JSONUtil
 
 class Client{
 	API api
@@ -140,10 +140,23 @@ class Client{
 		return null
 	}
 
-	// will change to new Invite object later
-	Map acceptInvite(String invite){
-		String id = invite.replace("https://discord.gg/", "").replace("http://discord.gg/", "").replace("discord.gg/", "")
-		return JSONUtil.parse(api.getRequester().post("https://discordapp.com/api/invite/${id}", [:]))
+	Invite acceptInvite(String link, boolean isIdAlready=false){
+		if (!isIdAlready)
+			return new Invite(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/invite/${Invite.parseId(link)}", [:])))
+		else
+			return new Invite(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/invite/${link}", [:])))
+	}
+
+	Invite getInvite(String link, boolean isIdAlready=false){
+		if (!isIdAlready)
+			return new Invite(api, JSONUtil.parse(api.requester.get("https://discordapp.com/api/invite/${Invite.parseId(link)}")))
+		else
+			return new Invite(api, JSONUtil.parse(api.requester.get("https://discordapp.com/api/invite/${link}")))
+	}
+
+	Invite createInvite(def dest, Map data=[:]){
+		String id = (dest instanceof Channel) ? dest.id : (dest instanceof Server) ? dest.defaultChannel.id : dest
+		return new Invite(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/channels/${id}/invites", data)))
 	}
 
 	User getUserById(String id){

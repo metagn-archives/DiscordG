@@ -1,12 +1,9 @@
-package hlaaftana.discordg.objects
+package ml.hlaaftana.discordg.objects
 
-import com.sun.jersey.api.client.Client
-import com.sun.jersey.api.client.config.DefaultClientConfig
-import com.sun.jersey.client.urlconnection.URLConnectionClientHandler
-
+import com.mashape.unirest.http.*
 import groovy.lang.Closure
-import hlaaftana.discordg.request.*
-import hlaaftana.discordg.util.*
+import ml.hlaaftana.discordg.request.*
+import ml.hlaaftana.discordg.util.*
 
 import javax.websocket.WebSocketContainer
 import javax.websocket.ContainerProvider
@@ -16,11 +13,10 @@ import org.eclipse.jetty.websocket.client.ClientUpgradeRequest
 import org.eclipse.jetty.websocket.client.WebSocketClient
 
 class API{
-	Client restClient
 	Requester requester
 	String token
 	WSClient wsClient
-	hlaaftana.discordg.objects.Client client
+	ml.hlaaftana.discordg.objects.Client client
 	Map<String, Closure> listeners = [:]
 	Map readyData
 	static boolean debug
@@ -28,10 +24,16 @@ class API{
 	Map<String, Object> fields = [:]
 
 	API(boolean debug=false){
-		DefaultClientConfig config = new DefaultClientConfig()
-		config.getProperties().put(URLConnectionClientHandler.PROPERTY_HTTP_URL_CONNECTION_SET_METHOD_WORKAROUND, true)
-		restClient = Client.create(config)
 		requester = new Requester(this)
+		Unirest.setObjectMapper(new ObjectMapper() {
+			public <T> T readValue(String value, Class<T> valueType) {
+				return JSONUtil.parse(value);
+			}
+
+			String writeValue(Object value) {
+				return JSONUtil.json(value);
+			}
+		})
 		this.debug = debug
 
 		//add built-in listeners
@@ -82,7 +84,7 @@ class API{
 		this.addListener("channel create", { Event e ->
 			Server server = e.data.server
 			if (server == null){
-				this.readyData["private_channels"].add(e.channel.object)
+				this.readyData["private_channels"].add(e.data.channel.object)
 			}
 		})
 		// works
@@ -139,7 +141,6 @@ class API{
 		})
 	}
 
-	Client getRESTClient() { return restClient }
 	WSClient getWebSocketClient(){ return wsClient }
 
 	void login(String email, String password){
@@ -156,7 +157,7 @@ class API{
 				ClientUpgradeRequest upgreq = new ClientUpgradeRequest()
 				client.connect(socket, new URI(gateway), upgreq)
 				this.wsClient = socket
-				this.client = new hlaaftana.discordg.objects.Client(this)
+				this.client = new ml.hlaaftana.discordg.objects.Client(this)
 				Log.info "Successfully logged in!"
 			}catch (e){
 				e.printStackTrace()
@@ -181,7 +182,11 @@ class API{
 	}
 
 	void addField(String key, value){
-		fields.add(key, value)
+		fields[key] = value
+	}
+
+	def field(String key){
+		return this.getField(key)
 	}
 
 	def getField(String key){
@@ -189,6 +194,6 @@ class API{
 	}
 
 	boolean isLoaded(){
-		return restClient != null && requester != null && token != null && wsClient != null && client != null && readyData != null
+		return requester != null && token != null && wsClient != null && client != null && readyData != null
 	}
 }

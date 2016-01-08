@@ -1,5 +1,5 @@
-import hlaaftana.discordg.objects.*
-import hlaaftana.discordg.APIBuilder
+import ml.hlaaftana.discordg.objects.*
+import ml.hlaaftana.discordg.APIBuilder
 
 API api
 api = APIBuilder.build("example@example.com", "example123")
@@ -10,7 +10,7 @@ api.addListener("channel create") { Event e ->
 }
 api.addListener("channel delete") { Event e ->
 	if (e.data.guild != null)
-		e.data.guild.defaultChannel.sendMessage("Looks like $e.channel.type channel $e.channel.name was deleted.")
+		e.data.guild.defaultChannel.sendMessage("Looks like $e.data.channel.type channel $e.data.channel.name was deleted.")
 }
 
 api.addListener("channel update") { Event e ->

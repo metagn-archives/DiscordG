@@ -1,4 +1,4 @@
-package hlaaftana.discordg.objects
+package ml.hlaaftana.discordg.objects
 
 import java.util.Map
 

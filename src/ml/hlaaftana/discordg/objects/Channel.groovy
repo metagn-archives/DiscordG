@@ -1,7 +1,7 @@
-package hlaaftana.discordg.objects
+package ml.hlaaftana.discordg.objects
 
 import java.util.Map
-import hlaaftana.discordg.util.JSONUtil
+import ml.hlaaftana.discordg.util.JSONUtil
 
 class Channel extends Base{
 	Channel(API api, Map object){

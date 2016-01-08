@@ -1,4 +1,4 @@
-package hlaaftana.discordg.util
+package ml.hlaaftana.discordg.util
 
 import groovy.json.*
 
