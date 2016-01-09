@@ -10,7 +10,7 @@ api.addListener("channel create") { Event e ->
 }
 api.addListener("channel delete") { Event e ->
 	if (e.data.guild != null)
-		e.data.guild.defaultChannel.sendMessage("Looks like $e.data.channel.type channel $e.data.channel.name was deleted.")
+		e.data.guild.defaultChannel.sendMessage("Looks like $e.data.channel.type channel \"$e.data.channel.name\" was deleted.")
 }
 
 api.addListener("channel update") { Event e ->
@@ -19,10 +19,10 @@ api.addListener("channel update") { Event e ->
 	if (e.data.channel instanceof TextChannel){
 		chan = e.data.channel
 		oldChan = e.data.guild.getTextChannelById(e.data.channel.id)
-		chan.sendMessage("It seems this channel was modified. Old name was $oldChan.name, old topic was $oldChan.topic, old position was $oldChan.position. If none of those changed, it's probably permissions.")
+		chan.sendMessage("It seems this channel was modified.")
 	}else{
 		chan = e.data.guild.defaultChannel
 		oldChan = e.data.guild.getVoiceChannelById(e.data.channel.id)
-		chan.sendMessage("It seems voice channel $chan.name was modified. Old name was $oldChan.name and old position was $oldChan.position. If none of those changed, it's probably permissions.")
+		chan.sendMessage("It seems voice channel $chan.name was modified.")
 	}
 }

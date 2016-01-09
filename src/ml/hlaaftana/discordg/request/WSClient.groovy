@@ -12,11 +12,11 @@ import ml.hlaaftana.discordg.objects.*
 
 @WebSocket
 class WSClient{
-	private CountDownLatch latch = new CountDownLatch(1)
-	private API api
-	private Session session
-	private Thread keepAliveThread
-	private threadPool = Executors.newFixedThreadPool(3)
+	CountDownLatch latch = new CountDownLatch(1)
+	API api
+	Session session
+	Thread keepAliveThread
+	def threadPool = Executors.newFixedThreadPool(3)
 	WSClient(API api){ this.api = api }
 
 	@OnWebSocketConnect
@@ -28,7 +28,7 @@ class WSClient{
 		this.send([
 			"op": 2,
 			"d": [
-				"token": api.getToken(),
+				"token": api.token,
 				"v": 3,
 				"properties": [
 					"\$os": System.getProperty("os.name"),
@@ -75,8 +75,7 @@ class WSClient{
 			try{
 				if (t("READY")){
 					eventData = data
-					}else if (t("CHANNEL_CREATE")){
-				}else if (t("CHANNEL_DELETE") || t("CHANNEL_UPDATE")){
+				}else if (t("CHANNEL_CREATE") || t("CHANNEL_DELETE") || t("CHANNEL_UPDATE")){
 					if (!data.containsKey("guild_id")){
 						eventData = [
 							server: null,
@@ -210,8 +209,11 @@ class WSClient{
 			if (api.isLoaded()){
 				api.listeners.each { Map.Entry<String, List<Closure>> entry ->
 					try{
-						if (type.equals(entry.key))
-							for (c in entry.value) c.call(event)
+						if (type.equals(entry.key)){
+							for (c in entry.value){
+								c.call(event)
+							}
+						}
 					}catch (ex){
 						ex.printStackTrace()
 						Log.info "Ignoring exception from event " + entry.key
@@ -225,7 +227,6 @@ class WSClient{
 	@OnWebSocketClose
 	void onClose(Session session, int code, String reason){
 		if (keepAliveThread != null) keepAliveThread.interrupt(); keepAliveThread = null
-		reason.
 		Log.info "Connection closed. Reason: " + reason + ", code: " + code.toString()
 	}
 

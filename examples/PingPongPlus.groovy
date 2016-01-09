@@ -35,21 +35,18 @@ Closure getCommandArgs = { String message, String command ->
 	}
 }
 
-Closure addCommand = {
-
-}
-
 api = APIBuilder.build("email@example.com", "password123")
-api.addListener("message create", { Event e ->
+api.addListener("message create", { // We didn't type "Event e ->" here, since we can just use
+									// an implicit parameter which Groovy names "it".
 	// Doing this because it'll get annoying to refer to the same variable
 	// in the same lengthy way later. Don't blame me, you're gonna end up
 	// having special handling with this API anyway. Kinda the point of it
 	// being so low-level.
-	Message message = e.data["message"]
+	Message message = it.data["message"]
 
 	// Refer to isMessageCommand above to understand how it works.
-	if (isMessageCommand(message.getContent(), "ping")){
+	if (isMessageCommand(message.content, "ping")){
 		// Refer to getCommandArgs above to understand how it works.
-		message.getChannel().sendMessage("Pong! In addition to ${prefix}ping, you said " + getCommandArgs(message.getContent(), "ping"))
+		message.channel.sendMessage("Pong! In addition to ${prefix}ping, you said " + getCommandArgs(message.content, "ping"))
 	}
 })

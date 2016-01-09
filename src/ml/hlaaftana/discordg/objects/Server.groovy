@@ -42,7 +42,7 @@ class Server extends Base {
 		return new Server(api, JSONUtil.parse(api.getRequester().patch("https://discordapp.com/api/guilds/${this.getId()}", new HashMap().put("name", newName))))
 	}
 
-	void delete() {
+	void leave() {
 		api.getRequester().delete("https://discordapp.com/api/guilds/${this.getId()}")
 	}
 
