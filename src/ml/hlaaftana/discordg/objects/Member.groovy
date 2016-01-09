@@ -5,6 +5,10 @@ import java.net.URL
 
 import ml.hlaaftana.discordg.util.JSONUtil
 
+/**
+ * A member of a server. Extends the User object.
+ * @author Hlaaftana
+ */
 class Member extends User{
 	Member(API api, Map object){
 		super(api, object)
@@ -16,10 +20,22 @@ class Member extends User{
 	String getAvatarHash(){ return this.getUser().getAvatarHash() }
 	String getAvatar() { return this.getUser().getAvatar() }
 	URL getAvatarURL(){ return this.getUser().getAvatarURL() }
+	/**
+	 * @return the User which this Member is.
+	 */
 	User getUser(){ return new User(api, object["user"]) }
+	/**
+	 * @return the server the member comes from.
+	 */
 	Server getServer(){ return api.client.getServerById(object["guild_id"]) }
+	/**
+	 * @return a timestamp of when the member joined the server.
+	 */
 	String getJoinDate(){ return object["joined_at"] }
 
+	/**
+	 * @return the roles this member has.
+	 */
 	List<Role> getRoles(){
 		List array = object["roles"]
 		List<Role> roles = new ArrayList<Role>()
@@ -31,14 +47,25 @@ class Member extends User{
 		return roles
 	}
 
+	/**
+	 * Overrides the roles for this member.
+	 * @param roles - a list of roles to add.
+	 */
 	void editRoles(List<Role> roles) {
 		this.getServer().editRoles(this, roles)
 	}
 
+	/**
+	 * Adds roles to this member.
+	 * @param roles - the roles to add.
+	 */
 	void addRoles(List<Role> roles) {
 		this.getServer().addRoles(this, roles)
 	}
 
+	/**
+	 * Kicks the member from its server.
+	 */
 	void kick() {
 		this.getServer().kickMember(this)
 	}

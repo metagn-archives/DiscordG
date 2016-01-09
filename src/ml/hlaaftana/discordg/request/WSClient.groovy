@@ -10,6 +10,10 @@ import java.util.Map
 import ml.hlaaftana.discordg.util.*
 import ml.hlaaftana.discordg.objects.*
 
+/**
+ * The websocket client for the API.
+ * @author Hlaaftana
+ */
 @WebSocket
 class WSClient{
 	CountDownLatch latch = new CountDownLatch(1)
@@ -235,6 +239,10 @@ class WSClient{
 		t.printStackTrace()
 	}
 
+	/**
+	 * Converts an object to a string then sends it as a websocket message. Converts Maps to JSON strings.
+	 * @param message - the object to convert to a string.
+	 */
 	void send(Object message){
 		try{
 			if (message instanceof Map)
