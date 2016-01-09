@@ -18,5 +18,13 @@ class User extends Base{
 		}
 	}
 	URL getAvatarURL(){ return new URL(this.getAvatar()) }
+	PrivateChannel getPrivateChannel(){
+		for (pc in api.client.getPrivateChannels()){
+			if (pc.user.id == this.id) return pc
+		}
+		PrivateChannel pc = new PrivateChannel(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/users/$api.client.user.id/channels", [recipient_id: this.id])))
+		api.readyData["private_channels"].add(pc.object)
+		return pc
+	}
 	String getMention(){ return "<@${this.id}>" }
 }
