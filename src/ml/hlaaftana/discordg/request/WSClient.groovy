@@ -208,9 +208,10 @@ class WSClient{
 			eventData.put("fullData", data)
 			Event event = new Event(eventData, type)
 			if (api.isLoaded()){
-				api.listeners.each { Map.Entry<String, Closure> entry ->
+				api.listeners.each { Map.Entry<String, List<Closure>> entry ->
 					try{
-						if (type.equals(entry.key)) entry.value.call(event)
+						if (type.equals(entry.key))
+							for (c in entry.value) c.call(event)
 					}catch (ex){
 						ex.printStackTrace()
 						Log.info "Ignoring exception from event " + entry.key

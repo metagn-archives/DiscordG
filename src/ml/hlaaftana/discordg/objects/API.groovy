@@ -17,7 +17,7 @@ class API{
 	String token
 	WSClient wsClient
 	ml.hlaaftana.discordg.objects.Client client
-	Map<String, Closure> listeners = [:]
+	Map<String, List<Closure>> listeners = [:]
 	Map readyData
 	static boolean debug
 	// if you want to use global variables through the API object. mostly for utility
@@ -168,17 +168,30 @@ class API{
 	}
 
 	void addListener(String event, Closure closure) {
-		listeners.put(event.replace("change", "update").replace("update".toUpperCase(), "change".toUpperCase()).toUpperCase().replace(' ', '_'), closure)
+		println "hey, $event"
+		for (e in listeners.entrySet()){
+			println parseEventType(event)
+			if (e.key == parseEventType(event)) e.value.add(closure); println "hey i found one"; return
+		}
+		println "i found none. ;("
+		listeners.put(parseEventType(event), [closure])
+		println "i tried to put one though"
 	}
 
 	void removeListener(String event, Closure closure) {
-		listeners.remove(event.replace("change", "update").replace("update".toUpperCase(), "change".toUpperCase()).toUpperCase().replace(' ', '_'), closure)
+		for (e in listeners.entrySet()){
+			if (e.key == parseEventType(event)) e.value.remove(closure)
+		}
 	}
 
 	void removeListenersFor(String event){
 		for (e in listeners.entrySet()){
-			if (e.key == event.replace("change", "update").replace("update".toUpperCase(), "change".toUpperCase()).toUpperCase().replace(' ', '_')) listeners.remove(e.key, e.value)
+			if (e.key == parseEventType(event)) listeners.remove(e.key, e.value); return
 		}
+	}
+
+	String parseEventType(String str){
+		return str.replace("change", "update").replace("update".toUpperCase(), "change".toUpperCase()).toUpperCase().replace(' ', '_')
 	}
 
 	void addField(String key, value){
