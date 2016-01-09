@@ -38,7 +38,7 @@ class Client{
 	}
 
 	void leaveServer(Server server) {
-		server.delete()
+		server.leave()
 	}
 
 	Message sendMessage(TextChannel channel, String content, boolean tts=false) {
