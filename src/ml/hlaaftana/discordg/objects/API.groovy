@@ -19,6 +19,8 @@ import org.eclipse.jetty.websocket.client.WebSocketClient
 class API{
 	Requester requester
 	String token
+	String email
+	String password
 	WSClient wsClient
 	ml.hlaaftana.discordg.objects.Client client
 	Map<String, List<Closure>> listeners = new HashMap<String, List<Closure>>()
@@ -67,6 +69,8 @@ class API{
 		Thread thread = new Thread({
 			try{
 				Log.info "Logging in..."
+				this.email = email
+				this.password = password
 				Map response = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))
 				token = response["token"]
 				SslContextFactory sslFactory = new SslContextFactory()

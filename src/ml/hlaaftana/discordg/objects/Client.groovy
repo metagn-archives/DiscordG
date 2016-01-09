@@ -259,6 +259,22 @@ class Client{
 	}
 
 	/**
+	 * Edits the user's profile.
+	 * @param data - the data to edit with. Be really careful with this. Can be: <br>
+	 * [email: "newemail@dock.org", new_password: "oopsaccidentallygavesomeonemypass", username: "New name new me"] <br>
+	 * Note that you can also have an avatar property in the map above, but I'm not encouraging it until I provide a utility function for that.
+	 * @return a User object for the edited profile.
+	 */
+	User editProfile(Map data){
+		Map map = ["avatar": this.user.avatarHash, "email": api.email, "password": api.password, "username": this.user.username]
+		Map response = api.requester.patch("https://discordapp.com/api/users/@me", map << data)
+		api.email = response.email
+		api.password = (data["new_password"] != null && data["new_password"] instanceof String) ? data["new_password"] : api.password
+		api.token = response.token
+		return new User(api, response)
+	}
+
+	/**
 	 * Gets a user by its ID.
 	 * @param id - the ID.
 	 * @return the user. null if not found.

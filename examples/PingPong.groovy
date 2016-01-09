@@ -30,7 +30,6 @@ api = APIBuilder.build("example@example.com", "example123")
  * http://hornwitser.no/discord/analysis
  */
 api.addListener("message create") { Event e ->
-	long start = System.currentTimeMillis()
 	// MESSAGE_CREATE's data is just one Message object called "message".
 	// We can get the content of that message with Message#getContent() which Groovy fills in.
 	if (e.data["message"].content.startsWith("!ping")){
