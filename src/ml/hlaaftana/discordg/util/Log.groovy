@@ -10,10 +10,10 @@ import ml.hlaaftana.discordg.objects.API
  * @author Hlaaftana
  */
 class Log {
-	static boolean info = true
-	static boolean error = true
-	static boolean warn = true
-	static boolean debug = false
+	static boolean enableInfo = true
+	static boolean enableError = true
+	static boolean enableWarn = true
+	static boolean enableDebug = false
 
 	/**
 	 * Prints out a log entry.
@@ -31,7 +31,7 @@ class Log {
 	 * @param by - What the name of the logger will be. "DiscordG" by default.
 	 */
 	static info(String str, String by="DiscordG"){
-		if (info)
+		if (enableInfo)
 			log(str, "info", by)
 	}
 
@@ -41,7 +41,7 @@ class Log {
 	 * @param by - What the name of the logger will be. "DiscordG" by default.
 	 */
 	static debug(String str, String by="DiscordG"){
-		if (debug)
+		if (enableDebug)
 			log(str, "debug", by)
 	}
 
@@ -51,7 +51,7 @@ class Log {
 	 * @param by - What the name of the logger will be. "DiscordG" by default.
 	 */
 	static error(String str, String by="DiscordG"){
-		if (error)
+		if (enableError)
 			log(str, "error", by)
 	}
 
@@ -61,7 +61,7 @@ class Log {
 	 * @param by - What the name of the logger will be. "DiscordG" by default.
 	 */
 	static warn(String str, String by="DiscordG"){
-		if (warn)
+		if (enableWarn)
 			log(str, "warn", by)
 	}
 }

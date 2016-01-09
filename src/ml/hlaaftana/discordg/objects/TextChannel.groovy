@@ -28,7 +28,7 @@ class TextChannel extends Channel {
 	 * Start typing in the channel.
 	 */
 	void startTyping() {
-		api.requester.post("https://discordapp.com/api/channels/${this.getId()}/typing", [])
+		api.requester.post("https://discordapp.com/api/channels/${this.getId()}/typing", [:])
 	}
 
 	/**
