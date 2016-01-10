@@ -39,3 +39,6 @@ Check the releases for this repository. You'll find .jar files which you can add
 
 # Dependencies:
 
+[Unirest](http://unirest.io/java.html)
+
+[Jetty](http://www.eclipse.org/jetty/)
