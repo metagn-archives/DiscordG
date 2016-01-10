@@ -188,14 +188,15 @@ class WSClient{
 							embeds: data["embeds"]
 							]
 					}
-				// this is acting weird
-				/*}else if (t("PRESENCE_UPDATE")){
+				}else if (t("PRESENCE_UPDATE")){
 					eventData = [
+						server: api.client.getServerById(data["guild_id"]),
+						guild: api.client.getServerById(data["guild_id"]),
 						member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getUser().getId().equals(data["user"]["id"]) },
-						//game: data["game"]["name"],
+						game: (data["game"] != null) ? data["game"]["name"] : "",
 						status: data["status"]
 						]
-					break*/
+					if (data["user"]["username"] != null) eventData["newUser"] = new User(api, data["user"])
 				}else if (t("TYPING_START")){
 					eventData = [
 						channel: api.client.getTextChannelById(data["channel_id"]),

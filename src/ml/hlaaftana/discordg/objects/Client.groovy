@@ -267,10 +267,12 @@ class Client{
 	 */
 	User editProfile(Map data){
 		Map map = ["avatar": this.user.avatarHash, "email": api.email, "password": api.password, "username": this.user.username]
-		Map response = api.requester.patch("https://discordapp.com/api/users/@me", map << data)
+		Map response = JSONUtil.parse api.requester.patch("https://discordapp.com/api/users/@me", map << data)
 		api.email = response.email
 		api.password = (data["new_password"] != null && data["new_password"] instanceof String) ? data["new_password"] : api.password
 		api.token = response.token
+		api.readyData["user"]["email"] = response.email
+		api.readyData["user"]["verified"] = response.verified
 		return new User(api, response)
 	}
 
