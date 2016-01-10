@@ -275,7 +275,7 @@ class API{
 			Member member = e.data.member
 			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(server.getId()) }
 			List membersToEdit = serverToRemove["members"]
-			Map memberToEdit = membersToEdit.find { it["id"].equals(member.getId()) }
+			Map memberToEdit = membersToEdit.find { it["user"]["id"].equals(member.getId()) }
 			membersToEdit.remove(memberToEdit)
 			membersToEdit.add(member.object)
 			this.readyData["guilds"].remove(serverToRemove)
@@ -293,7 +293,7 @@ class API{
 			Map roleToEdit = rolesToEdit.find { it["id"].equals(role.getId()) }
 			rolesToEdit.remove(roleToEdit)
 			rolesToEdit.add(role.object)
-			this.readyData["guilds"].remove(serverToRemove)
+			this.readyData["guilds"].remove(this.readyData["guilds"].find { it["id"].equals(server.id) })
 			serverToRemove["roles"] = rolesToEdit
 			this.readyData["guilds"].add(serverToRemove)
 		})
@@ -337,7 +337,7 @@ class API{
 					serverToAdd.presences.add(p)
 				}
 			}
-			this.readyData["guilds"].remove(server.object)
+			this.readyData["guilds"].remove(this.readyData["guilds"].find { it["id"].equals(server.id) })
 			this.readyData["guilds"].add(serverToAdd)
 		})
 	}

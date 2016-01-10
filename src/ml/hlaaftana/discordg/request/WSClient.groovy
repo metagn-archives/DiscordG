@@ -70,6 +70,11 @@ class WSClient{
 					System.exit(0)
 				}
 				api.readyData = data
+				for (g in api.readyData.guilds){
+					for (m in g.members){
+						m["guild_id"] = g["id"]
+					}
+				}
 				Log.info "Done loading."
 			}
 			if (!api.isLoaded()) return
