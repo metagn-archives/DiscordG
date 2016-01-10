@@ -41,7 +41,7 @@ class Member extends User{
 		List<Role> roles = new ArrayList<Role>()
 		for (o in array){
 			for (r in this.getServer().getRoles()){
-				if (o["id"].equals(r.getId())) roles.add(r)
+				if (o.equals(r.getId())) roles.add(r)
 			}
 		}
 		return roles
