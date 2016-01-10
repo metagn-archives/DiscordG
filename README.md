@@ -32,7 +32,9 @@ api.addListener("message create") { Event e ->
 **PLEASE** check out the examples [here](https://github.com/hlaaftana/DiscordG/tree/master/examples). I provide important explanations in some of them (PingPong and PingPongPlus especially)
 
 ## Where can I find the documentation?
-All classes are Javadoc'd however I don't have a Javadoc distribution yet. So, in my opinion, using your IDE, you should check for the classes and their methods themselves and read their doc. Most of the methods you will use will originate from classes in ml.hlaaftana.discordg.objects, especially API and Client. You can also check the source code.
+[Here](http://hlaaftana.ml/discordg/docs/), for one.
+
+You can also check the source code which is populated with Groovydoc.
 
 ## Where do I install this?
 Check the releases for this repository. You'll find .jar files which you can add to your build path in your IDE or add to -cp in your javac and java commands.
