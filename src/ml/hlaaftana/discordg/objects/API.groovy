@@ -1,6 +1,9 @@
 package ml.hlaaftana.discordg.objects
 
+import java.nio.channels.MembershipKey;
+
 import com.mashape.unirest.http.*
+
 import groovy.lang.Closure
 import ml.hlaaftana.discordg.request.*
 import ml.hlaaftana.discordg.util.*
@@ -56,6 +59,7 @@ class API{
 		this.addGuildRoleCreateListener()
 		this.addGuildRoleDeleteListener()
 		this.addGuildRoleUpdateListener()
+		this.addPresenceUpdateListener()
 	}
 
 	WSClient getWebSocketClient(){ return wsClient }
@@ -301,6 +305,40 @@ class API{
 			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(newServer.getId()) }
 			this.readyData["guilds"].remove(serverToRemove)
 			this.readyData["guilds"].add(newServer.object)
+		})
+	}
+
+	void addPresenceUpdateListener(){
+		this.addListener("presence change", { Event e ->
+			Server server = e.data.server
+			Map serverToAdd = this.readyData["guilds"].find { it["id"].equals(server.id) }
+			List members = serverToAdd.members.collect({ it })
+			if (e.data["newUser"] != null){
+				for (m in members){
+					if (m["user"]["id"] == e.data.newUser.id){
+						Map m2 = m
+						m2.user = e.data.newUser.object
+						serverToAdd.members.remove(m)
+						serverToAdd.members.add(m2)
+					}
+				}
+			}
+			List presences = serverToAdd.presences.collect({ it })
+			for (p in presences){
+				if (p["user"]["id"] == e.data.member.id){
+					Map p2 = p
+					p2.status = e.data.status
+					if (e.data.game == ""){
+						p2.game = null
+					}else{
+						p2.game = [name: e.data.game]
+					}
+					serverToAdd.presences.remove(p)
+					serverToAdd.presences.add(p)
+				}
+			}
+			this.readyData["guilds"].remove(server.object)
+			this.readyData["guilds"].add(serverToAdd)
 		})
 	}
 }

@@ -48,6 +48,24 @@ class Member extends User{
 	}
 
 	/**
+	 * @return the current game the member is playing. Can be null.
+	 */
+	String getGame(){
+		try{
+			return this.server.object["presences"].find({ it.user.id == this.user.id }).game.name
+		}catch (ex){
+			return null
+		}
+	}
+
+	/**
+	 * @return the status of the user. e.g. "online", "offline", "idle"...
+	 */
+	String getStatus(){
+		return this.server.object["presences"].find({ it.user.id == this.user.id }).status
+	}
+
+	/**
 	 * Overrides the roles for this member.
 	 * @param roles - a list of roles to add.
 	 */
