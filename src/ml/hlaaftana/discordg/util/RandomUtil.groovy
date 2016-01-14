@@ -193,4 +193,12 @@ class RandomUtil {
 		Color color = new Color(inte)
 		return [color.red, color.green, color.blue]
 	}
+
+	static boolean findStrings(String string, String...strings){
+		boolean returnThis = false
+		for (s in strings){
+			returnThis |= s in string
+		}
+		return returnThis
+	}
 }

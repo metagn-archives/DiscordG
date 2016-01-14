@@ -164,7 +164,7 @@ class Server extends Base {
 	 * @return all roles in the server.
 	 */
 	List<Role> getRoles() {
-		List array = object["roles"]
+		List array = object["roles"].collect { it }
 		List<Role> roles = new ArrayList<Role>()
 		for (o in array){
 			roles.add(new Role(api, o))
@@ -176,7 +176,7 @@ class Server extends Base {
 	 * @return all members in the server.
 	 */
 	List<Member> getMembers() {
-		List array = object["members"]
+		List array = object["members"].collect { it }
 		List<Member> members = new ArrayList<Member>()
 		for (o in array){
 			members.add(new Member(api, o))

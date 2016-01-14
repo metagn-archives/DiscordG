@@ -1,6 +1,8 @@
 # DiscordG
 Developed by Hlaaftana.
 
+To ask me any questions other than "what's the difference between Groovy and Java", go [here](https://discord.gg/0SBTUU1wZTUMeVC4). If you were going to ask the difference between Groovy and Java, [see for yourself](http://www.vogella.com/tutorials/Groovy/article.html).
+
 ## What is this?
 This is a Groovy wrapper for the complicated connection stuff Discord needs you to do to connect to it and use its services.
 
@@ -24,17 +26,21 @@ import ml.hlaaftana.discordg.APIBuilder
 API api = APIBuilder.build("example@example.com", "example123")
 api.addListener("message create") { Event e ->
   if (e.data.message.content.startsWith("!ping")){
-    e.data.message.channel.sendMessage("Pong!")
+    e.data.sendMessage("Pong!")
   }
 }
 ```
 
 **PLEASE** check out the examples [here](https://github.com/hlaaftana/DiscordG/tree/master/examples). I provide important explanations in some of them (PingPong and PingPongPlus especially)
 
+Oh, by the way,
+
 ## Where can I find the documentation?
 [Here](http://hlaaftana.ml/discordg/docs/), for one.
 
 You can also check the source code which is populated with Groovydoc.
+
+If you need further help, contact me [here](https://discord.gg/0SBTUU1wZTUMeVC4).
 
 ## Where do I install this?
 Check the releases for this repository. You'll find .jar files which you can add to your build path in your IDE or add to -cp in your javac and java commands.

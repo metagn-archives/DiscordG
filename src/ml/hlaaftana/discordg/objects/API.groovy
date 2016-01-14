@@ -4,6 +4,8 @@ import java.nio.channels.MembershipKey;
 
 import com.mashape.unirest.http.*
 
+import groovy.json.JsonBuilder
+import groovy.json.JsonSlurper
 import groovy.lang.Closure
 import ml.hlaaftana.discordg.request.*
 import ml.hlaaftana.discordg.util.*
@@ -28,8 +30,10 @@ class API{
 	ml.hlaaftana.discordg.objects.Client client
 	Map<String, List<Closure>> listeners = new HashMap<String, List<Closure>>()
 	Map readyData
+	Map voiceData = [:]
 	// if you want to use global variables through the API object. mostly for utility
 	Map<String, Object> fields = [:]
+	boolean cacheTokens = true
 
 	/**
 	 * Builds a new API object. This is safe to do.
@@ -75,8 +79,37 @@ class API{
 				Log.info "Logging in..."
 				this.email = email
 				this.password = password
-				Map response = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))
-				token = response["token"]
+				File tokenCache = new File("token.json")
+				if (tokenCache.exists()){
+					try{
+						if (cacheTokens){
+							token = new JsonSlurper().parse(tokenCache)["token"]
+						}else{
+							token = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
+						}
+					}catch (ex){
+						if (cacheTokens){
+							Log.warn "Token cache file seems to be malformed."
+							Log.debug "Token cache file seems to be malformed, full file: " + tokenCache.text
+
+							tokenCache.createNewFile()
+							tokenCache.write(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))
+
+							token = new JsonSlurper().parseFile(tokenCache)["token"]
+						}else{
+							token = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
+						}
+					}
+				}else{
+					if (cacheTokens){
+						tokenCache.createNewFile()
+						tokenCache.write(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))
+
+						token = new JsonSlurper().parse(tokenCache)["token"]
+					}else{
+						token = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
+					}
+				}
 				SslContextFactory sslFactory = new SslContextFactory()
 				WebSocketClient client = new WebSocketClient(sslFactory)
 				WSClient socket = new WSClient(this)
@@ -311,33 +344,39 @@ class API{
 	void addPresenceUpdateListener(){
 		this.addListener("presence change", { Event e ->
 			Server server = e.data.server
-			Map serverToAdd = this.readyData["guilds"].find { it["id"].equals(server.id) }
-			List members = serverToAdd.members.collect({ it })
+			if (server == null){ server = new Server(this, ["id": e.data.fullData["guild_id"]]) }
+			Map serverToAdd = this.readyData["guilds"].find { it["id"] == e.data.fullData["guild_id"] }
+			Map copyServer = [:]; serverToAdd.entrySet().each { copyServer.put(it.key, it.value) }
+			List members = copyServer.members.collect({ it })
+
 			if (e.data["newUser"] != null){
-				for (m in members){
-					if (m["user"]["id"] == e.data.newUser.id){
-						Map m2 = m
-						m2.user = e.data.newUser.object
-						serverToAdd.members.remove(m)
-						serverToAdd.members.add(m2)
-					}
+				try{
+					Map m = members.find { it["user"]["id"] == e.data.newUser.id }
+					Map m2 = m
+					m2.user = e.data.newUser.object
+					serverToAdd.members.remove(m)
+					serverToAdd.members.add(m2)
+				}catch (ex){
+
 				}
 			}
-			List presences = serverToAdd.presences.collect({ it })
-			for (p in presences){
-				if (p["user"]["id"] == e.data.member.id){
-					Map p2 = p
-					p2.status = e.data.status
-					if (e.data.game == ""){
-						p2.game = null
-					}else{
-						p2.game = [name: e.data.game]
-					}
-					serverToAdd.presences.remove(p)
-					serverToAdd.presences.add(p)
+			List presences = copyServer.presences.collect({ it })
+			try{
+				Map p = presences.find { it["user"]["id"] == e.data.member.id }
+				Map p2 = p
+				p2.status = e.data.status
+				if (e.data.game == ""){
+					p2.game = null
+				}else{
+					p2.game = [name: e.data.game]
 				}
+				serverToAdd.presences.remove(p)
+				serverToAdd.presences.add(p)
+			}catch (ex){
+
 			}
-			this.readyData["guilds"].remove(this.readyData["guilds"].find { it["id"].equals(server.id) })
+			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(server.id) }
+			this.readyData["guilds"].remove(serverToRemove)
 			this.readyData["guilds"].add(serverToAdd)
 		})
 	}

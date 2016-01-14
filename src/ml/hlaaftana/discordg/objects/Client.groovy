@@ -294,10 +294,7 @@ class Client{
 	 * @return the server. null if not found.
 	 */
 	Server getServerById(String id){
-		for (s in this.getServers()){
-			if (s.getId().equals(id)) return s
-		}
-		return null
+		this.servers.find { it.id == id }
 	}
 
 	/**

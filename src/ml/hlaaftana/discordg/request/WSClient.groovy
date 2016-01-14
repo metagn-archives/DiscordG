@@ -171,7 +171,10 @@ class WSClient{
 						]
 				}else if (t("MESSAGE_CREATE")){
 					eventData = [
-						message: new Message(api, data)
+						message: new Message(api, data),
+						sendMessage: { String cont, boolean tts=false ->
+							eventData.message.channel.sendMessage(cont, tts)
+						}
 						]
 				}else if (t("MESSAGE_DELETE")){
 					List<TextChannel> channels = new ArrayList<TextChannel>()
@@ -194,24 +197,43 @@ class WSClient{
 							]
 					}
 				}else if (t("PRESENCE_UPDATE")){
-					eventData = [
-						server: api.client.getServerById(data["guild_id"]),
-						guild: api.client.getServerById(data["guild_id"]),
-						member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getUser().getId().equals(data["user"]["id"]) },
-						game: (data["game"] != null) ? data["game"]["name"] : "",
-						status: data["status"]
+					try{
+						eventData = [
+							server: api.client.servers.find { it.id == data["guild_id"] },
+							guild: api.client.servers.find { it.id == data["guild_id"] },
+							member: api.client.servers.find({ it.id == data["guild_id"] }).members.find { it.getUser().getId().equals(data["user"]["id"]) },
+							game: (data["game"] != null) ? data["game"]["name"] : "",
+							status: data["status"]
 						]
+					}catch (ex){
+						if (api.client.servers.find { it.id == data["guild_id"] } != null){
+							eventData.server = api.client.servers.find { it.id == data["guild_id"] }
+							eventData.guild = eventData.server
+						}
+					}
+					if (eventData.server == null){
+						if (api.client.servers.find { it.id == data["guild_id"] } != null){
+							eventData.server = api.client.servers.find { it.id == data["guild_id"] }
+							eventData.guild = eventData.server
+						}
+					}
+					// this here is sort of dangerous
+					if (eventData.member == null) eventData.member = new Member(api, data)
 					if (data["user"]["username"] != null) eventData["newUser"] = new User(api, data["user"])
 				}else if (t("TYPING_START")){
 					eventData = [
 						channel: api.client.getTextChannelById(data["channel_id"]),
 						user: api.client.getUserById(data["user_id"])
 						]
-				}else{
+				}/*else if (t("VOICE_STATE_UPDATE")){
+					api.voiceData << data
+				}else if (t("VOICE_SERVER_UPDATE")){
+					api.voiceData << data
+				}*/else{
 					eventData = data
 				}
 			}catch (ex){
-				ex.printStackTrace()
+				if (Log.enableEventRegisteringCrashes) ex.printStackTrace()
 				Log.info "Ignoring exception from event object registering"
 			}
 			eventData.put("fullData", data)
@@ -225,7 +247,7 @@ class WSClient{
 							}
 						}
 					}catch (ex){
-						ex.printStackTrace()
+						if (Log.enableListenerCrashes) ex.printStackTrace()
 						Log.info "Ignoring exception from event " + entry.key
 					}
 				}
@@ -236,8 +258,20 @@ class WSClient{
 
 	@OnWebSocketClose
 	void onClose(Session session, int code, String reason){
-		if (keepAliveThread != null) keepAliveThread.interrupt(); keepAliveThread = null
 		Log.info "Connection closed. Reason: " + reason + ", code: " + code.toString()
+		try{
+			if (keepAliveThread != null) keepAliveThread.interrupt(); keepAliveThread = null
+		}catch (ex){
+
+		}
+		print "Want to reconnect? [y/n] "
+		Scanner scnr = new Scanner(System.in)
+		if (!scnr.next() == "y"){
+			Log.info "Exiting."
+			System.exit(0)
+		}else{
+			api.login(api.email, api.password)
+		}
 	}
 
 	@OnWebSocketError

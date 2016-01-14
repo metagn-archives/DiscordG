@@ -48,7 +48,7 @@ class TextChannel extends Channel {
 	 * @return - the sent message as a Message object.
 	 */
 	Message sendFile(File file){
-		return new Message(api, JSONUtil.parse(api.requester.headerUp(Unirest.post("https://discordapp.com/api/channels/${this.id}/messages")).field("file", file).asString().getBody()))
+		return new Message(api, JSONUtil.parse(Unirest.post("https://discordapp.com/api/channels/${this.id}/messages").header("authorization", api.token).header("user-agent", "https://github.com/hlaaftana/DiscordG, 1.0").field("file", file).asString().getBody()))
 	}
 
 	/**
