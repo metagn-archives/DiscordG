@@ -14,6 +14,8 @@ class Log {
 	static boolean enableError = true
 	static boolean enableWarn = true
 	static boolean enableDebug = false
+	static boolean enableListenerCrashes = true
+	static boolean enableEventRegisteringCrashes = false
 
 	/**
 	 * Prints out a log entry.
