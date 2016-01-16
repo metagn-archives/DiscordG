@@ -361,8 +361,7 @@ class API{
 			Server server = e.data.server
 			if (server == null){ server = new Server(this, ["id": e.data.fullData["guild_id"]]) }
 			Map serverToAdd = this.readyData["guilds"].find { it["id"] == e.data.fullData["guild_id"] }
-			Map copyServer = [:]
-			serverToAdd.entrySet().each { copyServer.put(it.key, it.value) }
+			Map copyServer = serverToAdd
 			List members = copyServer.members.collect({ it })
 			if (e.data["newUser"] != null){
 				try{

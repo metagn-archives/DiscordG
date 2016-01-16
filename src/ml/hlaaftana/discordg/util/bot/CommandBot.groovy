@@ -30,10 +30,6 @@ class CommandBot {
 	}
 
 	def initialize(String email="", String password=""){
-		if (!loggedIn){
-			if (email.empty || password.empty) throw new Exception()
-			api.login(email, password)
-		}
 		api.addListener("message create") { Event e ->
 			for (c in commands){
 				for (p in c.prefixes){
@@ -49,6 +45,10 @@ class CommandBot {
 					}
 				}
 			}
+		}
+		if (!loggedIn){
+			if (email.empty || password.empty) throw new Exception()
+			api.login(email, password)
 		}
 	}
 
@@ -108,7 +108,11 @@ class CommandBot {
 		}
 
 		def run(Event e){
-			response(e, this)
+			if (response.maximumNumberOfParameters > 1){
+				response(e, this)
+			}else{
+				response(e)
+			}
 		}
 	}
 }
