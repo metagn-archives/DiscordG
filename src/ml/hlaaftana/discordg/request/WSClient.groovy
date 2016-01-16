@@ -287,10 +287,6 @@ class WSClient{
 			e.printStackTrace()
 		}
 	}
-
-	CountDownLatch getLatch(){
-		return latch
-	}
 }
 
 

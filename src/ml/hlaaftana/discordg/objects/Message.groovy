@@ -54,6 +54,8 @@ class Message extends Base{
 	 */
 	TextChannel getChannel() { return this.getTextChannel() }
 
+	List<User> getMentions(){ return this.object["mentions"].collect { new User(api, it) } }
+
 	/**
 	 * Edits the message.
 	 * @param newContent - the new content of the message.
