@@ -208,6 +208,21 @@ class API{
 		return fields[key]
 	}
 
+	void dispatchEvent(Event event){
+		this.listeners.each { Map.Entry<String, List<Closure>> entry ->
+			try{
+				if (event.type.equals(entry.key)){
+					for (c in entry.value){
+						c.call(event)
+					}
+				}
+			}catch (ex){
+				if (Log.enableListenerCrashes) ex.printStackTrace()
+				Log.info "Ignoring exception from event " + entry.key
+			}
+		}
+	}
+
 	/**
 	 * @return whether or not the api is loaded.
 	 */
@@ -346,9 +361,9 @@ class API{
 			Server server = e.data.server
 			if (server == null){ server = new Server(this, ["id": e.data.fullData["guild_id"]]) }
 			Map serverToAdd = this.readyData["guilds"].find { it["id"] == e.data.fullData["guild_id"] }
-			Map copyServer = [:]; serverToAdd.entrySet().each { copyServer.put(it.key, it.value) }
+			Map copyServer = [:]
+			serverToAdd.entrySet().each { copyServer.put(it.key, it.value) }
 			List members = copyServer.members.collect({ it })
-
 			if (e.data["newUser"] != null){
 				try{
 					Map m = members.find { it["user"]["id"] == e.data.newUser.id }

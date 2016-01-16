@@ -140,11 +140,16 @@ class WSClient{
 						member: new Member(api, data)
 						]
 				}else if (t("GUILD_MEMBER_REMOVE")){
-					eventData = [
-						server: api.client.getServerById(data["guild_id"]),
-						guild: api.client.getServerById(data["guild_id"]),
-						member: api.client.getServerById(data["guild_id"]).getMembers().find { it.getUser().getId().equals(data["user"]["id"]) }
+					try{
+						eventData = [
+							server: api.client.getServerById(data["guild_id"]),
+							guild: api.client.getServerById(data["guild_id"]),
+							member: api.client.getServerById(data["guild_id"]).getMembers().find { try{it.getUser().getId().equals(data["user"]["id"])}catch (ex){} }
 						]
+					}catch (ex){
+						println data
+						println data["user"]
+					}
 				}else if (t("GUILD_ROLE_CREATE") || t("GUILD_ROLE_UPDATE")){
 					eventData = [
 						server: api.client.getServerById(data["guild_id"]),
@@ -237,20 +242,9 @@ class WSClient{
 				Log.info "Ignoring exception from event object registering"
 			}
 			eventData.put("fullData", data)
-			Event event = new Event(eventData, type)
+			Event event = new Event(type, eventData)
 			if (api.isLoaded()){
-				api.listeners.each { Map.Entry<String, List<Closure>> entry ->
-					try{
-						if (type.equals(entry.key)){
-							for (c in entry.value){
-								c.call(event)
-							}
-						}
-					}catch (ex){
-						if (Log.enableListenerCrashes) ex.printStackTrace()
-						Log.info "Ignoring exception from event " + entry.key
-					}
-				}
+				api.dispatchEvent(event)
 			}
 		}
 		threadPool.submit(clos as Callable)
