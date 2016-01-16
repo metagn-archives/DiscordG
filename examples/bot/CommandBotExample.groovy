@@ -1,5 +1,3 @@
-package ml.hlaaftana.karmafields
-
 import ml.hlaaftana.discordg.APIBuilder
 import ml.hlaaftana.discordg.objects.*
 import ml.hlaaftana.discordg.util.bot.CommandBot
