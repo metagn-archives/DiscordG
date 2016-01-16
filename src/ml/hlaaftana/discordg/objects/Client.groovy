@@ -219,7 +219,21 @@ class Client{
 	 * [game: "FL Studio 12", idle: "anything. as long as it's defined in the map, the user will become idle"]
 	 */
 	void changeStatus(Map<String, Object> data) {
-		api.getWebSocketClient().send(["op": 3, "d": ["game": ["name": data["game"]], "idle_since": (data.get("idle") != null) ? System.currentTimeMillis() : null]])
+		api.getWebSocketClient().send(["op": 3, "d": ["game": ["name": data["game"]], "idle_since": (data["idle"] != null) ? System.currentTimeMillis() : null]])
+		for (s in this.servers){
+			api.dispatchEvent(new Event("PRESENCE_UPDATE", [
+				"fullData": [
+					"game": (data["game"] != null) ? ["name": data["game"]] : null,
+					"status": (data["idle"] != null) ? "online" : "idle",
+					"guild_id": s.id, "user": this.user.object
+					],
+				"server": s,
+				"guild": s,
+				"member": s.members.find { it.id == this.user.id },
+				"game": (data["game"] != null) ? data["game"] : null,
+				"status": (data["idle"] != null) ? "online" : "idle"
+				]))
+		}
 	}
 
 	/**
