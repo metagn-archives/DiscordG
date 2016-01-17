@@ -1,5 +1,6 @@
 package ml.hlaaftana.discordg.objects
 
+import java.text.SimpleDateFormat
 import java.util.List
 import java.net.URL
 
@@ -31,8 +32,11 @@ class Member extends User{
 	/**
 	 * @return a timestamp of when the member joined the server.
 	 */
-	String getJoinDate(){ return object["joined_at"] }
-
+	String getJoinDateRaw(){ return object["joined_at"] }
+	/**
+	 * @return a Date object of when the member joined the server.
+	 */
+	Date getJoinDate(){ return new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSSSSXXX").parse(this.joinDateRaw) }
 	/**
 	 * @return the roles this member has.
 	 */

@@ -34,7 +34,8 @@ class API{
 	// if you want to use global variables through the API object. mostly for utility
 	Map<String, Object> fields = [:]
 	boolean cacheTokens = true
-	int eventThreadCount = 3
+	int eventThreadCount = 3 // if your bot is on tons of big servers, this might help however take up some CPU
+	boolean ignorePresenceUpdate = false // if your bot is on tons of big servers, this might help you lose some CPU
 
 	/**
 	 * Builds a new API object. This is safe to do.

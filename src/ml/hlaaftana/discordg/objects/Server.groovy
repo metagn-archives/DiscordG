@@ -221,7 +221,7 @@ class Server extends Base {
 		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.getId()}/bans"))
 		List<User> bans = new ArrayList<User>()
 		for (o in array){
-			bans.add(new User(api, o))
+			bans.add(new User(api, o["user"]))
 		}
 		return bans
 	}
