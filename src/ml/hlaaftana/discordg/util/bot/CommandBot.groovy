@@ -9,6 +9,7 @@ class CommandBot {
 	API api
 	List commands = []
 	static def defaultPrefix
+	boolean acceptOwnCommands = false
 	private boolean loggedIn = false
 
 	CommandBot(API api, List commands=[]){
@@ -36,7 +37,11 @@ class CommandBot {
 					for (a in c.aliases){
 						if ((e.data.message.content + " ").toLowerCase().startsWith(p.toLowerCase() + a.toLowerCase() + " ")){
 							try{
-								c.run(e)
+								if (acceptOwnCommands){
+									c.run(e)
+								}else if (!(e.data.message.author.id == api.client.user.id)){
+									c.run(e)
+								}
 							}catch (ex){
 								ex.printStackTrace()
 								Log.error "Command threw exception", this.name
@@ -74,7 +79,7 @@ class CommandBot {
 				for (p in prefixes){
 					for (a in aliases){
 						if ((e.data.message.content + " ").toLowerCase().startsWith(p.toLowerCase() + a.toLowerCase() + " ")){
-							return e.data.message.substring((p + a + " ").length())
+							return e.data.message.content.substring((p + a + " ").length())
 						}
 					}
 				}
