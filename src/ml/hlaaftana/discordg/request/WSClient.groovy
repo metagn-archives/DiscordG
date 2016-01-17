@@ -177,8 +177,6 @@ class WSClient{
 				}else if (t("MESSAGE_CREATE")){
 					eventData = [
 						message: new Message(api, data),
-						author: eventData.message.author,
-						sender: eventData.message.author,
 						sendMessage: { String cont, boolean tts=false ->
 							eventData.message.channel.sendMessage(cont, tts)
 						}
