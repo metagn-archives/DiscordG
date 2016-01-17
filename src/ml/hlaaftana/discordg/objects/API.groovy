@@ -34,6 +34,7 @@ class API{
 	// if you want to use global variables through the API object. mostly for utility
 	Map<String, Object> fields = [:]
 	boolean cacheTokens = true
+	int eventThreadCount = 3
 
 	/**
 	 * Builds a new API object. This is safe to do.

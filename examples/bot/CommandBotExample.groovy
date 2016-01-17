@@ -15,7 +15,7 @@ bot.defaultPrefix = ["!", "$"] // can be a string or a list. i know it being a l
 // a list of prefixes / a prefix
 bot.addCommand new Command("hello"){
 	def run(Event e){
-		e.data.sendMessage("Hello there, ${e.data.message.author.mention}!")
+		e.data.sendMessage("Hello there, ${e.data.author.mention}!")
 	}
 }
 
@@ -28,7 +28,7 @@ bot.addCommand new ClosureCommand({ Event e, Command c ->
 	// if you have two arguments, make sure to make the first one the event object,
 	// and the second one a command object.
 	// if you have one, make sure to make that one an event object.
-	e.data.sendMessage("Hello there, ${e.data.message.author.mention}!")
+	e.data.sendMessage("Hello there, ${e.data.author.mention}!")
 }, "hello")
 
 // here we login with the api and register our listeners.
