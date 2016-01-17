@@ -210,9 +210,12 @@ class RandomUtil {
 
 		}
 		String.metaClass.bold = { return "**$delegate**" }
+		String.metaClass.bolden = { return "**$delegate**" }
 		String.metaClass.italic = { return "*$delegate*" }
+		String.metaClass.italicize = { return "*$delegate*" }
 		String.metaClass.underline = { return "__${delegate}__" }
 		String.metaClass.code = { return "`$delegate`" }
 		String.metaClass.block = { String language="" -> return "```$language\n$delegate```" }
+		String.metaClass.strikethrough = { return "~~$delegate~~" }
 	}
 }
