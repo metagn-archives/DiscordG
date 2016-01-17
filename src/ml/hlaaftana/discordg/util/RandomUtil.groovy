@@ -201,4 +201,18 @@ class RandomUtil {
 		}
 		return returnThis
 	}
+
+	static registerDiscordStringMethods(){
+		String.metaClass.removeFormatting = {
+			return delegate.replace("~", "\u200b~").replace("_", "\u200b_").replace("*", "\u200b*")
+				.replace("`", "\u200b`").replace(":", "\u200b:").replace("  ", "\u200b`").replace("/", "\u200b/")
+				.replace("@", "\u200b@").replace("<", "\u200b<").replace(">", "\u200b>")
+
+		}
+		String.metaClass.bold = { return "**$delegate**" }
+		String.metaClass.italic = { return "*$delegate*" }
+		String.metaClass.underline = { return "__${delegate}__" }
+		String.metaClass.code = { return "`$delegate`" }
+		String.metaClass.block = { String language="" -> return "```$language\n$delegate```" }
+	}
 }

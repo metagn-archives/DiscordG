@@ -1,5 +1,6 @@
 package ml.hlaaftana.discordg.objects
 
+import groovy.json.JsonException
 import java.util.List
 
 import ml.hlaaftana.discordg.util.JSONUtil
@@ -39,7 +40,11 @@ class TextChannel extends Channel {
 	 */
 	Message sendMessage(String content, boolean tts=false) {
 		if (content.length() > 2000) throw new Exception("You tried to send a message longer than 2000 characters.")
-		return new Message(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/channels/${this.id}/messages", ["content": content, "tts": tts, "channel_id": this.id])))
+		try{
+			return new Message(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/channels/${this.id}/messages", ["content": content, "tts": tts, "channel_id": this.id])))
+		}catch (JsonException ex){
+			throw new Exception("You need to enter the chill zone.")
+		}
 	}
 
 	/**
