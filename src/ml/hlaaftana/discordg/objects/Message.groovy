@@ -54,6 +54,9 @@ class Message extends Base{
 	 */
 	TextChannel getChannel() { return this.getTextChannel() }
 
+	/**
+	 * @return a list of users who were mentioned in this message.
+	 */
 	List<User> getMentions(){ return this.object["mentions"].collect { new User(api, it) } }
 
 	/**

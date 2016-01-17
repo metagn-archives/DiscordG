@@ -50,9 +50,9 @@ class WSClient{
 	@OnWebSocketMessage
 	void onMessage(Session session, String message) throws IOException{
 		def clos = {
-			if (api.ignorePresenceUpdate) return
 			Map content = JSONUtil.parse(message)
 			String type = content["t"]
+			if (api.ignorePresenceUpdate && type == "PRESENCE_UPDATE") return
 			Map data = content["d"]
 			int responseAmount = content["s"]
 			if (type.equals("READY") || type.equals("RESUMED")){

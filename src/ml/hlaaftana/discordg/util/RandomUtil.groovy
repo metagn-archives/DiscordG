@@ -194,14 +194,9 @@ class RandomUtil {
 		return [color.red, color.green, color.blue]
 	}
 
-	static boolean findStrings(String string, String...strings){
-		boolean returnThis = false
-		for (s in strings){
-			returnThis |= s in string
-		}
-		return returnThis
-	}
-
+	/**
+	 * Registers a bunch of methods to help you with Discord formatting to the String meta class.
+	 */
 	static registerDiscordStringMethods(){
 		String.metaClass.removeFormatting = {
 			return delegate.replace("~", "\u200b~").replace("_", "\u200b_").replace("*", "\u200b*")

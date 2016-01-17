@@ -210,6 +210,10 @@ class API{
 		return fields[key]
 	}
 
+	/**
+	 * Triggers all listeners for an event.
+	 * @param event - the event object to provide.
+	 */
 	void dispatchEvent(Event event){
 		this.listeners.each { Map.Entry<String, List<Closure>> entry ->
 			try{
