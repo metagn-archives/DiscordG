@@ -32,11 +32,11 @@ api = APIBuilder.build("example@example.com", "example123")
 api.addListener("message create") { Event e ->
 	// MESSAGE_CREATE's data is just one Message object called "message".
 	// We can get the content of that message with Message#getContent() which Groovy fills in.
-	if (e.data["message"].content.startsWith("!ping")){
-		// Note that you can replace "e.data["message"]" with "e.data.message".
-		e.data["message"].channel.sendMessage("Pong!")
+	if (e.data.message.content.startsWith("!ping")){
+		// Note that you can replace "e.data.message" with "e.data["message"]".
+		e.data.sendMessage("Pong!")
 		// Simple as that! You could even send the message with TTS by doing:
-		// e.data["message"].getChannel().sendMessage("Pong!", true)
+		// e.data.sendMessage("Pong!", true)
 	}
 }
 // Sidenote, instead of "APIBuilder.build("email", "password")" above, you could have typed
