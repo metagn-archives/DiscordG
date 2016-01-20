@@ -53,13 +53,11 @@ class Server extends Base {
 	/**
 	 * @return the default text channel for this server.
 	 */
-	TextChannel getDefaultChannel(){
-		return this.textChannels.find { it.id == this.id }
-	}
-
-	VoiceChannel getAfkChannel(){
-		return this.voiceChannels.find { it.id == this.object["afk_channel_id"] }
-	}
+	TextChannel getDefaultChannel(){ return this.textChannels.find { it.id == this.id } }
+	VoiceChannel getAfkChannel(){ return this.voiceChannels.find { it.id == this.object["afk_channel_id"] } }
+	int getAfkTimeout(){ return this.object["afk_timeout"] }
+	Channel getWidgetChannel(){ return this.channels.find { it.id == this.object["embed_channel_id"] } }
+	boolean isWidgetEnabled(){ return this.object["embed_enabled"] }
 
 	/**
 	 * @return the {@literal @everyone} role for this server.
