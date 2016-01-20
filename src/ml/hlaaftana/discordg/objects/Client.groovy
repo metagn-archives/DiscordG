@@ -272,6 +272,10 @@ class Client{
 		return new Invite(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/channels/${id}/invites", data)))
 	}
 
+	void moveToChannel(Member member, VoiceChannel channel){
+		api.requester.patch("https://discordapp.com/api/guilds/${member.server.id}/members/{member.id}", ["channel_id": channel.id])
+	}
+
 	/**
 	 * Edits the user's profile.
 	 * @param data - the data to edit with. Be really careful with this. Can be: <br>

@@ -91,4 +91,8 @@ class Member extends User{
 	void kick() {
 		this.getServer().kickMember(this)
 	}
+
+	void moveTo(VoiceChannel channel){
+		api.requester.patch("https://discordapp.com/api/guilds/${this.server.id}/members/{this.id}", ["channel_id": channel.id])
+	}
 }
