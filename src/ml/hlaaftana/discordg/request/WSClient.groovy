@@ -29,7 +29,7 @@ class WSClient{
 		this.session = session
 		this.session.getPolicy().setMaxTextMessageSize(Integer.MAX_VALUE)
 		this.session.getPolicy().setMaxTextMessageBufferSize(Integer.MAX_VALUE)
-		this.send([
+		Map a = [
 			"op": 2,
 			"d": [
 				"token": api.token,
@@ -42,7 +42,9 @@ class WSClient{
 					"\$referring_domain": "discordapp.com",
 				],
 			],
-		])
+		]
+		if (api.largeThreshold)
+		this.send()
 		Log.info "Sent API details."
 		latch.countDown()
 	}

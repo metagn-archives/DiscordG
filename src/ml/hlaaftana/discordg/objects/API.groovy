@@ -36,6 +36,7 @@ class API{
 	boolean cacheTokens = true
 	int eventThreadCount = 3 // if your bot is on tons of big servers, this might help however take up some CPU
 	boolean ignorePresenceUpdate = false // if your bot is on tons of big servers, this might help you lose some CPU
+	int largeThreshold = 100 // if your bot is on tons of big servers, this might help your request speeds
 
 	/**
 	 * Builds a new API object. This is safe to do.
@@ -355,10 +356,12 @@ class API{
 
 	void addGuildUpdateListener(){
 		this.addListener("guild update", { Event e ->
-			Server newServer = e.data.server
+			Map newServer = e.data.server.object
 			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(newServer.getId()) }
+			Map copyOfServerToRemove = serverToRemove
+			copyOfServerToRemove << newServer
 			this.readyData["guilds"].remove(serverToRemove)
-			this.readyData["guilds"].add(newServer.object)
+			this.readyData["guilds"].add(copyOfServerToRemove)
 		})
 	}
 

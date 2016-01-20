@@ -21,5 +21,5 @@ class Base {
 	 * @return the name of the object.
 	 */
 	String getName(){ return object["name"] }
-	String toString(){ return this.id }
+	String toString(){ return this.name }
 }

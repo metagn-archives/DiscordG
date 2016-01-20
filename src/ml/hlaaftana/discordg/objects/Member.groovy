@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.List
 import java.net.URL
 
-import ml.hlaaftana.discordg.util.JSONUtil
+import ml.hlaaftana.discordg.util.*
 
 /**
  * A member of a server. Extends the User object.
@@ -36,7 +36,7 @@ class Member extends User{
 	/**
 	 * @return a Date object of when the member joined the server.
 	 */
-	Date getJoinDate(){ return new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSSSSXXX").parse(this.joinDateRaw) }
+	Date getJoinDate(){ return RandomUtil.toDiscordDate(this.joinDateRaw) }
 	/**
 	 * @return the roles this member has.
 	 */
@@ -44,8 +44,8 @@ class Member extends User{
 		List array = object["roles"]
 		List<Role> roles = new ArrayList<Role>()
 		for (o in array){
-			for (r in this.getServer().getRoles()){
-				if (o.equals(r.getId())) roles.add(r)
+			for (r in this.server.roles){
+				if (o == r.id) roles.add(r)
 			}
 		}
 		return roles
