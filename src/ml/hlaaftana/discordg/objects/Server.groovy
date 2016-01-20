@@ -31,23 +31,19 @@ class Server extends Base {
 	 * @return the URL of the icon of this server as a string.
 	 */
 	String getIcon() {
-		if (this.getIconHash != null){
-			return "https://discordapp.com/api/users/${this.getId()}/icons/${this.getIconHash()}.jpg"
+		if (this.iconHash != null){
+			return "https://discordapp.com/api/users/${this.id}/icons/${this.iconHash}.jpg"
 		}else{
 			return ""
 		}
 	}
-	/**
-	 * @return the URL of the icon of this server as a URL object.
-	 */
-	URL getIconURL() { return new URL(this.getIcon()) }
 
 	/**
 	 * @return the owner of this server as a Member object.
 	 */
 	Member getOwner() {
-		for (m in this.getMembers()){
-			if (m.getId().equals(object["owner_id"])){
+		for (m in this.members){
+			if (m.id == object["owner_id"]){
 				return m
 			}
 		}
@@ -58,13 +54,17 @@ class Server extends Base {
 	 * @return the default text channel for this server.
 	 */
 	TextChannel getDefaultChannel(){
-		return this.getTextChannels().find { it.id.equals(this.getId()) }
+		return this.textChannels.find { it.id == this.id }
+	}
+
+	VoiceChannel getAfkChannel(){
+		return this.voiceChannels.find { it.id == this.object["afk_channel_id"] }
 	}
 
 	/**
 	 * @return the {@literal @everyone} role for this server.
 	 */
-	Role getDefaultRole(){ return this.getRoles().find { it.id.equals(this.getId()) } }
+	Role getDefaultRole(){ return this.roles.find { it.id == this.id } }
 
 	/**
 	 * Edit this server. You can currently only edit the name with the API. I'll add changing the icon later.
@@ -72,14 +72,14 @@ class Server extends Base {
 	 * @return the edited server as a Server object.
 	 */
 	Server edit(String newName) {
-		return new Server(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/guilds/${this.getId()}", new HashMap().put("name", newName))))
+		return new Server(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/guilds/${this.id}", ["name", newName])))
 	}
 
 	/**
 	 * Leaves the server. Deletes it if the connected client owns it.
 	 */
 	void leave() {
-		api.requester.delete("https://discordapp.com/api/guilds/${this.getId()}")
+		api.requester.delete("https://discordapp.com/api/guilds/${this.id}")
 	}
 
 	/**
@@ -88,7 +88,7 @@ class Server extends Base {
 	 * @return a TextChannel object of the created text channel.
 	 */
 	TextChannel createTextChannel(String name) {
-		return new TextChannel(api, api.requester.post("https://discordapp.com/api/guilds/${this.getId()}/channels", ["name": name, "type": "text"]))
+		return new TextChannel(api, api.requester.post("https://discordapp.com/api/guilds/${this.id}/channels", ["name": name, "type": "text"]))
 	}
 
 	/**
@@ -97,17 +97,17 @@ class Server extends Base {
 	 * @return a VoiceChannel object of the created voice channel.
 	 */
 	VoiceChannel createVoiceChannel(String name) {
-		return new VoiceChannel(api, api.requester.post("https://discordapp.com/api/guilds/${this.getId()}/channels", ["name": name, "type": "voice"]))
+		return new VoiceChannel(api, api.requester.post("https://discordapp.com/api/guilds/${this.id}/channels", ["name": name, "type": "voice"]))
 	}
 
 	/**
 	 * @return a List of TextChannels in the server.
 	 */
 	List<TextChannel> getTextChannels(){
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.getId()}/channels"))
-		List<TextChannel> channels = new ArrayList<TextChannel>()
+		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
+		List<TextChannel> channels = []
 		for (o in array){
-			if (o["type"].equals("text")) channels.add(new TextChannel(api, o))
+			if (o["type"] == "text") channels.add(new TextChannel(api, o))
 		}
 		return channels
 	}
@@ -116,10 +116,10 @@ class Server extends Base {
 	 * @return a List of VoiceChannels in the server.
 	 */
 	List<VoiceChannel> getVoiceChannels(){
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.getId()}/channels"))
-		List<VoiceChannel> channels = new ArrayList<VoiceChannel>()
+		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
+		List<VoiceChannel> channels = []
 		for (o in array){
-			if (o["type"].equals("voice")) channels.add(new VoiceChannel(api, o))
+			if (o["type"] == "voice") channels.add(new VoiceChannel(api, o))
 		}
 		return channels
 	}
@@ -130,8 +130,8 @@ class Server extends Base {
 	 * @return the channel.
 	 */
 	TextChannel getTextChannelById(String id){
-		for (tc in this.getTextChannels()){
-			if (tc.getId().equals(id)) return tc
+		for (tc in this.textChannels){
+			if (tc.id == id) return tc
 		}
 		return null
 	}
@@ -142,8 +142,8 @@ class Server extends Base {
 	 * @return the channel.
 	 */
 	VoiceChannel getVoiceChannelById(String id){
-		for (vc in this.getVoiceChannels()){
-			if (vc.getId().equals(id)) return vc
+		for (vc in this.voiceChannels){
+			if (vc.id == id) return vc
 		}
 		return null
 	}
@@ -152,8 +152,8 @@ class Server extends Base {
 	 * @return all channels in the server.
 	 */
 	List<Channel> getChannels(){
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.getId()}/channels"))
-		List<Channel> channels = new ArrayList<Channel>()
+		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
+		List<Channel> channels = []
 		for (o in array){
 			channels.add(new Channel(api, o))
 		}
@@ -165,7 +165,7 @@ class Server extends Base {
 	 */
 	List<Role> getRoles() {
 		List array = object["roles"].collect { it }
-		List<Role> roles = new ArrayList<Role>()
+		List<Role> roles = []
 		for (o in array){
 			roles.add(new Role(api, o))
 		}
@@ -177,7 +177,7 @@ class Server extends Base {
 	 */
 	List<Member> getMembers() {
 		List array = object["members"].collect { it }
-		List<Member> members = new ArrayList<Member>()
+		List<Member> members = []
 		for (o in array){
 			members.add(new Member(api, o))
 		}
@@ -190,11 +190,11 @@ class Server extends Base {
 	 * @param roles - the roles the member will be overriden with.
 	 */
 	void editRoles(Member member, List<Role> roles) {
-		List rolesArray = new ArrayList()
+		List rolesArray = []
 		for (r in roles){
-			rolesArray.add(r.getId())
+			rolesArray.add(r.id)
 		}
-		api.requester.patch("https://discordapp.com/api/guilds/${this.getId()}/members/${member.getId()}", ["roles": rolesArray])
+		api.requester.patch("https://discordapp.com/api/guilds/${this.id}/members/${member.id}", ["roles": rolesArray])
 	}
 
 	/**
@@ -203,7 +203,7 @@ class Server extends Base {
 	 * @param roles - the roles to add.
 	 */
 	void addRoles(Member member, List<Role> roles) {
-		this.editRoles(member, member.getRoles().addAll(roles))
+		this.editRoles(member, member.roles.with { addAll(roles) })
 	}
 
 	/**
@@ -218,8 +218,8 @@ class Server extends Base {
 	 * @return a List of Users who are banned.
 	 */
 	List<User> getBans() {
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.getId()}/bans"))
-		List<User> bans = new ArrayList<User>()
+		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/bans"))
+		List<User> bans = []
 		for (o in array){
 			bans.add(new User(api, o["user"]))
 		}
@@ -232,7 +232,7 @@ class Server extends Base {
 	 * @param days - the amount of days to delete the user's messages until. I explained that badly but you get the deal if you ever banned someone on Discord.
 	 */
 	void ban(User user, int days=0) {
-		api.requester.put("https://discordapp.com/api/guilds/${this.getId()}/bans/${user.getId()}?delete-message-days=${days}")
+		api.requester.put("https://discordapp.com/api/guilds/${this.id}/bans/${user.id}?delete-message-days=${days}", [:])
 	}
 
 	/**
@@ -240,7 +240,7 @@ class Server extends Base {
 	 * @param user - the User object.
 	 */
 	void unban(User user) {
-		api.requester.delete("https://discordapp.com/api/guilds/${this.getId()}/bans/${user.getId()}")
+		api.requester.delete("https://discordapp.com/api/guilds/${this.id}/bans/${user.id}")
 	}
 
 	/**
@@ -251,7 +251,7 @@ class Server extends Base {
 	 */
 	Role createRole(Map<String, Object> data) {
 		Map defaultData = [color: 0, hoist: false, name: "new role", permissions: 0]
-		Role createdRole = new Role(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/guilds/${this.getId()}/roles", [:])))
+		Role createdRole = new Role(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/guilds/${this.id}/roles", [:])))
 		return editRole(createdRole, defaultData << data)
 	}
 
@@ -259,11 +259,14 @@ class Server extends Base {
 	 * Edits a role.
 	 * @param role - the Role object.
 	 * @param data - a map containing data for the role. This can be: <br>
-	 * [color: 0xFFFF00, hoist: true, name: "Hey there young fellow", permissions: 0]
+	 * [color: 0xFFFF00, hoist: true, name: "Hey there young fellow", permissions: 0] <br>
+	 * permissions can be a Permissions object and color can be a Colors object.
 	 * @return the edited role.
 	 */
 	Role editRole(Role role, Map<String, Object> data) {
-		return new Role(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/guilds/${this.getId()}/roles/${role.getId()}", data)))
+		if (data["color"] instanceof Colors) data["color"] = data["color"].value
+		if (data["permissions"] instanceof Permissions)
+		return new Role(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}", data)))
 	}
 
 	/**
@@ -271,6 +274,6 @@ class Server extends Base {
 	 * @param role - the Role object.
 	 */
 	void deleteRole(Role role) {
-		api.requester.delete("https://discordapp.com/api/guilds/${this.getId()}/roles/${role.getId()}")
+		api.requester.delete("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}")
 	}
 }

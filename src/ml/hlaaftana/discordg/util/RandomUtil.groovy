@@ -1,6 +1,7 @@
 package ml.hlaaftana.discordg.util
 
 import java.awt.Color
+import java.text.SimpleDateFormat
 
 /**
  * Utilities unrelated to the actual API itself. In fact, most are not even used.
@@ -194,6 +195,10 @@ class RandomUtil {
 		return [color.red, color.green, color.blue]
 	}
 
+	static Date toDiscordDate(String string){
+		return new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSSSSXXX").parse(string)
+	}
+
 	/**
 	 * Registers a bunch of methods to help you with Discord formatting to the String meta class.
 	 */
@@ -212,5 +217,19 @@ class RandomUtil {
 		String.metaClass.code = { return "`$delegate`" }
 		String.metaClass.block = { String language="" -> return "```$language\n$delegate```" }
 		String.metaClass.strikethrough = { return "~~$delegate~~" }
+	}
+
+	static registerListMethods(){
+		AbstractList.metaClass.allAreEqual = {
+			boolean areEqual = true
+			for (e in delegate){
+				println "do you even interate"
+				println "e"
+				println delegate[0]
+				println ""
+				areEqual &= e == delegate[0]
+			}
+			return areEqual
+		}
 	}
 }

@@ -57,8 +57,8 @@ class Requester{
 	 * @param url - the URL string.
 	 * @return the response as a string.
 	 */
-	def put(String url){
-        return headerUp(Unirest.put(url)).asString().getBody()
+	def put(String url, Map body){
+        return headerUp(Unirest.put(url)).body(JSONUtil.json(body)).asString().getBody()
 	}
 
 	/**

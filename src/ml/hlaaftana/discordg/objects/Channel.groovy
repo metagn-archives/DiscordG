@@ -31,9 +31,9 @@ class Channel extends Base{
 	/**
 	 * @return the server of the channel. null if private.
 	 */
-	Server getServer(){ if (this.isPrivate()) return null
-		for (s in api.client.getServers()){
-			if (s.getId().equals(object["guild_id"])) return s
+	Server getServer(){ if (this."private") return null
+		for (s in api.client.servers){
+			if (s.id == object["guild_id"]) return s
 		}
 	}
 
@@ -41,7 +41,7 @@ class Channel extends Base{
 	 * Deletes the channel.
 	 */
 	void delete() {
-		api.getRequester().delete("https://discordapp.com/api/channels/${this.getId()}")
+		api.requester.delete("https://discordapp.com/api/channels/${this.id}")
 	}
 
 	/**
@@ -51,6 +51,22 @@ class Channel extends Base{
 	 * @return the edited channel.
 	 */
 	Channel edit(Map<String, Object> data) {
-		return new Channel(api, api.getRequester().patch("https://discordapp.com/api/channels/${this.getId()}", ["name": (data.containsKey("name")) ? data["name"].toString() : this.getName(), "position": (data.containsKey("position")) ? data["position"] : this.getPosition(), "topic": (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic()]))
+		return new Channel(api, api.requester.patch("https://discordapp.com/api/channels/${this.id}", ["name": (data.containsKey("name")) ? data["name"].toString() : this.getName(), "position": (data.containsKey("position")) ? data["position"] : this.getPosition(), "topic": (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic()]))
+	}
+
+	void editPermissions(Base target, def allow, def deny){
+		String id = target.id
+		String type = (target instanceof Role) "role" : "member"
+		int allowBytes = (allow instanceof int) allow : allow.value
+		int denyBytes = (deny instanceof int) deny : deny.value
+		api.requester.put("https://discordapp.com/api/channels/${this.id}/permissions/${id}", [allow: allowBytes, deny: denyBytes, id: id, type: type])
+	}
+
+	void addPermissions(Base target, def allow, def deny){
+		this.editPermissions(target, allow, deny)
+	}
+	
+	void deletePermissions(Base target){
+		api.requester.delete("https://discordapp.com/api/channels/${this.id}/permissions/${target.id}")
 	}
 }
