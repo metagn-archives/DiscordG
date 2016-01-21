@@ -195,10 +195,6 @@ class RandomUtil {
 		return [color.red, color.green, color.blue]
 	}
 
-	static Date toDiscordDate(String string){
-		return new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss.SSSSSSXXX").parse(string)
-	}
-
 	/**
 	 * Registers a bunch of methods to help you with Discord formatting to the String meta class.
 	 */

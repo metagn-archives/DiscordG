@@ -28,7 +28,7 @@ class Message extends Base{
 	/**
 	 * @return a Date of when the message was created.
 	 */
-	Date getCreateTime(){ return RandomUtil.toDiscordDate(this.timestampRaw) }
+	Date getCreateTime(){ return ConversionUtil.toDiscordDate(this.timestampRaw) }
 	/**
 	 * @return a raw timestamp string of when the message was edited.
 	 */
@@ -36,7 +36,7 @@ class Message extends Base{
 	/**
 	 * @return a Date of when the message was edited.
 	 */
-	Date getEditTime(){ return RandomUtil.toDiscordDate(this.editTimeRaw) }
+	Date getEditTime(){ return ConversionUtil.toDiscordDate(this.editTimeRaw) }
 	/**
 	 * @return whether or not this message has text to speech.
 	 */

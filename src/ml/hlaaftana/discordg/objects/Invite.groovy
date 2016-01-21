@@ -1,6 +1,6 @@
 package ml.hlaaftana.discordg.objects
 
-import ml.hlaaftana.discordg.util.Log
+import ml.hlaaftana.discordg.util.*
 
 /**
  * An invite to a Discord server.
@@ -38,7 +38,11 @@ class Invite extends Base {
 	/**
 	 * @return when the invite was created.
 	 */
-	String getCreatedDate(){ return object["created_at"] }
+	String getCreateTimeRaw(){ return object["created_at"] }
+	/**
+	 * @return when the invite was created.
+	 */
+	Date getCreateTime(){ return ConversionUtil.toDiscordDate(object["created_at"]) }
 	/**
 	 * @return whether or not the invite is temporary.
 	 */
