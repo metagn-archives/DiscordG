@@ -1,7 +1,9 @@
 import ml.hlaaftana.discordg.APIBuilder
 import ml.hlaaftana.discordg.objects.*
 import ml.hlaaftana.discordg.util.bot.CommandBot
-import ml.hlaaftana.discordg.util.bot.CommandBot.*
+import ml.hlaaftana.discordg.util.bot.CommandBot.Command
+import ml.hlaaftana.discordg.util.bot.CommandBot.ResponseCommand
+import ml.hlaaftana.discordg.util.bot.CommandBot.ClosureCommand
 
 API api = APIBuilder.build() // we build the api. if you want to configure the api,
 // go ahead. make sure to use commandBotObject.api after constructing CommandBot though
