@@ -7,7 +7,7 @@ API api = APIBuilder.build() // we build the api. if you want to configure the a
 // go ahead. make sure to use commandBotObject.api after constructing CommandBot though
 CommandBot bot = new CommandBot(api) // notice how we don't log in yet
 
-bot.defaultPrefix = ["!", "$"] // can be a string or a list. i know it being a list
+bot.defaultPrefix = ["!", "\$"] // can be a string or a list. i know it being a list
 // doesn't make grammatical sense but who cares
 
 // here we add an anonymous class extending Command. its only alias is "hello", and

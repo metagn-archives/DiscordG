@@ -63,8 +63,8 @@ class Client{
 	/**
 	 * See Server#edit.
 	 */
-	Server editServer(Server server, String newName) {
-		return server.edit(newName)
+	Server editServer(Server server, Map data) {
+		return server.edit(data)
 	}
 
 	/**

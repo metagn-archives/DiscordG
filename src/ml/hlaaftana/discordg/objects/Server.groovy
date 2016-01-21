@@ -4,7 +4,7 @@ import java.net.URL;
 import java.util.List
 import java.util.Map
 
-import ml.hlaaftana.discordg.util.JSONUtil
+import ml.hlaaftana.discordg.util.*
 
 /**
  * A Discord server/guild.
@@ -22,7 +22,11 @@ class Server extends Base {
 	/**
 	 * @return the timestamp of when this server was created.
 	 */
-	String getCreatedTimestamp(){ return object["joined_at"] }
+	String getCreateTimeRaw(){ return object["joined_at"] }
+	/**
+	 * @return the timestamp of when this server was created.
+	 */
+	Date getCreateTime(){ return ConversionUtil.toDiscordDate(object["joined_at"]) }
 	/**
 	 * @return the hash/ID of this server's icon.
 	 */
@@ -65,12 +69,24 @@ class Server extends Base {
 	Role getDefaultRole(){ return this.roles.find { it.id == this.id } }
 
 	/**
-	 * Edit this server. You can currently only edit the name with the API. I'll add changing the icon later.
-	 * @param newName - the new name for the server.
+	 * Edit this server. This can be:
+	 * [name: "Boy oh boy oh boy", region: "london", icon: ConversionUtil.encodeToBase64(new File("image.jpg")), afkChannel: voiceChannel, afkTimeout: 60 * 60 * 1000]
 	 * @return the edited server as a Server object.
 	 */
-	Server edit(String newName) {
-		return new Server(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/guilds/${this.id}", ["name", newName])))
+	Server edit(Map data) {
+		Map copyOfData = [name: data.name, region: data.region, icon: data.icon, afk_channel_id: data.afkChannel?.id, afk_timeout: data.afkTimeout]
+		Map copyOfCopyOfData = [:] << copyOfData // avoid concurrentmodificationexception
+		copyOfData.entrySet().each {
+			if (it.value == null){
+				if (it.key == "name"){
+					copyOfCopyOfData.name = this.name
+				}else{
+					copyOfCopyOfData.remove(it.key, it.value)
+				}
+			}
+		}
+		copyOfData = copyOfCopyOfData
+		return new Server(api, this.object << JSONUtil.parse(api.requester.patch("https://discordapp.com/api/guilds/${this.id}", copyOfData)))
 	}
 
 	/**
@@ -201,7 +217,7 @@ class Server extends Base {
 	 * @param roles - the roles to add.
 	 */
 	void addRoles(Member member, List<Role> roles) {
-		this.editRoles(member, member.roles.with { addAll(roles) })
+		this.editRoles(member, member.roles + roles)
 	}
 
 	/**
@@ -263,7 +279,7 @@ class Server extends Base {
 	 */
 	Role editRole(Role role, Map<String, Object> data) {
 		if (data["color"] instanceof Colors) data["color"] = data["color"].value
-		if (data["permissions"] instanceof Permissions)
+		if (data["permissions"] instanceof Permissions) data["permissions"] = data["permissions"].value
 		return new Role(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}", data)))
 	}
 

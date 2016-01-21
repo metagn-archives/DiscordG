@@ -49,7 +49,7 @@ class TextChannel extends Channel {
 	}
 
 	/**
-	 * Sends a file to a channel. Currently not directly working.
+	 * Sends a file to a channel.
 	 * @param file - the File object to send.
 	 * @return - the sent message as a Message object.
 	 */

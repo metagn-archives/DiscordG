@@ -1,13 +1,13 @@
 package ml.hlaaftana.discordg.objects
 
-enum Permissions {
-	ALL_FALSE(0),
+class Permissions {
+	/*ALL_FALSE(0),
 	ALL_TRUE(0b00000011111100111111110000111111),
 	CHANNEL_ALL_TRUE(0b00000011111100111111110000011001),
 	GENERAL_ALL_TRUE(0b00000000000000000000000000111111),
 	TEXT_ALL_TRUE(0b00000000000000111111110000000000),
-	VOICE_ALL_TRUE(0b00000011111100000000000000000000)
-
+	VOICE_ALL_TRUE(0b00000011111100000000000000000000)*/
+	String bytes
 	int value
 
 	Permissions(int value){ this.value = value }
@@ -49,7 +49,7 @@ enum Permissions {
 			if (p.key.toLowerCase() == permissionName.toLowerCase()){
 				for (int i = 0; i < 33; i++){
 					if (this.map[i] == p.value){
-						this[i] = truth
+						return this[i] = truth
 					}
 				}
 			}
@@ -57,13 +57,17 @@ enum Permissions {
 	}
 
 	boolean getAt(int index){
-		return (this.value >> index) & 1 as boolean
+		return ((this.value >> index) & 1) as boolean
 	}
 
 	int putAt(int index, boolean truth){
 		if (truth) this.value |= (1 << index)
 		else this.value &= ~(1 << index)
 		return this.value
+	}
+
+	int putAt(String permissionName, boolean truth){
+		return set(permissionName, truth)
 	}
 
 	def asType(Class target){

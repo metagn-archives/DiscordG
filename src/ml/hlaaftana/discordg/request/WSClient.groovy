@@ -43,8 +43,8 @@ class WSClient{
 				],
 			],
 		]
-		if (api.largeThreshold)
-		this.send()
+		if (api.largeThreshold) a["d"]["large_threshold"] = api.largeThreshold
+		this.send(a)
 		Log.info "Sent API details."
 		latch.countDown()
 	}
@@ -63,7 +63,7 @@ class WSClient{
 					keepAliveThread = new Thread({
 						while (true){
 							this.send(["op": 1, "d": System.currentTimeMillis().toString()])
-							Thread.sleep(heartbeat)
+							try{ Thread.sleep(heartbeat) }catch (InterruptedException ex){}
 						}
 					})
 					keepAliveThread.setDaemon(true)
@@ -261,14 +261,6 @@ class WSClient{
 		}catch (ex){
 
 		}
-		print "Want to reconnect? [y/n] "
-		Scanner scnr = new Scanner(System.in)
-		if (!scnr.next() == "y"){
-			Log.info "Exiting."
-			System.exit(0)
-		}else{
-			api.login(api.email, api.password)
-		}
 	}
 
 	@OnWebSocketError
@@ -283,9 +275,9 @@ class WSClient{
 	void send(Object message){
 		try{
 			if (message instanceof Map)
-				session.getRemote().sendString(JSONUtil.json(message))
+				session.remote.sendString(JSONUtil.json(message))
 			else
-				session.getRemote().sendString(message.toString())
+				session.remote.sendString(message.toString())
 		}catch (e){
 			e.printStackTrace()
 		}

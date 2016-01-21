@@ -36,7 +36,7 @@ class API{
 	boolean cacheTokens = true
 	int eventThreadCount = 3 // if your bot is on tons of big servers, this might help however take up some CPU
 	boolean ignorePresenceUpdate = false // if your bot is on tons of big servers, this might help you lose some CPU
-	int largeThreshold = 100 // if your bot is on tons of big servers, this might help your request speeds
+	int largeThreshold // if your bot is on tons of big servers, this might help your request speeds
 
 	/**
 	 * Builds a new API object. This is safe to do.
@@ -129,6 +129,21 @@ class API{
 			}
 		})
 		thread.start()
+	}
+
+	void logout(){
+		try{
+			this.requester.post("https://discordapp.com/api/auth/logout", ["token": this.token])
+			this.wsClient.keepAliveThread.interrupt()
+			this.wsClient.session.close(0, "Logout")
+			this.wsClient = null
+			this.token = null
+			this.requester = null
+			this.client = null
+			System.exit(0)
+		}catch (ex){
+
+		}
 	}
 
 	/**
@@ -357,7 +372,7 @@ class API{
 	void addGuildUpdateListener(){
 		this.addListener("guild update", { Event e ->
 			Map newServer = e.data.server.object
-			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(newServer.getId()) }
+			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(newServer.id) }
 			Map copyOfServerToRemove = serverToRemove
 			copyOfServerToRemove << newServer
 			this.readyData["guilds"].remove(serverToRemove)

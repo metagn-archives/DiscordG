@@ -36,7 +36,7 @@ class Member extends User{
 	/**
 	 * @return a Date object of when the member joined the server.
 	 */
-	Date getJoinDate(){ return RandomUtil.toDiscordDate(this.joinDateRaw) }
+	Date getJoinDate(){ return ConversionUtil.toDiscordDate(this.joinDateRaw) }
 	/**
 	 * @return the roles this member has.
 	 */
