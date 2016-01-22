@@ -86,7 +86,7 @@ class API{
 				if (tokenCache.exists()){
 					try{
 						if (cacheTokens){
-							token = new JsonSlurper().parse(tokenCache)["token"]
+							token = new JsonSlurper().parse(tokenCache)[email]["token"]
 						}else{
 							token = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
 						}
@@ -96,9 +96,9 @@ class API{
 							Log.debug "Token cache file seems to be malformed, full file: " + tokenCache.text
 
 							tokenCache.createNewFile()
-							tokenCache.write(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))
+							tokenCache.write([email: JSONUtil.json(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))])
 
-							token = new JsonSlurper().parseFile(tokenCache)["token"]
+							token = new JsonSlurper().parseFile(tokenCache)[email]["token"]
 						}else{
 							token = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
 						}
@@ -106,9 +106,9 @@ class API{
 				}else{
 					if (cacheTokens){
 						tokenCache.createNewFile()
-						tokenCache.write(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))
+						tokenCache.write([email: JSONUtil.json(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))])
 
-						token = new JsonSlurper().parse(tokenCache)["token"]
+						token = new JsonSlurper().parse(tokenCache)[email]["token"]
 					}else{
 						token = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
 					}
