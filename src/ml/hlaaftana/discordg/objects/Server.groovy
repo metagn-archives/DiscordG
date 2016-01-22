@@ -70,11 +70,11 @@ class Server extends Base {
 
 	/**
 	 * Edit this server. This can be:
-	 * [name: "Boy oh boy oh boy", region: "london", icon: ConversionUtil.encodeToBase64(new File("image.jpg")), afkChannel: voiceChannel, afkTimeout: 60 * 60 * 1000]
+	 * [name: "Boy oh boy oh boy", region: "london", icon: ConversionUtil.encodeToBase64(new File("image.jpg")), afkChannel: voiceChannel, afkTimeout: 60 * 60 * 1000, owner: user]
 	 * @return the edited server as a Server object.
 	 */
 	Server edit(Map data) {
-		Map copyOfData = [name: data.name, region: data.region, icon: data.icon, afk_channel_id: data.afkChannel?.id, afk_timeout: data.afkTimeout]
+		Map copyOfData = [name: data.name, region: data.region, icon: data.icon, afk_channel_id: data.afkChannel?.id, afk_timeout: data.afkTimeout, owner_id: data.owner?.id]
 		Map copyOfCopyOfData = [:] << copyOfData // avoid concurrentmodificationexception
 		copyOfData.entrySet().each {
 			if (it.value == null){
