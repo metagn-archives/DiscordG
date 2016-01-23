@@ -270,7 +270,7 @@ class API{
 			Server server = e.data.server
 			Member memberToRemove = e.data.member
 			Map serverInReady = this.readyData["guilds"].find { it["id"].equals(server.getId()) }
-			Map serverInReady2 = serverInReady
+			Map serverInReady2 = serverInReady.subMap(serverInReady.keySet())
 			serverInReady2["members"].remove(memberToRemove.object)
 			this.readyData["guilds"].remove(serverInReady)
 			this.readyData["guilds"].add(serverInReady2)
