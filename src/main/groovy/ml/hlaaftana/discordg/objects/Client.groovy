@@ -108,7 +108,7 @@ class Client{
 		}
 		return servers
 	}
-	
+
 	List<Server> requestServers(){
 		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/users/@me/guilds"))
 		List<Server> servers = []
@@ -123,14 +123,14 @@ class Client{
 	 * See Server#getTextChannels.
 	 */
 	List<TextChannel> getTextChannelsForServer(Server server) {
-		return server.getTextChannels()
+		return server.textChannels
 	}
 
 	/**
 	 * See Server#getVoiceChannels.
 	 */
 	List<VoiceChannel> getVoiceChannelsForServer(Server server) {
-		return server.getVoiceChannels()
+		return server.voiceChannels
 	}
 
 	/**
@@ -155,8 +155,8 @@ class Client{
 	 */
 	List<Member> getAllMembers() {
 		List<Member> members = new ArrayList<Member>()
-		for (s in this.getServers()){
-			for (m in s.getMembers()){
+		for (s in this.servers){
+			for (m in s.members){
 				members.add(m)
 			}
 		}
@@ -170,14 +170,14 @@ class Client{
 	 * See Member#editRoles.
 	 */
 	void editRoles(Member member, List<Role> roles) {
-		member.getServer().editRoles(member, roles)
+		member.server.editRoles(member, roles)
 	}
 
 	/**
 	 * See Member#delete.
 	 */
 	void addRoles(Member member, List<Role> roles) {
-		member.getServer().addRoles(member, roles)
+		member.server.addRoles(member, roles)
 	}
 
 	/**
@@ -228,7 +228,7 @@ class Client{
 	 * [game: "FL Studio 12", idle: "anything. as long as it's defined in the map, the user will become idle"]
 	 */
 	void changeStatus(Map<String, Object> data) {
-		api.getWebSocketClient().send(["op": 3, "d": ["game": ["name": data["game"]], "idle_since": (data["idle"] != null) ? System.currentTimeMillis() : null]])
+		api.wsClient.send(["op": 3, "d": ["game": ["name": data["game"]], "idle_since": (data["idle"] != null) ? System.currentTimeMillis() : null]])
 		for (s in this.servers){
 			api.dispatchEvent(new Event("PRESENCE_UPDATE", [
 				"fullData": [
