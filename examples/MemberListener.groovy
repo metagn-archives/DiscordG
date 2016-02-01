@@ -1,8 +1,7 @@
 import ml.hlaaftana.discordg.objects.*
 import ml.hlaaftana.discordg.APIBuilder
 
-API api
-api = APIBuilder.build("example@example.com", "example123")
+API api = APIBuilder.build("example@example.com", "example123")
 api.addListener("guild member add") { Event e ->
 	e.data.guild.defaultChannel.sendMessage("Welcome to the server, $e.data.member.mention!")
 }

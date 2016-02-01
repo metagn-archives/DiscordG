@@ -36,7 +36,7 @@ class Server extends Base {
 	 */
 	String getIcon() {
 		if (this.iconHash != null){
-			return "https://discordapp.com/api/users/${this.id}/icons/${this.iconHash}.jpg"
+			return "https://discordapp.com/api/guilds/${this.id}/icons/${this.iconHash}.jpg"
 		}else{
 			return ""
 		}
@@ -117,7 +117,7 @@ class Server extends Base {
 	/**
 	 * @return a List of TextChannels in the server.
 	 */
-	List<TextChannel> getTextChannels(){
+	List<TextChannel> requestTextChannels(){
 		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
 		List<TextChannel> channels = []
 		for (o in array){
@@ -129,7 +129,7 @@ class Server extends Base {
 	/**
 	 * @return a List of VoiceChannels in the server.
 	 */
-	List<VoiceChannel> getVoiceChannels(){
+	List<VoiceChannel> requestVoiceChannels(){
 		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
 		List<VoiceChannel> channels = []
 		for (o in array){
@@ -143,11 +143,52 @@ class Server extends Base {
 	 * @param id - the ID of the channel.
 	 * @return the channel.
 	 */
-	TextChannel getTextChannelById(String id){
-		for (tc in this.textChannels){
-			if (tc.id == id) return tc
+	TextChannel requestTextChannelById(String id){
+		return this.requestTextChannels().find { it.id == id }
+	}
+
+	/**
+	 * Gets a voice channel by its ID.
+	 * @param id - the ID of the channel.
+	 * @return the channel.
+	 */
+	VoiceChannel requestVoiceChannelById(String id){
+		return this.requestVoiceChannels().find { it.id == id }
+	}
+
+	/**
+	 * @return all channels in the server.
+	 */
+	List<Channel> requestChannels(){
+		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
+		List<Channel> channels = []
+		for (o in array){
+			channels.add(new Channel(api, o))
 		}
-		return null
+		return channels
+	}
+
+	/**
+	 * @return a List of TextChannels in the server.
+	 */
+	List<TextChannel> getTextChannels(){
+		return this.channels.findAll { it.type == "text" }.collect { new TextChannel(api, it.object) }
+	}
+
+	/**
+	 * @return a List of VoiceChannels in the server.
+	 */
+	List<VoiceChannel> getVoiceChannels(){
+		return this.channels.findAll { it.type == "voice" }.collect { new VoiceChannel(api, it.object) }
+	}
+
+	/**
+	 * Gets a text channel by its ID.
+	 * @param id - the ID of the channel.
+	 * @return the channel.
+	 */
+	TextChannel getTextChannelById(String id){
+		return this.textChannels.find { it.id == id }
 	}
 
 	/**
@@ -156,22 +197,14 @@ class Server extends Base {
 	 * @return the channel.
 	 */
 	VoiceChannel getVoiceChannelById(String id){
-		for (vc in this.voiceChannels){
-			if (vc.id == id) return vc
-		}
-		return null
+		return this.voiceChannels.find { it.id == id }
 	}
 
 	/**
 	 * @return all channels in the server.
 	 */
 	List<Channel> getChannels(){
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
-		List<Channel> channels = []
-		for (o in array){
-			channels.add(new Channel(api, o))
-		}
-		return channels
+		return this.object["channels"].collect { new Channel(api, it) }
 	}
 
 	/**
@@ -240,6 +273,10 @@ class Server extends Base {
 		return bans
 	}
 
+	List<VoiceState> getVoiceStates(){
+		return this.object["voice_states"].collect { new VoiceState(api, it) }
+	}
+
 	/**
 	 * Ban a user from the server.
 	 * @param user - the User to ban.
@@ -289,5 +326,29 @@ class Server extends Base {
 	 */
 	void deleteRole(Role role) {
 		api.requester.delete("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}")
+	}
+
+	Member getMember(User user){ return this.members.find { it.id == user.id } }
+	Member member(User user){ return this.members.find { it.id == user.id } }
+
+	static class VoiceState extends Base {
+		VoiceState(API api, Map object){ super(api, object) }
+
+		VoiceChannel getChannel(){ return api.client.getVoiceChannelById(object["channel_id"]) }
+		VoiceChannel getVoiceChannel(){ return api.client.getVoiceChannelById(object["channel_id"]) }
+		User getUser(){ return api.client.getUserById(object["user_id"]) }
+		Server getServer(){ return api.client.getServerById(object["guild_id"]) }
+		Member getMember(){ return this.server.member(this.user) }
+		boolean isDeaf(){ return this.object["deaf"] }
+		boolean isMute(){ return this.object["mute"] }
+		boolean isDeafened(){ return this.object["deaf"] }
+		boolean isMuted(){ return this.object["mute"] }
+		boolean isSelfDeaf(){ return this.object["self_deaf"] }
+		boolean isSelfMute(){ return this.object["self_mute"] }
+		boolean isSelfDeafened(){ return this.object["self_deaf"] }
+		boolean isSelfMuted(){ return this.object["self_mute"] }
+		boolean isSuppress(){ return this.object["suppress"] }
+		String getToken(){ return this.object["token"] }
+		String getSessionId(){ return this.object["session_id"] }
 	}
 }

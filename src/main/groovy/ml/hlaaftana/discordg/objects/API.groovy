@@ -1,17 +1,12 @@
 package ml.hlaaftana.discordg.objects
 
-import java.nio.channels.MembershipKey;
-
 import com.mashape.unirest.http.*
 
-import groovy.json.JsonBuilder
+import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.lang.Closure
 import ml.hlaaftana.discordg.request.*
 import ml.hlaaftana.discordg.util.*
-
-import javax.websocket.WebSocketContainer
-import javax.websocket.ContainerProvider
 
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest
@@ -27,13 +22,14 @@ class API{
 	String email
 	String password
 	WSClient wsClient
-	ml.hlaaftana.discordg.objects.Client client
+	Client client
 	Map<String, List<Closure>> listeners = new HashMap<String, List<Closure>>()
 	Map readyData
 	Map voiceData = [:]
 	// if you want to use global variables through the API object. mostly for utility
 	Map<String, Object> fields = [:]
 	boolean cacheTokens = true
+	String tokenCachePath = "token.json"
 	int eventThreadCount = 3 // if your bot is on tons of big servers, this might help however take up some CPU
 	boolean ignorePresenceUpdate = false // if your bot is on tons of big servers, this might help you lose some CPU
 	int largeThreshold // if your bot is on tons of big servers, this might help your request speeds
@@ -57,6 +53,10 @@ class API{
 		// check reason below where i define these
 		this.addChannelCreateListener()
 		this.addChannelDeleteListener()
+		this.addChannelUpdateListener()
+		this.addMessageCreateListener()
+		this.addMessageUpdateListener()
+		this.addMessageDeleteListener()
 		this.addGuildCreateListener()
 		this.addGuildDeleteListener()
 		this.addGuildUpdateListener()
@@ -71,6 +71,14 @@ class API{
 
 	WSClient getWebSocketClient(){ return wsClient }
 
+	API startAnew(){
+		API newApi = new API()
+		def (sProps, tProps) = [this, newApi]*.properties*.keySet()
+	    def commonProps = sProps.intersect(tProps) - ["class", "metaClass"]
+	    commonProps.each { newApi[it] = !(it in ["requester", "wsClient", "client", "listeners", "readyData", "voiceData"]) ? this[it] : null }
+		return newApi.with { login(delegate.email, delegate.password) }
+	}
+
 	/**
 	 * Logs onto Discord.
 	 * @param email - the email to log in with.
@@ -82,41 +90,37 @@ class API{
 				Log.info "Logging in..."
 				this.email = email
 				this.password = password
-				File tokenCache = new File("token.json")
+				File tokenCache = new File(tokenCachePath)
 				if (tokenCache.exists()){
 					try{
 						if (cacheTokens){
 							token = new JsonSlurper().parse(tokenCache)[(email)]["token"]
 						}else{
-							token = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
+							token = JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
 						}
 					}catch (ex){
 						if (cacheTokens){
-							Log.warn "Token cache file seems to be malformed."
-							Log.debug "Token cache file seems to be malformed, full file: " + tokenCache.text
+							tokenCache.write(JsonOutput.prettyPrint(JSONUtil.json(new JsonSlurper().parse(tokenCache) + [(email): JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))])))
 
-							tokenCache.createNewFile()
-							tokenCache.write(JSONUtil.json([(email): JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))]))
-
-							token = new JsonSlurper().parseFile(tokenCache)[(email)]["token"]
+							token = new JsonSlurper().parse(tokenCache)[(email)]["token"]
 						}else{
-							token = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
+							token = JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
 						}
 					}
 				}else{
 					if (cacheTokens){
 						tokenCache.createNewFile()
-						tokenCache.write(JSONUtil.json([(email): JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))]))
+						tokenCache.write(JsonOutput.prettyPrint(JSONUtil.json(new JsonSlurper().parse(tokenCache) + [(email): JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))])))
 
 						token = new JsonSlurper().parse(tokenCache)[(email)]["token"]
 					}else{
-						token = JSONUtil.parse(this.getRequester().post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
+						token = JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
 					}
 				}
 				SslContextFactory sslFactory = new SslContextFactory()
 				WebSocketClient client = new WebSocketClient(sslFactory)
 				WSClient socket = new WSClient(this)
-				String gateway = JSONUtil.parse(this.getRequester().get("https://discordapp.com/api/gateway"))["url"]
+				String gateway = JSONUtil.parse(this.requester.get("https://discordapp.com/api/gateway"))["url"]
 				client.start()
 				ClientUpgradeRequest upgreq = new ClientUpgradeRequest()
 				client.connect(socket, new URI(gateway), upgreq)
@@ -187,16 +191,20 @@ class API{
 		}
 	}
 
+	void removeAllListeners(){
+		this.listeners = [:]
+	}
+
 	/**
 	 * Returns an event name from a string by; <br>
-	 * 1. Replacing "CHANGE" and "change" with "UPDATE" and "update" respectively, <br>
+	 * 1. Replacing "change" with "update" and "server" with "guild" (case insensitive), <br>
 	 * 2. Making it uppercase, and <br>
 	 * 3. Replacing spaces with underscores.
 	 * @param str - the string.
 	 * @return the event name.
 	 */
 	String parseEventType(String str){
-		return str.replace("change", "update").replace("update".toUpperCase(), "change".toUpperCase()).toUpperCase().replace(' ', '_')
+		return str.toUpperCase().replace("CHANGE", "UPDATE").replace("SERVER", "GUILD").replace(' ', '_')
 	}
 
 	/**
@@ -233,7 +241,7 @@ class API{
 	void dispatchEvent(Event event){
 		this.listeners.each { Map.Entry<String, List<Closure>> entry ->
 			try{
-				if (event.type.equals(entry.key)){
+				if (event.type == entry.key){
 					for (c in entry.value){
 						c.call(event)
 					}
@@ -257,7 +265,7 @@ class API{
 	void addGuildMemberAddListener(){
 		this.addListener("guild member add", { Event e ->
 			Server server = e.data.server
-			Map serverInReady = this.readyData["guilds"].find { it["id"].equals(server.getId()) }
+			Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
 			Map serverInReady2 = serverInReady
 			serverInReady2["members"].add(e.data)
 			this.readyData["guilds"].remove(serverInReady)
@@ -267,20 +275,22 @@ class API{
 
 	void addGuildMemberRemoveListener(){
 		this.addListener("guild member remove", { Event e ->
-			Server server = e.data.server
-			Member memberToRemove = e.data.member
-			Map serverInReady = this.readyData["guilds"].find { it["id"].equals(server.getId()) }
-			Map serverInReady2 = serverInReady.subMap(serverInReady.keySet())
-			serverInReady2["members"].remove(memberToRemove.object)
-			this.readyData["guilds"].remove(serverInReady)
-			this.readyData["guilds"].add(serverInReady2)
+			try{
+				Server server = e.data.server
+				Member memberToRemove = e.data.member
+				Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
+				Map serverInReady2 = serverInReady.subMap(serverInReady.keySet())
+				serverInReady2["members"].remove(memberToRemove.object)
+				this.readyData["guilds"].remove(serverInReady)
+				this.readyData["guilds"].add(serverInReady2)
+			}catch (ex){}
 		})
 	}
 
 	void addGuildRoleCreateListener(){
 		this.addListener("guild role create", { Event e ->
 			Server server = e.data.server
-			Map serverInReady = this.readyData["guilds"].find { it["id"].equals(server.getId()) }
+			Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
 			Map serverInReady2 = serverInReady
 			serverInReady2["roles"].add(e.data.role.object)
 			this.readyData["guilds"].remove(serverInReady)
@@ -292,7 +302,7 @@ class API{
 		this.addListener("guild role delete", { Event e ->
 			Server server = e.data.server
 			Role roleToRemove = e.data.role
-			Map serverInReady = this.readyData["guilds"].find { it["id"].equals(server.getId()) }
+			Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
 			Map serverInReady2 = serverInReady
 			serverInReady2["roles"].remove(roleToRemove.object)
 			this.readyData["guilds"].remove(serverInReady)
@@ -300,16 +310,13 @@ class API{
 		})
 	}
 
-	// our (my) server objects don't read from READY to get their channels
-	// however we might in the future because they did that to the
-	// members request already
-	// feel free to add your own listener in your code / PR
-	// to make sure this works to read from READY too
 	void addChannelCreateListener(){
 		this.addListener("channel create", { Event e ->
 			Server server = e.data.server
 			if (server == null){
-				this.readyData["private_channels"].add(e.data.fullData)
+				this.readyData["private_channels"].add(e.data.fullData << ["cached_messages": []])
+			}else{
+				this.readyData["guilds"].find { it.id == server.id }["channels"].add(e.data.fullData << ["cached_messages": []])
 			}
 		})
 	}
@@ -318,10 +325,60 @@ class API{
 		this.addListener("channel delete", { Event e ->
 			Server server = e.data.server
 			if (server == null){
-				Map channelToRemove = this.readyData["private_channels"].find { it["id"].equals(e.data.channel.getId()) }
+				Map channelToRemove = this.readyData["private_channels"].find { it["id"] == e.data.channel.id }
 				this.readyData["private_channels"].remove(channelToRemove)
+			}else{
+				Map channelToRemove = this.readyData["guilds"].find { it.id == server.id }["channels"].find { it["id"] == e.data.channel.id }
+				this.readyData["guilds"].find { it.id == server.id }["channels"].remove(channelToRemove)
 			}
 		})
+	}
+
+	void addChannelUpdateListener(){
+		this.addListener("channel update", { Event e ->
+			Server server = e.data.server
+			Map channelToRemove = this.readyData["guilds"].find { it.id == server.id }["channels"].find { it.id == e.data.channel.id }
+			Map copyOfChannelToRemove = channelToRemove
+			copyOfChannelToRemove << e.data.channel.object
+			this.readyData["guilds"].find { it.id == server.id }["channels"].remove(channelToRemove)
+			this.readyData["guilds"].find { it.id == server.id }["channels"].add(copyOfChannelToRemove)
+		})
+	}
+
+	void addMessageCreateListener(){
+		this.addListener("message create") { Event e ->
+			try{
+				Channel channel = e.data.message.channel
+				this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].add(e.data.message.object)
+			}catch (ex){
+				println e.data.fullData
+			}
+		}
+	}
+
+	void addMessageUpdateListener(){
+		this.addListener("message update") { Event e ->
+			if (e.data.message instanceof Message){
+				Channel channel = e.data.message.channel
+				this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].find { it.id == e.data.message.id }?.leftShift(e.data.message.object)
+			}else{
+				Channel channel = e.data.channel
+				this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].find { it.id == e.data.message }?.leftShift([embeds: e.data.embeds])
+			}
+		}
+	}
+
+	void addMessageDeleteListener(){
+		this.addListener("message delete") { Event e ->
+			if (e.data.message instanceof Message){
+				Channel channel = e.data.message.channel
+				this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].remove(this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].find { it.id == e.data.message.id })
+			}else{
+				Channel channel = e.data.channel
+				Map desiredMessage = this.readyData["guilds"].find { it.id == channel?.server?.id }?.getAt("channels")?.find { it.id == channel?.id }?.getAt("cached_messages")?.find { it.id == e.data.message }
+				this.readyData["guilds"].find { it.id == channel?.server?.id }?.getAt("channels")?.find { it.id == channel?.id }?.getAt("cached_messages")?.remove(desiredMessage)
+			}
+		}
 	}
 
 	void addGuildCreateListener(){
@@ -334,7 +391,7 @@ class API{
 	void addGuildDeleteListener(){
 		this.addListener("guild delete", { Event e ->
 			Server server = e.data.server
-			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(server.getId()) }
+			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
 			this.readyData["guilds"].remove(serverToRemove)
 		})
 	}
@@ -343,9 +400,9 @@ class API{
 		this.addListener("guild member update", { Event e ->
 			Server server = e.data.server
 			Member member = e.data.member
-			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(server.getId()) }
+			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
 			List membersToEdit = serverToRemove["members"]
-			Map memberToEdit = membersToEdit.find { it["user"]["id"].equals(member.getId()) }
+			Map memberToEdit = membersToEdit.find { it["user"]["id"] == member.id }
 			membersToEdit.remove(memberToEdit)
 			membersToEdit.add(member.object)
 			this.readyData["guilds"].remove(serverToRemove)
@@ -358,12 +415,12 @@ class API{
 		this.addListener("guild role update", { Event e ->
 			Server server = e.data.server
 			Role role = e.data.role
-			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(server.getId()) }
+			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
 			List rolesToEdit = serverToRemove["roles"]
-			Map roleToEdit = rolesToEdit.find { it["id"].equals(role.getId()) }
+			Map roleToEdit = rolesToEdit.find { it["id"] == role.id }
 			rolesToEdit.remove(roleToEdit)
 			rolesToEdit.add(role.object)
-			this.readyData["guilds"].remove(this.readyData["guilds"].find { it["id"].equals(server.id) })
+			this.readyData["guilds"].remove(this.readyData["guilds"].find { it["id"] == server.id })
 			serverToRemove["roles"] = rolesToEdit
 			this.readyData["guilds"].add(serverToRemove)
 		})
@@ -372,7 +429,7 @@ class API{
 	void addGuildUpdateListener(){
 		this.addListener("guild update", { Event e ->
 			Map newServer = e.data.server.object
-			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(newServer.id) }
+			Map serverToRemove = this.readyData["guilds"].find { it["id"] == newServer.id }
 			Map copyOfServerToRemove = serverToRemove
 			copyOfServerToRemove << newServer
 			this.readyData["guilds"].remove(serverToRemove)
@@ -413,9 +470,15 @@ class API{
 			}catch (ex){
 
 			}
-			Map serverToRemove = this.readyData["guilds"].find { it["id"].equals(server.id) }
+			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
 			this.readyData["guilds"].remove(serverToRemove)
 			this.readyData["guilds"].add(serverToAdd)
 		})
+	}
+
+	void addVoiceStateUpdateListener(){
+		this.addListener "voice state change", { Event e ->
+
+		}
 	}
 }

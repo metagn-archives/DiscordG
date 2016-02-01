@@ -2,6 +2,8 @@ package ml.hlaaftana.discordg.objects
 
 import java.net.URL
 
+import ml.hlaaftana.discordg.util.JSONUtil
+
 /**
  * A Discord user.
  * @author Hlaaftana
@@ -41,7 +43,7 @@ class User extends Base{
 	 * @return a private channel for the user. If not created already, it'll create a new one.
 	 */
 	PrivateChannel getPrivateChannel(){
-		for (pc in api.client.getPrivateChannels()){
+		for (pc in api.client.privateChannels){
 			if (pc.user.id == this.id) return pc
 		}
 		PrivateChannel pc = new PrivateChannel(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/users/$api.client.user.id/channels", [recipient_id: this.id])))
@@ -52,4 +54,6 @@ class User extends Base{
 	 * @return a mention string for the user.
 	 */
 	String getMention(){ return "<@${this.id}>" }
+	Member getMember(Server server){ return server.members.find { it.id == this.id } }
+	Member member(Server server){ return server.members.find { it.id == this.id } }
 }

@@ -9,6 +9,7 @@ import java.util.Map
 
 import ml.hlaaftana.discordg.util.*
 import ml.hlaaftana.discordg.objects.*
+import ml.hlaaftana.discordg.objects.Server.VoiceState
 
 /**
  * The websocket client for the API.
@@ -27,8 +28,10 @@ class WSClient{
 	void onConnect(Session session){
 		Log.info "Connected to server."
 		this.session = session
-		this.session.getPolicy().setMaxTextMessageSize(Integer.MAX_VALUE)
-		this.session.getPolicy().setMaxTextMessageBufferSize(Integer.MAX_VALUE)
+		this.session.policy.maxTextMessageSize = Integer.MAX_VALUE
+		this.session.policy.maxTextMessageBufferSize = Integer.MAX_VALUE
+		this.session.policy.maxBinaryMessageSize = Integer.MAX_VALUE
+		this.session.policy.maxBinaryMessageBufferSize = Integer.MAX_VALUE
 		Map a = [
 			"op": 2,
 			"d": [
@@ -73,10 +76,20 @@ class WSClient{
 					System.exit(0)
 				}
 				api.readyData = data
-				for (g in api.readyData.guilds){
-					for (m in g.members){
+				api.readyData.guilds.each { Map g ->
+					g.members.each { Map m ->
 						m["guild_id"] = g["id"]
 					}
+					g.channels.each { Map c ->
+						c["guild_id"] = g["id"]
+						c["is_private"] = false
+						if (c["type"] == "text"){
+							c["cached_messages"] = []
+						}
+					}
+				}
+				api.readyData.private_channels.each { Map pc ->
+					pc["cached_messages"] = []
 				}
 				Log.info "Done loading."
 			}
@@ -184,13 +197,17 @@ class WSClient{
 							eventData.message.channel.sendMessage(cont, tts)
 						}
 						]
+					if (eventData.message.server == null){
+						eventData.message = new Message(api, data)
+					}
 				}else if (t("MESSAGE_DELETE")){
 					List<TextChannel> channels = new ArrayList<TextChannel>()
 					for (s in api.client.getServers()) channels.addAll(s.getTextChannels())
 					channels.addAll(api.client.getPrivateChannels())
+					Message foundMessage = channels*.cachedLogs.find { it.id == data["id"] }
 					eventData = [
 						channel: channels.find { it.getId().equals(data["channel_id"]) },
-						messageID: data["id"]
+						message: (foundMessage != null) ? foundMessage : data["id"]
 						]
 				}else if (t("MESSAGE_UPDATE")){
 					if (data.containsKey("content")){
@@ -198,9 +215,13 @@ class WSClient{
 							message: new Message(api, data)
 							]
 					}else{
-							eventData = [
+						List<TextChannel> channels = new ArrayList<TextChannel>()
+						for (s in api.client.getServers()) channels.addAll(s.getTextChannels())
+						channels.addAll(api.client.getPrivateChannels())
+						Message foundMessage = channels*.cachedLogs.find { it.id == data["id"] }
+						eventData = [
 							channel: api.client.getTextChannelById(data["channel_id"]),
-							messageID: data["id"],
+							message: (foundMessage != null) ? foundMessage : data["id"],
 							embeds: data["embeds"]
 							]
 					}
@@ -209,7 +230,7 @@ class WSClient{
 						eventData = [
 							server: api.client.servers.find { it.id == data["guild_id"] },
 							guild: api.client.servers.find { it.id == data["guild_id"] },
-							member: api.client.servers.find({ it.id == data["guild_id"] }).members.find { it.getUser().getId().equals(data["user"]["id"]) },
+							member: api.client.servers.find({ it.id == data["guild_id"] }).members.find { try { it.id == data["user"]["id"] }catch (ex){ false } },
 							game: (data["game"] != null) ? data["game"]["name"] : "",
 							status: data["status"]
 						]
@@ -233,11 +254,18 @@ class WSClient{
 						channel: api.client.getTextChannelById(data["channel_id"]),
 						user: api.client.getUserById(data["user_id"])
 						]
-				}/*else if (t("VOICE_STATE_UPDATE")){
-					api.voiceData << data
+				}else if (t("VOICE_STATE_UPDATE")){
+					eventData = [
+						voiceState: new VoiceState(api, data)
+						]
+					if (eventData["voiceState"].user == api.client.user.id){
+						if (false){ // voice connected
+							//
+						}
+					}
 				}else if (t("VOICE_SERVER_UPDATE")){
-					api.voiceData << data
-				}*/else{
+
+				}else{
 					eventData = data
 				}
 			}catch (ex){

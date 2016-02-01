@@ -15,12 +15,12 @@ class Member extends User{
 		super(api, object)
 	}
 
-	String getId(){ return this.getUser().getId() }
-	String getName(){ return this.getUser().getName() }
-	String getUsername() { return this.getUser().getUsername() }
-	String getAvatarHash(){ return this.getUser().getAvatarHash() }
-	String getAvatar() { return this.getUser().getAvatar() }
-	URL getAvatarURL(){ return this.getUser().getAvatarURL() }
+	String getId(){ return this.user.id }
+	String getName(){ return this.user.name }
+	String getUsername() { return this.user.username }
+	String getAvatarHash(){ return this.user.avatarHash }
+	String getAvatar() { return this.user.avatar }
+	URL getAvatarURL(){ return this.user.avatarURL }
 	/**
 	 * @return the User which this Member is.
 	 */
@@ -66,7 +66,11 @@ class Member extends User{
 	 * @return the status of the user. e.g. "online", "offline", "idle"...
 	 */
 	String getStatus(){
-		return this.server.object["presences"].find({ it.user.id == this.user.id }).status
+		try{
+			return this.server.object["presences"].find({ it.user.id == this.user.id }).status
+		}catch (ex){
+			return "offline"
+		}
 	}
 
 	/**
@@ -74,7 +78,7 @@ class Member extends User{
 	 * @param roles - a list of roles to add.
 	 */
 	void editRoles(List<Role> roles) {
-		this.getServer().editRoles(this, roles)
+		this.server.editRoles(this, roles)
 	}
 
 	/**
@@ -82,17 +86,22 @@ class Member extends User{
 	 * @param roles - the roles to add.
 	 */
 	void addRoles(List<Role> roles) {
-		this.getServer().addRoles(this, roles)
+		this.server.addRoles(this, roles)
 	}
 
 	/**
 	 * Kicks the member from its server.
 	 */
 	void kick() {
-		this.getServer().kickMember(this)
+		this.server.kickMember(this)
 	}
 
 	void moveTo(VoiceChannel channel){
 		api.requester.patch("https://discordapp.com/api/guilds/${this.server.id}/members/{this.id}", ["channel_id": channel.id])
+	}
+
+	User toUser(){ return new User(api, this.object["user"]) }
+	def asType(Class target){
+		if (target == User) return this.toUser()
 	}
 }

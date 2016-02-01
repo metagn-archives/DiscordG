@@ -102,9 +102,19 @@ class Client{
 	 */
 	List<Server> getServers() {
 		List array = api.readyData["guilds"]
-		List<Server> servers = new ArrayList<Server>()
+		List<Server> servers = []
 		for (o in array){
 			servers.add(new Server(api, o))
+		}
+		return servers
+	}
+	
+	List<Server> requestServers(){
+		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/users/@me/guilds"))
+		List<Server> servers = []
+		for (s in array){
+			def serverInReady = api.readyData["guilds"].find { it["id"] == s["id"] }
+			servers.add(new Server(api, s << ["channels": serverInReady["channels"], "members": serverInReady["members"], "presences": serverInReady["presences"], "voice_states": serverInReady["voice_states"], "large": serverInReady["large"]]))
 		}
 		return servers
 	}
@@ -127,21 +137,17 @@ class Client{
 	 * @return a List of Users the client can see.
 	 */
 	List<User> getAllUsers() {
-		List<User> users = new ArrayList<User>()
-		for (s in this.getServers()){
-			for (m in s.getMembers()){
-				boolean isThere
-				for (u in users){
-					try{
-						if (!u.getId().equals(m.getUser().getId())){ isThere = isThere || false }
-					}catch (ex){
-						isThere = isThere || false
+		List users = []
+		for (s in this.servers){
+			for (m in s.members){
+				try{
+					if (!(m.user.id in users*.id)){
+						users.add(m.user)
 					}
-					if (isThere){ break }
-				}
-				if (!isThere){ users.add(m.getUser()) }
+				}catch (ex){}
 			}
 		}
+		return users
 	}
 
 	/**
@@ -156,6 +162,9 @@ class Client{
 		}
 		return members
 	}
+
+	List<User> getUsers(){ return this.allUsers }
+	List<Member> getMembers(){ return this.allMembers }
 
 	/**
 	 * See Member#editRoles.
@@ -229,7 +238,7 @@ class Client{
 					],
 				"server": s,
 				"guild": s,
-				"member": s.members.find { it.id == this.user.id },
+				"member": s.members.find { try{ it.id == this.user.id }catch (ex){ false } },
 				"game": (data["game"] != null) ? data["game"] : null,
 				"status": (data["idle"] != null) ? "online" : "idle"
 				]))
@@ -301,7 +310,7 @@ class Client{
 	 */
 	User getUserById(String id){
 		for (u in this.getAllUsers()){
-			if (u.getId().equals(id)) return u
+			if ({ try{ u.id == id }catch (ex){ false } }() as boolean) return u
 		}
 		return null
 	}
@@ -333,13 +342,26 @@ class Client{
 	 * @return the text channel. null if not found.
 	 */
 	TextChannel getTextChannelById(String id){
-		for (s in this.getServers()){
-			for (c in s.getTextChannels()){
-				if (c.getId().equals(id)) return c
+		for (s in this.servers){
+			for (c in s.textChannels){
+				if (c.id == id) return c
 			}
 		}
-		for (pc in this.getPrivateChannels()){
-			if (pc.getId().equals(id)) return pc
+		for (pc in this.privateChannels){
+			if (pc.id == id) return pc
+		}
+	}
+
+	/**
+	 * Gets a voice channel by its ID.
+	 * @param id - the ID.
+	 * @return the voice channel. null if not found.
+	 */
+	VoiceChannel getVoiceChannelById(String id){
+		for (s in this.servers){
+			for (c in s.voiceChannels){
+				if (c.id == id) return c
+			}
 		}
 	}
 }

@@ -70,7 +70,7 @@ class Requester{
 		def req = request
 		if (api.token != null) req = req.header("Authorization", api.token)
 		if (!isGet) req = req.header("Content-Type", "application/json")
-		return req.header("User-Agent", "https://github.com/hlaaftana/DiscordG, 1.0")
+		return req.header("User-Agent", "DiscordBot (https://github.com/hlaaftana/DiscordG, 1.5.0)")
 	}
 }
 

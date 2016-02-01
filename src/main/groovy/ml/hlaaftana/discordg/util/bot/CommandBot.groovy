@@ -3,6 +3,7 @@ package ml.hlaaftana.discordg.util.bot
 import ml.hlaaftana.discordg.objects.API
 import ml.hlaaftana.discordg.objects.Event
 import ml.hlaaftana.discordg.util.Log
+import ml.hlaaftana.discordg.util.bot.SuffixCommandBot.Command;
 
 /**
  * A simple bot implementation.
@@ -23,6 +24,10 @@ class CommandBot {
 	CommandBot(API api, List commands=[]){
 		this.api = api
 		this.commands += commands
+	}
+
+	static def create(List commands=[]){
+		return new CommandBot(new API(), commands)
 	}
 
 	/**

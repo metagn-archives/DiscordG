@@ -1,16 +1,17 @@
 package ml.hlaaftana.discordg.objects
 
 class Permissions {
-	/*ALL_FALSE(0),
-	ALL_TRUE(0b00000011111100111111110000111111),
-	CHANNEL_ALL_TRUE(0b00000011111100111111110000011001),
-	GENERAL_ALL_TRUE(0b00000000000000000000000000111111),
-	TEXT_ALL_TRUE(0b00000000000000111111110000000000),
-	VOICE_ALL_TRUE(0b00000011111100000000000000000000)*/
+	static final Permissions ALL_FALSE = new Permissions(0)
+	static final Permissions ALL_TRUE = new Permissions(0b00000011111100111111110000111111)
+	static final Permissions CHANNEL_ALL_TRUE = new Permissions(0b00000011111100111111110000011001)
+	static final Permissions GENERAL_ALL_TRUE = new Permissions(0b00000000000000000000000000111111)
+	static final Permissions TEXT_ALL_TRUE = new Permissions(0b00000000000000111111110000000000)
+	static final Permissions VOICE_ALL_TRUE = new Permissions(0b00000011111100000000000000000000)
 	String bytes
 	int value
 
-	Permissions(int value){ this.value = value }
+	Permissions(int value=0){ this.value = value }
+	Permissions(Map defaults){ defaults.each { k, v -> this.set(k, v) } }
 
 	Map getMap(){
 		return [

@@ -1,8 +1,7 @@
 import ml.hlaaftana.discordg.objects.*
 import ml.hlaaftana.discordg.APIBuilder
 
-API api
-api = APIBuilder.build("example@example.com", "example123")
+API api = APIBuilder.build("example@example.com", "example123")
 api.addListener("channel create") { Event e ->
 	if (e.data.channel instanceof TextChannel && e.data.guild != null){
 		e.data.channel.sendMessage("Hello there, new channel!")

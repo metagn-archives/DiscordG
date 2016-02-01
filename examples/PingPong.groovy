@@ -2,9 +2,8 @@ import ml.hlaaftana.discordg.objects.API
 import ml.hlaaftana.discordg.objects.Event
 import ml.hlaaftana.discordg.APIBuilder
 
-API api
 // This part should be easy to understand.
-api = APIBuilder.build("example@example.com", "example123")
+API api = APIBuilder.build("example@example.com", "example123")
 /*
  * Here we add a closure to listen to the event "MESSAGE_CREATE".
  *

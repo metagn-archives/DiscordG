@@ -1,6 +1,7 @@
 package ml.hlaaftana.discordg.objects
 
 import java.util.Map
+
 import ml.hlaaftana.discordg.util.JSONUtil
 
 /**
@@ -15,26 +16,28 @@ class Channel extends Base{
 	/**
 	 * @return whether the channel is private or not.
 	 */
-	boolean isPrivate(){ return object["is_private"] }
+	boolean isPrivate(){ return this.object["is_private"] }
 	/**
 	 * @return the position index of the channel. null if private.
 	 */
-	String getPosition(){ return object["position"] }
+	String getPosition(){ return this.object["position"] }
 	/**
 	 * @return the type of channel this channel is. can be "text" or "voice".
 	 */
-	String getType(){ return object["type"] }
+	String getType(){ return this.object["type"] }
 	/**
 	 * @return the topic of the channel. Can be null, but always null if voice.
 	 */
-	String getTopic(){ return object["topic"] }
+	String getTopic(){ return this.object["topic"] }
 	/**
 	 * @return the server of the channel. null if private.
 	 */
 	Server getServer(){ if (this."private") return null
-		for (s in api.client.servers){
-			if (s.id == object["guild_id"]) return s
-		}
+		return api.client.servers.find { it.id == this.object["guild_id"] }
+	}
+
+	List<PermissionOverwrite> getPermissionOverwrites(){
+		return this.object["permission_overwrites"].collect { new PermissionOverwrite(api, it) }
 	}
 
 	/**
@@ -65,8 +68,29 @@ class Channel extends Base{
 	void addPermissions(Base target, def allow, def deny){
 		this.editPermissions(target, allow, deny)
 	}
-	
+
 	void deletePermissions(Base target){
 		api.requester.delete("https://discordapp.com/api/channels/${this.id}/permissions/${target.id}")
+	}
+
+	static class PermissionOverwrite extends Base {
+		PermissionOverwrite(API api, Map object){ super(api, object) }
+
+		Permissions getAllowed(){ return new Permissions(this.object["allow"]) }
+		Permissions getDenied(){ return new Permissions(this.object["deny"]) }
+		String getType(){ return this.object["type"] }
+		Base getAffected(){
+			if (this.type == "role"){
+				List<Role> roles = []
+				api.client.servers.each { roles.addAll(it.roles) }
+				return roles.find { it.id == this.id }
+			}else if (this.type == "member"){
+				List<Member> members = []
+				api.client.servers.each { members.addAll(it.members) }
+				return members.find { it.id == this.id }
+			}
+			return (Base) this
+		}
+		String getName(){ return this.affected.name }
 	}
 }
