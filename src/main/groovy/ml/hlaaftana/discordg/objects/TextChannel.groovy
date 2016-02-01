@@ -58,16 +58,24 @@ class TextChannel extends Channel {
 	}
 
 	/**
-	 * Get message history from the channel.
+	 * Get message history from the channel. Warning: this'll be quite slower each multiple of 50.
 	 * @param max - the max number of messages. 100 by default.
 	 * @return a List of Message containing the messages in the channel.
 	 */
-	List<Message> getLogs(int max=100) {
+	List<Message> getLogs(int max=50) {
 		List<Message> logs = new ArrayList<Message>()
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=50"))
+		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=${max}"))
 		for (m in array){
 			logs.add(new Message(api, m))
 		}
 		return logs
+	}
+
+	List<Message> getCachedLogs(){
+		return this.object["cached_messages"].collect { new Message(api, it) }
+	}
+
+	String getLastMessageId(){
+		return this.object["last_message_id"]
 	}
 }

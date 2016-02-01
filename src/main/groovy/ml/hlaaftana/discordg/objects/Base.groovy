@@ -22,4 +22,5 @@ class Base {
 	 */
 	String getName(){ return object["name"] }
 	String toString(){ return this.name }
+	boolean equals(Base other){ return this.id == other.id }
 }

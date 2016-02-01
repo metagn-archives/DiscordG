@@ -207,8 +207,8 @@ class RandomUtil {
 		}
 		String.metaClass.bold = { return "**$delegate**" }
 		String.metaClass.bolden = { return "**$delegate**" }
-		String.metaClass.italic = { return "*$delegate*" }
-		String.metaClass.italicize = { return "*$delegate*" }
+		String.metaClass.italic = { boolean underscore=false -> return (underscore) ? "_${delegate}_" : "*$delegate*" }
+		String.metaClass.italicize = { boolean underscore=false -> return (underscore) ? "_${delegate}_" : "*$delegate*" }
 		String.metaClass.underline = { return "__${delegate}__" }
 		String.metaClass.code = { return "`$delegate`" }
 		String.metaClass.block = { String language="" -> return "```$language\n$delegate```" }
@@ -219,13 +219,12 @@ class RandomUtil {
 		AbstractList.metaClass.allAreEqual = {
 			boolean areEqual = true
 			for (e in delegate){
-				println "do you even interate"
-				println "e"
-				println delegate[0]
-				println ""
 				areEqual &= e == delegate[0]
 			}
 			return areEqual
+		}
+		AbstractList.metaClass.randomItem = { Random random = new Random() ->
+			return delegate[random.nextInt(delegate.size())]
 		}
 	}
 }
