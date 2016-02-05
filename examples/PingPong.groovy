@@ -23,19 +23,19 @@ API api = APIBuilder.build("example@example.com", "example123")
  * https://github.com/hlaaftana/DiscordG/blob/master/src/hlaaftana/discordg/request/WSClient.groovy#L89-L236
  * for the data yourself however.
  * And, to add to that, every event has the raw JSON data in them to
- * which is "e.data["fullData"]" or "e.data.fullData".
+ * which is "d["fullData"]" or "d.fullData".
  * You can read what the raw JSON data for each event is by checking the
  * "d" objects in each event here:
  * http://hornwitser.no/discord/analysis
  */
-api.addListener("message create") { Event e ->
+api.addListener("message create") { Map d ->
 	// MESSAGE_CREATE's data is just one Message object called "message".
 	// We can get the content of that message with Message#getContent() which Groovy fills in.
-	if (e.data.message.content.startsWith("!ping")){
-		// Note that you can replace "e.data.message" with "e.data["message"]".
-		e.data.sendMessage("Pong!")
+	if (d.message.content.startsWith("!ping")){
+		// Note that you can replace "d.message" with "d["message"]".
+		d.sendMessage("Pong!")
 		// Simple as that! You could even send the message with TTS by doing:
-		// e.data.sendMessage("Pong!", true)
+		// d.sendMessage("Pong!", true)
 	}
 }
 // Sidenote, instead of "APIBuilder.build("email", "password")" above, you could have typed
