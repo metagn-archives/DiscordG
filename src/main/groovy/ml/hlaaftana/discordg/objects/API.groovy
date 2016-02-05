@@ -190,7 +190,7 @@ class API{
 	void removeListenersFor(String event){
 		for (e in listeners.entrySet()){
 			if (e.key == parseEventType(event)){
-				listeners.remove(e.key, e.value)
+				listeners[e.key] = []
 				return
 			}
 		}
@@ -208,7 +208,7 @@ class API{
 	 * @param str - the string.
 	 * @return the event name.
 	 */
-	String parseEventType(String str){
+	static String parseEventType(String str){
 		return str.toUpperCase().replace("CHANGE", "UPDATE").replace("SERVER", "GUILD").replace(' ', '_')
 	}
 

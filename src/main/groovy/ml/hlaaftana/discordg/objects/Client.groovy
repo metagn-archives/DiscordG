@@ -3,7 +3,7 @@ package ml.hlaaftana.discordg.objects
 import java.util.List
 import java.util.Map
 
-import ml.hlaaftana.discordg.util.JSONUtil
+import ml.hlaaftana.discordg.util.*
 
 /**
  * The Discord client.
@@ -306,6 +306,13 @@ class Client{
 	 */
 	User editProfile(Map data){
 		Map map = ["avatar": this.user.avatarHash, "email": api.email, "password": api.password, "username": this.user.username]
+		if (data["avatar"] != null){
+			if (data["avatar"] instanceof String && !(data["avatar"].startsWith("data"))){
+				data["avatar"] = ConversionUtil.encodeToBase64(data["avatar"] as File)
+			}else if (data["avatar"] instanceof File){
+				data["avatar"] = ConversionUtil.encodeToBase64(data["avatar"])
+			}
+		}
 		Map response = JSONUtil.parse api.requester.patch("https://discordapp.com/api/users/@me", map << data)
 		api.email = response.email
 		api.password = (data["new_password"] != null && data["new_password"] instanceof String) ? data["new_password"] : api.password
