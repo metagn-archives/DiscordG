@@ -28,7 +28,7 @@ class Message extends DiscordObject{
 	/**
 	 * @return a Date of when the message was created.
 	 */
-	Date getCreateTime(){ return ConversionUtil.fromJsonDate(this.timestampRaw) }
+	Date getCreateTime(){ return ConversionUtil.fromJsonDate(this.rawCreateTime) }
 	/**
 	 * @return a raw timestamp string of when the message was edited.
 	 */
@@ -36,7 +36,7 @@ class Message extends DiscordObject{
 	/**
 	 * @return a Date of when the message was edited.
 	 */
-	Date getEditTime(){ return ConversionUtil.fromJsonDate(this.editTimeRaw) }
+	Date getEditTime(){ return ConversionUtil.fromJsonDate(this.rawEditTime) }
 	/**
 	 * @return whether or not this message has text to speech.
 	 */
