@@ -7,6 +7,7 @@ import groovy.json.JsonSlurper
 import groovy.lang.Closure
 import ml.hlaaftana.discordg.request.*
 import ml.hlaaftana.discordg.util.*
+import ml.hlaaftana.discordg.objects.VoiceClient
 
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest
@@ -23,6 +24,8 @@ class API{
 	String password
 	WSClient wsClient
 	Client client
+	VoiceWSClient voiceWsClient
+	VoiceClient voiceClient
 	Map<String, List<Closure>> listeners = new HashMap<String, List<Closure>>()
 	Map readyData
 	Map voiceData = [:]
@@ -33,6 +36,7 @@ class API{
 	int eventThreadCount = 3 // if your bot is on tons of big servers, this might help however take up some CPU
 	boolean ignorePresenceUpdate = false // if your bot is on tons of big servers, this might help you lose some CPU
 	int largeThreshold // if your bot is on tons of big servers, this might help your request speeds
+	boolean copyReady = true // adds fullData to ready to archive the initial ready
 
 	/**
 	 * Builds a new API object. This is safe to do.
@@ -67,6 +71,7 @@ class API{
 		this.addGuildRoleDeleteListener()
 		this.addGuildRoleUpdateListener()
 		this.addPresenceUpdateListener()
+		this.addVoiceStateUpdateListener()
 	}
 
 	WSClient getWebSocketClient(){ return wsClient }
@@ -238,12 +243,12 @@ class API{
 	 * Triggers all listeners for an event.
 	 * @param event - the event object to provide.
 	 */
-	void dispatchEvent(Event event){
+	void dispatchEvent(String type, Map data){
 		this.listeners.each { Map.Entry<String, List<Closure>> entry ->
 			try{
-				if (event.type == entry.key){
+				if (type == entry.key){
 					for (c in entry.value){
-						c.call(event)
+						c.call(data)
 					}
 				}
 			}catch (ex){
@@ -263,21 +268,21 @@ class API{
 	// Adding built-in listeners. Look above at "removeListenersFor" to understand why I did it like this.
 
 	void addGuildMemberAddListener(){
-		this.addListener("guild member add", { Event e ->
-			Server server = e.data.server
+		this.addListener("guild member add", { Map d ->
+			Server server = d.server
 			Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
 			Map serverInReady2 = serverInReady
-			serverInReady2["members"].add(e.data)
+			serverInReady2["members"].add(d)
 			this.readyData["guilds"].remove(serverInReady)
 			this.readyData["guilds"].add(serverInReady2)
 		})
 	}
 
 	void addGuildMemberRemoveListener(){
-		this.addListener("guild member remove", { Event e ->
+		this.addListener("guild member remove", { Map d ->
 			try{
-				Server server = e.data.server
-				Member memberToRemove = e.data.member
+				Server server = d.server
+				Member memberToRemove = d.member
 				Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
 				Map serverInReady2 = serverInReady.subMap(serverInReady.keySet())
 				serverInReady2["members"].remove(memberToRemove.object)
@@ -288,20 +293,20 @@ class API{
 	}
 
 	void addGuildRoleCreateListener(){
-		this.addListener("guild role create", { Event e ->
-			Server server = e.data.server
+		this.addListener("guild role create", { Map d ->
+			Server server = d.server
 			Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
 			Map serverInReady2 = serverInReady
-			serverInReady2["roles"].add(e.data.role.object)
+			serverInReady2["roles"].add(d.role.object)
 			this.readyData["guilds"].remove(serverInReady)
 			this.readyData["guilds"].add(serverInReady2)
 		})
 	}
 
 	void addGuildRoleDeleteListener(){
-		this.addListener("guild role delete", { Event e ->
-			Server server = e.data.server
-			Role roleToRemove = e.data.role
+		this.addListener("guild role delete", { Map d ->
+			Server server = d.server
+			Role roleToRemove = d.role
 			Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
 			Map serverInReady2 = serverInReady
 			serverInReady2["roles"].remove(roleToRemove.object)
@@ -311,95 +316,104 @@ class API{
 	}
 
 	void addChannelCreateListener(){
-		this.addListener("channel create", { Event e ->
-			Server server = e.data.server
+		this.addListener("channel create", { Map d ->
+			Server server = d.server
 			if (server == null){
-				this.readyData["private_channels"].add(e.data.fullData << ["cached_messages": []])
+				this.readyData["private_channels"].add(d.fullData << ["cached_messages": []])
 			}else{
-				this.readyData["guilds"].find { it.id == server.id }["channels"].add(e.data.fullData << ["cached_messages": []])
+				this.readyData["guilds"].find { it.id == server.id }["channels"].add(d.fullData << ["cached_messages": []])
 			}
 		})
 	}
 
 	void addChannelDeleteListener(){
-		this.addListener("channel delete", { Event e ->
-			Server server = e.data.server
+		this.addListener("channel delete", { Map d ->
+			Server server = d.server
 			if (server == null){
-				Map channelToRemove = this.readyData["private_channels"].find { it["id"] == e.data.channel.id }
+				Map channelToRemove = this.readyData["private_channels"].find { it["id"] == d.channel.id }
 				this.readyData["private_channels"].remove(channelToRemove)
 			}else{
-				Map channelToRemove = this.readyData["guilds"].find { it.id == server.id }["channels"].find { it["id"] == e.data.channel.id }
+				Map channelToRemove = this.readyData["guilds"].find { it.id == server.id }["channels"].find { it["id"] == d.channel.id }
 				this.readyData["guilds"].find { it.id == server.id }["channels"].remove(channelToRemove)
 			}
 		})
 	}
 
 	void addChannelUpdateListener(){
-		this.addListener("channel update", { Event e ->
-			Server server = e.data.server
-			Map channelToRemove = this.readyData["guilds"].find { it.id == server.id }["channels"].find { it.id == e.data.channel.id }
+		this.addListener("channel update", { Map d ->
+			Server server = d.server
+			Map channelToRemove = this.readyData["guilds"].find { it.id == server.id }["channels"].find { it.id == d.channel.id }
 			Map copyOfChannelToRemove = channelToRemove
-			copyOfChannelToRemove << e.data.channel.object
+			copyOfChannelToRemove << d.channel.object
 			this.readyData["guilds"].find { it.id == server.id }["channels"].remove(channelToRemove)
 			this.readyData["guilds"].find { it.id == server.id }["channels"].add(copyOfChannelToRemove)
 		})
 	}
 
 	void addMessageCreateListener(){
-		this.addListener("message create") { Event e ->
-			try{
-				Channel channel = e.data.message.channel
-				this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].add(e.data.message.object)
-			}catch (ex){
-				println e.data.fullData
+		this.addListener("message create") { Map d ->
+			TextChannel channel = d.message.channel
+			if (channel.server == null){
+				this.readyData["private_channels"].find { it.id == channel.id }["cached_messages"].add(d.message.object)
+			}else{
+				this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].add(d.message.object)
 			}
 		}
 	}
 
 	void addMessageUpdateListener(){
-		this.addListener("message update") { Event e ->
-			if (e.data.message instanceof Message){
-				Channel channel = e.data.message.channel
-				this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].find { it.id == e.data.message.id }?.leftShift(e.data.message.object)
+		this.addListener("message update") { Map d ->
+			if (d.message instanceof Message){
+				Channel channel = d.message.channel
+				if (channel.server == null){
+					this.readyData["private_channels"].find { it.id == channel.id }["cached_messages"].find { it.id == d.message.id }.leftShift(d.message.object)
+				}else{
+					this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].find { it.id == d.message.id }?.leftShift(d.message.object)
+				}
 			}else{
-				Channel channel = e.data.channel
-				this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].find { it.id == e.data.message }?.leftShift([embeds: e.data.embeds])
+				Channel channel = d.channel
+				if (channel.server == null){
+					this.readyData["private_channels"].find { it.id == channel.id }["cached_messages"].find { it.id == d.message }.leftShift(embeds: d.embeds)
+				}else{
+					this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].find { it.id == d.message }?.leftShift(embeds: d.embeds)
+				}
 			}
 		}
 	}
 
 	void addMessageDeleteListener(){
-		this.addListener("message delete") { Event e ->
-			if (e.data.message instanceof Message){
-				Channel channel = e.data.message.channel
-				this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].remove(this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].find { it.id == e.data.message.id })
-			}else{
-				Channel channel = e.data.channel
-				Map desiredMessage = this.readyData["guilds"].find { it.id == channel?.server?.id }?.getAt("channels")?.find { it.id == channel?.id }?.getAt("cached_messages")?.find { it.id == e.data.message }
-				this.readyData["guilds"].find { it.id == channel?.server?.id }?.getAt("channels")?.find { it.id == channel?.id }?.getAt("cached_messages")?.remove(desiredMessage)
-			}
+		this.addListener("message delete") { Map d ->
+			if (d.message instanceof Message){
+				Channel channel = d.message.channel
+				if (channel.server == null){
+					Map desiredMessage = this.readyData["private_channels"].find { it.id == d.channel.id }["cached_messages"].find { it.id == d.message.id }
+					this.readyData["private_channels"].find { it.id == channel.id }["cached_messages"].remove(desiredMessage)
+				}else{
+					this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].remove(this.readyData["guilds"].find { it.id == channel.server.id }["channels"].find { it.id == channel.id }["cached_messages"].find { it.id == d.message.id })
+				}
+			}else{}
 		}
 	}
 
 	void addGuildCreateListener(){
-		this.addListener("guild create", { Event e ->
-			Server server = e.data.server
+		this.addListener("guild create", { Map d ->
+			Server server = d.server
 			this.readyData["guilds"].add(server.object)
 		})
 	}
 
 	void addGuildDeleteListener(){
-		this.addListener("guild delete", { Event e ->
-			Server server = e.data.server
+		this.addListener("guild delete", { Map d ->
+			Server server = d.server
 			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
 			this.readyData["guilds"].remove(serverToRemove)
 		})
 	}
 
 	void addGuildMemberUpdateListener(){
-		this.addListener("guild member update", { Event e ->
-			Server server = e.data.server
-			Member member = e.data.member
+		this.addListener("guild member update", { Map d ->
+			Server server = d.server
+			Member member = d.member
 			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
 			List membersToEdit = serverToRemove["members"]
 			Map memberToEdit = membersToEdit.find { it["user"]["id"] == member.id }
@@ -412,9 +426,9 @@ class API{
 	}
 
 	void addGuildRoleUpdateListener(){
-		this.addListener("guild role update", { Event e ->
-			Server server = e.data.server
-			Role role = e.data.role
+		this.addListener("guild role update", { Map d ->
+			Server server = d.server
+			Role role = d.role
 			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
 			List rolesToEdit = serverToRemove["roles"]
 			Map roleToEdit = rolesToEdit.find { it["id"] == role.id }
@@ -427,8 +441,8 @@ class API{
 	}
 
 	void addGuildUpdateListener(){
-		this.addListener("guild update", { Event e ->
-			Map newServer = e.data.server.object
+		this.addListener("guild update", { Map d ->
+			Map newServer = d.server.object
 			Map serverToRemove = this.readyData["guilds"].find { it["id"] == newServer.id }
 			Map copyOfServerToRemove = serverToRemove
 			copyOfServerToRemove << newServer
@@ -438,17 +452,17 @@ class API{
 	}
 
 	void addPresenceUpdateListener(){
-		this.addListener("presence change", { Event e ->
-			Server server = e.data.server
-			if (server == null){ server = new Server(this, ["id": e.data.fullData["guild_id"]]) }
-			Map serverToAdd = this.readyData["guilds"].find { it["id"] == e.data.fullData["guild_id"] }
+		this.addListener("presence change", { Map d ->
+			Server server = d.server
+			if (server == null){ server = new Server(this, ["id": d.fullData["guild_id"]]) }
+			Map serverToAdd = this.readyData["guilds"].find { it["id"] == d.fullData["guild_id"] }
 			Map copyServer = serverToAdd
 			List members = copyServer.members.collect({ it })
-			if (e.data["newUser"] != null){
+			if (d["newUser"] != null){
 				try{
-					Map m = members.find { it["user"]["id"] == e.data.newUser.id }
+					Map m = members.find { it["user"]["id"] == d.newUser.id }
 					Map m2 = m
-					m2.user = e.data.newUser.object
+					m2.user = d.newUser.object
 					serverToAdd.members.remove(m)
 					serverToAdd.members.add(m2)
 				}catch (ex){
@@ -457,13 +471,13 @@ class API{
 			}
 			List presences = copyServer.presences.collect({ it })
 			try{
-				Map p = presences.find { it["user"]["id"] == e.data.member.id }
+				Map p = presences.find { it["user"]["id"] == d.member.id }
 				Map p2 = p
-				p2.status = e.data.status
-				if (e.data.game == ""){
+				p2.status = d.status
+				if (d.game == ""){
 					p2.game = null
 				}else{
-					p2.game = [name: e.data.game]
+					p2.game = [name: d.game]
 				}
 				serverToAdd.presences.remove(p)
 				serverToAdd.presences.add(p)
@@ -477,8 +491,20 @@ class API{
 	}
 
 	void addVoiceStateUpdateListener(){
-		this.addListener "voice state change", { Event e ->
-
+		this.addListener "voice state change", { Map d ->
+			Server server = d.voiceState.server
+			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
+			Map copyOfServerToRemove = serverToRemove
+			if (d.fullData["channel_id"] != null){
+				def existingVoiceState = copyOfServerToRemove.voice_states.find { it.user_id == d.fullData["user_id"] }
+				if (existingVoiceState != null){ copyOfServerToRemove.voice_states.remove(existingVoiceState) }
+				copyOfServerToRemove.voice_states.add(d.voiceState.object)
+			}else{
+				def existingVoiceState = copyOfServerToRemove.voice_states.find { it.user_id == d.fullData["user_id"] }
+				if (existingVoiceState != null){ copyOfServerToRemove.voice_states.remove(existingVoiceState) }
+			}
+			this.readyData["guilds"].remove(serverToRemove)
+			this.readyData["guilds"].add(copyOfServerToRemove)
 		}
 	}
 }

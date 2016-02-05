@@ -1,9 +1,7 @@
 package ml.hlaaftana.discordg.util.bot
 
 import ml.hlaaftana.discordg.objects.API
-import ml.hlaaftana.discordg.objects.Event
 import ml.hlaaftana.discordg.util.Log
-import ml.hlaaftana.discordg.util.bot.SuffixCommandBot.Command;
 
 /**
  * A simple bot implementation.
@@ -62,16 +60,16 @@ class CommandBot {
 	 * @param password - the password to log in with.
 	 */
 	def initialize(String email="", String password=""){
-		api.addListener("message create") { Event e ->
+		api.addListener("message create") { Map d ->
 			for (c in commands){
 				for (p in c.prefixes){
 					for (a in c.aliases){
-						if ((e.data.message.content + " ").toLowerCase().startsWith(p.toLowerCase() + a.toLowerCase() + " ")){
+						if ((d.message.content + " ").toLowerCase().startsWith(p.toLowerCase() + a.toLowerCase() + " ")){
 							try{
 								if (acceptOwnCommands){
-									c.run(e)
-								}else if (!(e.data.message.author.id == api.client.user.id)){
-									c.run(e)
+									c.run(d)
+								}else if (!(d.message.author.id == api.client.user.id)){
+									c.run(d)
 								}
 							}catch (ex){
 								ex.printStackTrace()
@@ -115,15 +113,15 @@ class CommandBot {
 
 		/**
 		 * Gets the text after the command trigger for this command.
-		 * @param e - an event object.
+		 * @param d - the event data.
 		 * @return the arguments as a string.
 		 */
-		def args(Event e){
+		def args(Map d){
 			try{
 				for (p in prefixes){
 					for (a in aliases){
-						if ((e.data.message.content + " ").toLowerCase().startsWith(p.toLowerCase() + a.toLowerCase() + " ")){
-							return e.data.message.content.substring((p + a + " ").length())
+						if ((d.message.content + " ").toLowerCase().startsWith(p.toLowerCase() + a.toLowerCase() + " ")){
+							return d.message.content.substring((p + a + " ").length())
 						}
 					}
 				}
@@ -134,9 +132,9 @@ class CommandBot {
 
 		/**
 		 * Runs the command.
-		 * @param e - an event object.
+		 * @param d - the event data.
 		 */
-		abstract def run(Event e)
+		abstract def run(Map d)
 	}
 
 	/**
@@ -155,8 +153,8 @@ class CommandBot {
 			this.response = response
 		}
 
-		def run(Event e){
-			e.data.sendMessage(response)
+		def run(Map d){
+			d.sendMessage(response)
 		}
 	}
 
@@ -168,20 +166,16 @@ class CommandBot {
 		Closure response
 
 		/**
-		 * @param response - a closure to respond with to this command. Can take one or two parameters. If it takes one, it has to be an Event object. If it takes two, the first one has to be an Event object, and the second one has to be a Command object. <br>
-		 * The rest of the parameters are Command's parameters.
+		 * @param response - a closure to respond with to this command. Can take one parameter, which is the data of the event.
 		 */
 		ClosureCommand(Closure response, def aliasOrAliases, def prefixOrPrefixes=CommandBot.defaultPrefix){
 			super(aliasOrAliases, prefixOrPrefixes)
+			response.delegate = this
 			this.response = response
 		}
 
-		def run(Event e){
-			if (response.maximumNumberOfParameters > 1){
-				response(e, this)
-			}else{
-				response(e)
-			}
+		def run(Map d){
+			response(d)
 		}
 	}
 }

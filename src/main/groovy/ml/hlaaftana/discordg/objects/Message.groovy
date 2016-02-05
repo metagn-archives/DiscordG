@@ -8,7 +8,7 @@ import ml.hlaaftana.discordg.util.*
  * A Discord message.
  * @author Hlaaftana
  */
-class Message extends Base{
+class Message extends DiscordObject{
 	Message(API api, Map object){
 		super(api, object)
 	}
@@ -20,43 +20,43 @@ class Message extends Base{
 	/**
 	 * @return the content of this message.
 	 */
-	String getContent(){ return object["content"] }
+	String getContent(){ return this.object["content"] }
 	/**
 	 * @return a raw timestamp string of when the message was created.
 	 */
-	String getCreateTimeRaw(){ return object["timestamp"] }
+	String getRawCreateTime(){ return this.object["timestamp"] }
 	/**
 	 * @return a Date of when the message was created.
 	 */
-	Date getCreateTime(){ return ConversionUtil.toDiscordDate(this.timestampRaw) }
+	Date getCreateTime(){ return ConversionUtil.fromJsonDate(this.timestampRaw) }
 	/**
 	 * @return a raw timestamp string of when the message was edited.
 	 */
-	String getEditTimeRaw(){ return object["edited_timestamp"] }
+	String getRawEditTime(){ return this.object["edited_timestamp"] }
 	/**
 	 * @return a Date of when the message was edited.
 	 */
-	Date getEditTime(){ return ConversionUtil.toDiscordDate(this.editTimeRaw) }
+	Date getEditTime(){ return ConversionUtil.fromJsonDate(this.editTimeRaw) }
 	/**
 	 * @return whether or not this message has text to speech.
 	 */
-	boolean isTTS(){ return object["tts"] }
+	boolean isTTS(){ return this.object["tts"] }
 	/**
 	 * @return whether or not the message mentions everyone. Yes, this method's name makes no sense, but Groovy inference is nice
 	 */
-	boolean isMentionsEveryone(){ return object["mention_everyone"] }
+	boolean isMentionsEveryone(){ return this.object["mention_everyone"] }
 	/**
 	 * @return a List of Attachments.
 	 */
-	List<Attachment> getAttachments(){ return object["attachments"].collect { new Attachment(api, it) } }
+	List<Attachment> getAttachments(){ return this.object["attachments"].collect { new Attachment(api, it) } }
 	/**
 	 * @return a List of Maps containing the embeds. Might replace with Embed objects.
 	 */
-	List getEmbeds() { return object["embeds"] }
+	List getEmbeds() { return this.object["embeds"] }
 	/**
 	 * @return the author of the message.
 	 */
-	User getAuthor() { return new User(api, object["author"]) }
+	User getAuthor() { return new User(api, this.object["author"]) }
 	/**
 	 * @return the author of the message.
 	 */
@@ -68,7 +68,7 @@ class Message extends Base{
 	/**
 	 * @return the channel the message is in.
 	 */
-	TextChannel getTextChannel() { return api.client.getTextChannelById(object["channel_id"]) }
+	TextChannel getTextChannel() { return api.client.getTextChannelById(this.object["channel_id"]) }
 	/**
 	 * @return the channel the message is in.
 	 */
@@ -85,21 +85,21 @@ class Message extends Base{
 	 * @return the edited Message.
 	 */
 	Message edit(String newContent) {
-		return new Message(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/channels/${object["channel_id"]}/messages/${this.id}", ["content": newContent])))
+		return new Message(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/channels/${this.object["channel_id"]}/messages/${this.id}", ["content": newContent])))
 	}
 
 	/**
 	 * Deletes the message.
 	 */
 	void delete() {
-		api.requester.delete("https://discordapp.com/api/channels/${object["channel_id"]}/messages/${this.id}")
+		api.requester.delete("https://discordapp.com/api/channels/${this.object["channel_id"]}/messages/${this.id}")
 	}
 
 	// removed ack method because of discord dev request
 
 	String toString(){ return this.author.name + ": " + this.content }
 
-	static class Attachment extends Base {
+	static class Attachment extends DiscordObject {
 		Attachment(API api, Map object){ this.api = api; this.object = object }
 
 		String getName(){ return this.object["filename"] }

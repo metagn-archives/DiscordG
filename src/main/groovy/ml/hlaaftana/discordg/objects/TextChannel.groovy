@@ -19,7 +19,7 @@ class TextChannel extends Channel {
 	/**
 	 * @return the topic of the channel. Might be null.
 	 */
-	String getTopic() { return object["topic"] }
+	String getTopic() { return this.object["topic"] }
 	/**
 	 * @return a mention for the channel.
 	 */
@@ -58,17 +58,29 @@ class TextChannel extends Channel {
 	}
 
 	/**
-	 * Get message history from the channel. Warning: this'll be quite slower each multiple of 50.
+	 * Sends a file to a channel.
+	 * @param filePath - the file path as a string.
+	 * @return - the sent message as a Message object.
+	 */
+	Message sendFile(String filePath){ return this.sendFile(new File(filePath)) }
+
+	/**
+	 * Get message history from the channel. Warning: this'll be quite slower each multiple of 100.
 	 * @param max - the max number of messages. 100 by default.
 	 * @return a List of Message containing the messages in the channel.
 	 */
-	List<Message> getLogs(int max=50) {
-		List<Message> logs = new ArrayList<Message>()
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=${max}"))
-		for (m in array){
-			logs.add(new Message(api, m))
+	List<Message> getLogs(int max=100) {
+		if (max <= 100){
+			return JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=${max}")).collect { new Message(api, it) }
+		}else{
+			List<Message> initialRequest = JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=100")).collect { new Message(api, it) }
+			for (int m = 1; m < (int) Math.ceil(max / 100) - 1; m++){
+				initialRequest += JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=100")).collect { new Message(api, it) }
+			}
+			if (max % 100 > 0) initialRequest += JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=${max % 100}")).collect { new Message(api, it) }
+			else initialRequest += JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=${100}")).collect { new Message(api, it) }
+			return initialRequest
 		}
-		return logs
 	}
 
 	List<Message> getCachedLogs(){

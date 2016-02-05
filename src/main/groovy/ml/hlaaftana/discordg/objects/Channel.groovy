@@ -8,7 +8,7 @@ import ml.hlaaftana.discordg.util.JSONUtil
  * A Discord channel.
  * @author Hlaaftana
  */
-class Channel extends Base{
+class Channel extends DiscordObject{
 	Channel(API api, Map object){
 		super(api, object)
 	}
@@ -40,6 +40,10 @@ class Channel extends Base{
 		return this.object["permission_overwrites"].collect { new PermissionOverwrite(api, it) }
 	}
 
+	List<Invite> getInvites(){
+		return JSONUtil.parse(api.requester.get("https://discordapi.com/api/channels/${this.id}/invites")).collect { new Invite(api, it) }
+	}
+
 	/**
 	 * Deletes the channel.
 	 */
@@ -57,7 +61,7 @@ class Channel extends Base{
 		return new Channel(api, api.requester.patch("https://discordapp.com/api/channels/${this.id}", ["name": (data.containsKey("name")) ? data["name"].toString() : this.getName(), "position": (data.containsKey("position")) ? data["position"] : this.getPosition(), "topic": (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic()]))
 	}
 
-	void editPermissions(Base target, def allow, def deny){
+	void editPermissions(DiscordObject target, def allow, def deny){
 		String id = target.id
 		String type = (target instanceof Role) "role" : "member"
 		int allowBytes = (allow instanceof int) allow : allow.value
@@ -65,21 +69,21 @@ class Channel extends Base{
 		api.requester.put("https://discordapp.com/api/channels/${this.id}/permissions/${id}", [allow: allowBytes, deny: denyBytes, id: id, type: type])
 	}
 
-	void addPermissions(Base target, def allow, def deny){
+	void addPermissions(DiscordObject target, def allow, def deny){
 		this.editPermissions(target, allow, deny)
 	}
 
-	void deletePermissions(Base target){
+	void deletePermissions(DiscordObject target){
 		api.requester.delete("https://discordapp.com/api/channels/${this.id}/permissions/${target.id}")
 	}
 
-	static class PermissionOverwrite extends Base {
+	static class PermissionOverwrite extends DiscordObject {
 		PermissionOverwrite(API api, Map object){ super(api, object) }
 
 		Permissions getAllowed(){ return new Permissions(this.object["allow"]) }
 		Permissions getDenied(){ return new Permissions(this.object["deny"]) }
 		String getType(){ return this.object["type"] }
-		Base getAffected(){
+		DiscordObject getAffected(){
 			if (this.type == "role"){
 				List<Role> roles = []
 				api.client.servers.each { roles.addAll(it.roles) }
@@ -89,7 +93,7 @@ class Channel extends Base{
 				api.client.servers.each { members.addAll(it.members) }
 				return members.find { it.id == this.id }
 			}
-			return (Base) this
+			return (DiscordObject) this
 		}
 		String getName(){ return this.affected.name }
 	}

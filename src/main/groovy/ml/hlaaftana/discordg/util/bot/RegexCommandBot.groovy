@@ -7,11 +7,11 @@ import ml.hlaaftana.discordg.util.Log
  * A simple bot implementation.
  * @author Hlaaftana
  */
-class SuffixCommandBot {
-	String name = "DiscordG|SuffixCommandBot"
+class RegexCommandBot {
+	String name = "DiscordG|CommandBot"
 	API api
 	List commands = []
-	static def defaultSuffix
+	static def defaultPrefix
 	boolean acceptOwnCommands = false
 	private boolean loggedIn = false
 
@@ -19,13 +19,13 @@ class SuffixCommandBot {
 	 * @param api - The API object this bot should use.
 	 * @param commands - A List of Commands you want to register right off the bat. Empty by default.
 	 */
-	SuffixCommandBot(API api, List commands=[]){
+	RegexCommandBot(API api, List commands=[]){
 		this.api = api
 		this.commands += commands
 	}
 
 	static def create(List commands=[]){
-		return new SuffixCommandBot(new API(), commands)
+		return new RegexCommandBot(new API(), commands)
 	}
 
 	/**
@@ -62,9 +62,9 @@ class SuffixCommandBot {
 	def initialize(String email="", String password=""){
 		api.addListener("message create") { Map d ->
 			for (c in commands){
-				for (p in c.suffixes){
+				for (p in c.prefixes){
 					for (a in c.aliases){
-						if ((d.message.content + " ").toLowerCase().startsWith(a.toLowerCase() + p.toLowerCase() + " ")){
+						if ((d.message.content + " ").toLowerCase() ==~ p.toLowerCase() + a.toLowerCase() + " .*"){
 							try{
 								if (acceptOwnCommands){
 									c.run(d)
@@ -91,48 +91,63 @@ class SuffixCommandBot {
 	 * @author Hlaaftana
 	 */
 	static abstract class Command{
-		List suffixes = []
+		List prefixes = []
 		List aliases = []
 
 		/**
 		 * @param aliasOrAliases - A String or List of Strings of aliases this command will trigger with.
-		 * @param suffixOrSuffixes - A String or List of Strings this command will be triggered by. Note that this is optional, and is CommandBot.defaultSuffix by default.
+		 * @param prefixOrPrefixes - A String or List of Strings this command will be triggered by. Note that this is optional, and is CommandBot.defaultPrefix by default.
 		 */
-		Command(def aliasOrAliases, def suffixOrSuffixes=SuffixCommandBot.defaultSuffix){
+		Command(def aliasOrAliases, def prefixOrPrefixes=RegexCommandBot.defaultPrefix){
 			if (aliasOrAliases instanceof List || aliasOrAliases instanceof Object[]){
 				aliases.addAll(aliasOrAliases)
 			}else{
 				aliases.add(aliasOrAliases.toString())
 			}
-			if (suffixOrSuffixes instanceof List || suffixOrSuffixes instanceof Object[]){
-				suffixes.addAll(suffixOrSuffixes)
+			if (prefixOrPrefixes instanceof List || prefixOrPrefixes instanceof Object[]){
+				prefixes.addAll(prefixOrPrefixes)
 			}else{
-				suffixes.add(suffixOrSuffixes.toString())
+				prefixes.add(prefixOrPrefixes.toString())
 			}
 		}
 
+		// listen
+		// i hate regex
+		// and love it
+		// just don't criticize me for this code
+
 		/**
 		 * Gets the text after the command trigger for this command.
-		 * @param e - an event object.
+		 * @param d - the event data.
 		 * @return the arguments as a string.
 		 */
 		def args(Map d){
+			return (this.allCaptures(d)[0] != null) ? d.message.content.substring(this.allCaptures(d)[0].length() + 1) : ""
+		}
+
+		def captures(Map d){
+			return this.allCaptures(d).with { remove(0); delegate }
+		}
+
+		def allCaptures(Map d){
 			try{
-				for (p in suffixes){
+				for (p in prefixes){
 					for (a in aliases){
-						if ((d.message.content + " ").toLowerCase().startsWith(a.toLowerCase() + p.toLowerCase() + " ")){
-							return d.message.content.substring((a + p + " ").length())
+						if ((d.message.content + " ") ==~ (p + a + " .*")){
+							def match = (d.message.content =~ p + a).collect{it}[0]
+							List holyShit = (match instanceof String) ? [match] : match
+							return holyShit
 						}
 					}
 				}
 			}catch (ex){
-				return ""
+				return []
 			}
 		}
 
 		/**
 		 * Runs the command.
-		 * @param e - an event object.
+		 * @param d - the event data.
 		 */
 		abstract def run(Map d)
 	}
@@ -148,8 +163,8 @@ class SuffixCommandBot {
 		 * @param response - a string to respond with to this command. <br>
 		 * The rest of the parameters are Command's parameters.
 		 */
-		ResponseCommand(String response, def aliasOrAliases, def suffixOrSuffixes=SuffixCommandBot.defaultSuffix){
-			super(aliasOrAliases, suffixOrSuffixes)
+		ResponseCommand(String response, def aliasOrAliases, def prefixOrPrefixes=CommandBot.defaultPrefix){
+			super(aliasOrAliases, prefixOrPrefixes)
 			this.response = response
 		}
 
@@ -168,8 +183,8 @@ class SuffixCommandBot {
 		/**
 		 * @param response - a closure to respond with to this command. Can take one parameter, which is the data of the event.
 		 */
-		ClosureCommand(Closure response, def aliasOrAliases, def suffixOrSuffixes=SuffixCommandBot.defaultSuffix){
-			super(aliasOrAliases, suffixOrSuffixes)
+		ClosureCommand(Closure response, def aliasOrAliases, def prefixOrPrefixes=CommandBot.defaultPrefix){
+			super(aliasOrAliases, prefixOrPrefixes)
 			response.delegate = this
 			this.response = response
 		}
