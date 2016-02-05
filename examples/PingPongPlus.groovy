@@ -36,13 +36,13 @@ Closure getCommandArgs = { String message, String command ->
 }
 
 api = APIBuilder.build("email@example.com", "password123")
-api.addListener("message create", { // We didn't type "Event e ->" here, since we can just use
+api.addListener("message create", { // We didn't type "Map d ->" here, since we can just use
 									// an implicit parameter which Groovy names "it".
 	// Doing this because it'll get annoying to refer to the same variable
 	// in the same lengthy way later. Don't blame me, you're gonna end up
 	// having special handling with this API anyway. Kinda the point of it
 	// being so low-level.
-	Message message = it.data["message"]
+	Message message = it["message"]
 
 	// Refer to isMessageCommand above to understand how it works.
 	if (isMessageCommand(message.content, "ping")){

@@ -59,7 +59,7 @@ class Member extends User{
 	 */
 	String getGame(){
 		try{
-			return this.server.this.object["presences"].find({ it.user.id == this.user.id }).game.name
+			return this.server.object["presences"].find({ it.user.id == this.user.id }).game.name
 		}catch (ex){
 			return null
 		}
@@ -70,7 +70,7 @@ class Member extends User{
 	 */
 	String getStatus(){
 		try{
-			return this.server.this.object["presences"].find({ it.user.id == this.user.id }).status
+			return this.server.object["presences"].find({ it.user.id == this.user.id }).status
 		}catch (ex){
 			return "offline"
 		}
