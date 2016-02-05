@@ -39,7 +39,7 @@ class Member extends User{
 	/**
 	 * @return a Date object of when the member joined the server.
 	 */
-	Date getJoinDate(){ return ConversionUtil.fromJsonDate(this.joinDateRaw) }
+	Date getJoinDate(){ return ConversionUtil.fromJsonDate(this.rawJoinDate) }
 	/**
 	 * @return the roles this member has.
 	 */
