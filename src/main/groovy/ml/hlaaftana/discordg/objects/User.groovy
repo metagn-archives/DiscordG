@@ -8,7 +8,7 @@ import ml.hlaaftana.discordg.util.JSONUtil
  * A Discord user.
  * @author Hlaaftana
  */
-class User extends Base{
+class User extends DiscordObject{
 	User(API api, Map object){
 		super(api, object)
 	}
@@ -16,29 +16,27 @@ class User extends Base{
 	/**
 	 * @return the user's username.
 	 */
-	String getName(){ return this.getUsername() }
+	String getName(){ return this.username }
 	/**
 	 * @return the user's username.
 	 */
-	String getUsername() { return object["username"] }
+	String getUsername() { return this.object["username"] }
 	/**
 	 * @return the user's avatar's hash/ID.
 	 */
-	String getAvatarHash(){ return object["avatar"] }
+	String getAvatarHash(){ return this.object["avatar"] ?: DefaultAvatars.get(Integer.parseInt(this.discriminator) % 5) }
+	String getRawAvatarHash(){ return this.object["avatar"] }
 	/**
 	 * @return the user's avatar as a URL string.
 	 */
-	String getAvatar() {
-		if (this.getAvatarHash() != null){
-			return "https://discordapp.com/api/users/${this.getId()}/avatars/${this.getAvatarHash()}.jpg"
-		}else{
-			return ""
-		}
-	}
+	String getAvatar() { return "https://discordapp.com/api/users/${this.id}/avatars/${this.avatarHash}.jpg" }
 	/**
 	 * @return the user's avatar as a URL object.
 	 */
-	URL getAvatarURL(){ return new URL(this.getAvatar()) }
+	URL getAvatarURL(){ return new URL(this.avatar) }
+	URL getAvatarUrl(){ return new URL(this.avatar) }
+	String getDiscriminator(){ return this.object["discriminator"] }
+	String getDiscrim(){ return this.object["discriminator"] }
 	/**
 	 * @return a private channel for the user. If not created already, it'll create a new one.
 	 */

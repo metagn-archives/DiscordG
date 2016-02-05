@@ -10,7 +10,7 @@ import ml.hlaaftana.discordg.util.*
  * A Discord server/guild.
  * @author Hlaaftana
  */
-class Server extends Base {
+class Server extends DiscordObject {
 	Server(API api, Map object){
 		super(api, object)
 	}
@@ -18,19 +18,19 @@ class Server extends Base {
 	/**
 	 * @return the region the server is in.
 	 */
-	String getRegion(){ return object["region"] }
+	String getRegionId(){ return this.object["region"] }
 	/**
 	 * @return the timestamp of when this server was created.
 	 */
-	String getCreateTimeRaw(){ return object["joined_at"] }
+	String getRawCreateTime(){ return this.object["joined_at"] }
 	/**
 	 * @return the timestamp of when this server was created.
 	 */
-	Date getCreateTime(){ return ConversionUtil.toDiscordDate(object["joined_at"]) }
+	Date getCreateTime(){ return ConversionUtil.fromJsonDate(this.object["joined_at"]) }
 	/**
 	 * @return the hash/ID of this server's icon.
 	 */
-	String getIconHash(){ return object["icon"] }
+	String getIconHash(){ return this.object["icon"] }
 	/**
 	 * @return the URL of the icon of this server as a string.
 	 */
@@ -47,7 +47,7 @@ class Server extends Base {
 	 */
 	Member getOwner() {
 		for (m in this.members){
-			if (m.id == object["owner_id"]){
+			if (m.id == this.object["owner_id"]){
 				return m
 			}
 		}
@@ -62,6 +62,8 @@ class Server extends Base {
 	int getAfkTimeout(){ return this.object["afk_timeout"] }
 	Channel getWidgetChannel(){ return this.channels.find { it.id == this.object["embed_channel_id"] } }
 	boolean isWidgetEnabled(){ return this.object["embed_enabled"] }
+	VerificationLevels getVerificationLevel(){ return VerificationLevels.get(this.object["verification_level"]) }
+	int getRawVerificationLevel(){ return this.object["verification_level"] }
 
 	/**
 	 * @return the {@literal @everyone} role for this server.
@@ -74,7 +76,7 @@ class Server extends Base {
 	 * @return the edited server as a Server object.
 	 */
 	Server edit(Map data) {
-		Map copyOfData = [name: data.name, region: data.region, icon: data.icon, afk_channel_id: data.afkChannel?.id, afk_timeout: data.afkTimeout, owner_id: data.owner?.id]
+		Map copyOfData = [name: data.name, region: data.region, icon: data.icon, afk_channel_id: data.afkChannel?.id, afk_timeout: data.afkTimeout, owner_id: data.owner?.id, verification_level: data.verificationLevel?.level]
 		Map copyOfCopyOfData = [:] << copyOfData // avoid concurrentmodificationexception
 		copyOfData.entrySet().each {
 			if (it.value == null){
@@ -204,14 +206,14 @@ class Server extends Base {
 	 * @return all channels in the server.
 	 */
 	List<Channel> getChannels(){
-		return this.object["channels"].collect { new Channel(api, it) }
+		return this.object["channels"].collect { (it.type == "text") ? new TextChannel(api, it) : new VoiceChannel(api, it) }
 	}
 
 	/**
 	 * @return all roles in the server.
 	 */
 	List<Role> getRoles() {
-		List array = object["roles"].collect { it }
+		List array = this.object["roles"].collect { it }
 		List<Role> roles = []
 		for (o in array){
 			roles.add(new Role(api, o))
@@ -223,7 +225,7 @@ class Server extends Base {
 	 * @return all members in the server.
 	 */
 	List<Member> getMembers() {
-		List array = object["members"].collect { it }
+		List array = this.object["members"].collect { it }
 		List<Member> members = []
 		for (o in array){
 			members.add(new Member(api, o))
@@ -277,6 +279,18 @@ class Server extends Base {
 		return this.object["voice_states"].collect { new VoiceState(api, it) }
 	}
 
+	List<Invite> getInvites(){
+		return JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/invites")).collect { new Invite(api, it) }
+	}
+
+	List<Region> getRegions(){
+		return JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/regions")).collect { new Region(api, it) }
+	}
+
+	Region getRegion(){
+		return this.regions.find { it.id == this.regionId }
+	}
+
 	/**
 	 * Ban a user from the server.
 	 * @param user - the User to ban.
@@ -315,7 +329,7 @@ class Server extends Base {
 	 * @return the edited role.
 	 */
 	Role editRole(Role role, Map<String, Object> data) {
-		if (data["color"] instanceof Colors) data["color"] = data["color"].value
+		if (data["color"] instanceof Color) data["color"] = data["color"].value
 		if (data["permissions"] instanceof Permissions) data["permissions"] = data["permissions"].value
 		return new Role(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}", data)))
 	}
@@ -331,13 +345,17 @@ class Server extends Base {
 	Member getMember(User user){ return this.members.find { it.id == user.id } }
 	Member member(User user){ return this.members.find { it.id == user.id } }
 
-	static class VoiceState extends Base {
+	Message sendMessage(String message, boolean tts=false){ this.defaultChannel.sendMessage(message, tts) }
+	Message sendFile(File file){ this.defaultChannel.sendFile(file) }
+	Message sendFile(String filePath){ this.defaultChannel.sendFile(filePath) }
+
+	static class VoiceState extends DiscordObject {
 		VoiceState(API api, Map object){ super(api, object) }
 
-		VoiceChannel getChannel(){ return api.client.getVoiceChannelById(object["channel_id"]) }
-		VoiceChannel getVoiceChannel(){ return api.client.getVoiceChannelById(object["channel_id"]) }
-		User getUser(){ return api.client.getUserById(object["user_id"]) }
-		Server getServer(){ return api.client.getServerById(object["guild_id"]) }
+		VoiceChannel getChannel(){ return api.client.getVoiceChannelById(this.object["channel_id"]) }
+		VoiceChannel getVoiceChannel(){ return api.client.getVoiceChannelById(this.object["channel_id"]) }
+		User getUser(){ return api.client.getUserById(this.object["user_id"]) }
+		Server getServer(){ return api.client.getServerById(this.object["guild_id"]) }
 		Member getMember(){ return this.server.member(this.user) }
 		boolean isDeaf(){ return this.object["deaf"] }
 		boolean isMute(){ return this.object["mute"] }
@@ -350,5 +368,18 @@ class Server extends Base {
 		boolean isSuppress(){ return this.object["suppress"] }
 		String getToken(){ return this.object["token"] }
 		String getSessionId(){ return this.object["session_id"] }
+	}
+
+	static enum VerificationLevels {
+		NONE(0),
+		LOW(1),
+		MEDIUM(2),
+		HIGH(3),
+		TABLEFLIP(3),
+
+		int level
+		VerificationLevels(int level){ this.level = level }
+
+		static VerificationLevels get(int level){ return VerificationLevels.class.enumConstants.find { it.level == level } }
 	}
 }

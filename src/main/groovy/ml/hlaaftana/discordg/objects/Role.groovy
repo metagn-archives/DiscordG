@@ -4,7 +4,7 @@ package ml.hlaaftana.discordg.objects
  * A Discord server role.
  * @author Hlaaftana
  */
-class Role extends Base{
+class Role extends DiscordObject{
 	Role(API api, Map object){
 		super(api, object)
 	}
@@ -12,21 +12,22 @@ class Role extends Base{
 	/**
 	 * @return the color for the role as an int.
 	 */
-	int getColor(){ return object["color"] }
+	int getColorValue(){ return this.object["color"] }
+	Color getColor(){ return new Color(this.object["color"]) }
 	/**
 	 * @return whether the role is hoist or not.
 	 */
-	boolean isHoist(){ return object["hoist"] }
+	boolean isHoist(){ return this.object["hoist"] }
 	/**
 	 * @return whether the role is managed or not. I have no idea what this means.
 	 */
-	boolean isManaged(){ return object["managed"] }
+	boolean isManaged(){ return this.object["managed"] }
 	/**
 	 * @return the permission bits for this role as an int. I will replace this with a Permissions object later
 	 */
-	int getPermissions(){ return object["permissions"] }
+	int getPermissions(){ return this.object["permissions"] }
 	/**
 	 * @return the position index for the role.
 	 */
-	int getPosition(){ return object["position"] }
+	int getPosition(){ return this.object["position"] }
 }

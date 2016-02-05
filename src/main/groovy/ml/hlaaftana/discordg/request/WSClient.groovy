@@ -54,7 +54,7 @@ class WSClient{
 
 	@OnWebSocketMessage
 	void onMessage(Session session, String message) throws IOException{
-		def clos = {
+		threadPool.submit({
 			Map content = JSONUtil.parse(message)
 			String type = content["t"]
 			if (api.ignorePresenceUpdate && type == "PRESENCE_UPDATE") return
@@ -195,7 +195,9 @@ class WSClient{
 						message: new Message(api, data),
 						sendMessage: { String cont, boolean tts=false ->
 							eventData.message.channel.sendMessage(cont, tts)
-						}
+						},
+						sendFile: { File file -> eventData.message.channel.sendFile(file) },
+						sendFile: { String file -> eventData.message.channel.sendFile(file) }
 						]
 					if (eventData.message.server == null){
 						eventData.message = new Message(api, data)
@@ -258,13 +260,16 @@ class WSClient{
 					eventData = [
 						voiceState: new VoiceState(api, data)
 						]
-					if (eventData["voiceState"].user == api.client.user.id){
-						if (false){ // voice connected
-							//
+					if (data["user_id"] == api.client.user.id){
+						if (api.voiceWsClient != null){ // voice connected
+							api.voiceData.channel = api.client.getVoiceChannelById(data["channel_id"])
 						}
+
+						api.voiceData.session_id = data["session_id"]
 					}
 				}else if (t("VOICE_SERVER_UPDATE")){
-
+					api.voiceData << data
+					eventData = data
 				}else{
 					eventData = data
 				}
@@ -272,13 +277,13 @@ class WSClient{
 				if (Log.enableEventRegisteringCrashes) ex.printStackTrace()
 				Log.info "Ignoring exception from event object registering"
 			}
-			eventData.put("fullData", data)
-			Event event = new Event(type, eventData)
+			if (!t("READY")) eventData.put("fullData", data)
+			else if (api.copyReady) eventData.put("fullData", data)
+			Map event = eventData
 			if (api.isLoaded()){
-				api.dispatchEvent(event)
+				api.dispatchEvent(type, event)
 			}
-		}
-		threadPool.submit(clos as Callable)
+		} as Callable)
 	}
 
 	@OnWebSocketClose

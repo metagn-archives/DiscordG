@@ -13,7 +13,7 @@ class PrivateChannel extends TextChannel {
 	/**
 	 * @return the user the conversation is with.
 	 */
-	User getUser(){ return new User(api, object["recipient"] )}
+	User getUser(){ return new User(api, this.object["recipient"] )}
 	Server getServer(){ return null }
 	String getTopic(){ return null }
 	String getPosition(){ return null }

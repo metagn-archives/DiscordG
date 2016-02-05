@@ -21,27 +21,30 @@ class Member extends User{
 	String getAvatarHash(){ return this.user.avatarHash }
 	String getAvatar() { return this.user.avatar }
 	URL getAvatarURL(){ return this.user.avatarURL }
+	URL getAvatarUrl(){ return this.user.avatarUrl }
+	String getDiscriminator(){ return this.user.discriminator }
+	String getDiscrim(){ return this.user.discriminator }
 	/**
 	 * @return the User which this Member is.
 	 */
-	User getUser(){ return new User(api, object["user"]) }
+	User getUser(){ return new User(api, this.object["user"]) }
 	/**
 	 * @return the server the member comes from.
 	 */
-	Server getServer(){ return api.client.getServerById(object["guild_id"]) }
+	Server getServer(){ return api.client.getServerById(this.object["guild_id"]) }
 	/**
 	 * @return a timestamp of when the member joined the server.
 	 */
-	String getJoinDateRaw(){ return object["joined_at"] }
+	String getRawJoinDate(){ return this.object["joined_at"] }
 	/**
 	 * @return a Date object of when the member joined the server.
 	 */
-	Date getJoinDate(){ return ConversionUtil.toDiscordDate(this.joinDateRaw) }
+	Date getJoinDate(){ return ConversionUtil.fromJsonDate(this.joinDateRaw) }
 	/**
 	 * @return the roles this member has.
 	 */
 	List<Role> getRoles(){
-		List array = object["roles"]
+		List array = this.object["roles"]
 		List<Role> roles = new ArrayList<Role>()
 		for (o in array){
 			for (r in this.server.roles){
@@ -56,7 +59,7 @@ class Member extends User{
 	 */
 	String getGame(){
 		try{
-			return this.server.object["presences"].find({ it.user.id == this.user.id }).game.name
+			return this.server.this.object["presences"].find({ it.user.id == this.user.id }).game.name
 		}catch (ex){
 			return null
 		}
@@ -67,7 +70,7 @@ class Member extends User{
 	 */
 	String getStatus(){
 		try{
-			return this.server.object["presences"].find({ it.user.id == this.user.id }).status
+			return this.server.this.object["presences"].find({ it.user.id == this.user.id }).status
 		}catch (ex){
 			return "offline"
 		}

@@ -230,7 +230,7 @@ class Client{
 	void changeStatus(Map<String, Object> data) {
 		api.wsClient.send(["op": 3, "d": ["game": ["name": data["game"]], "idle_since": (data["idle"] != null) ? System.currentTimeMillis() : null]])
 		for (s in this.servers){
-			api.dispatchEvent(new Event("PRESENCE_UPDATE", [
+			api.dispatchEvent("PRESENCE_UPDATE", [
 				"fullData": [
 					"game": (data["game"] != null) ? ["name": data["game"]] : null,
 					"status": (data["idle"] != null) ? "online" : "idle",
@@ -241,7 +241,7 @@ class Client{
 				"member": s.members.find { try{ it.id == this.user.id }catch (ex){ false } },
 				"game": (data["game"] != null) ? data["game"] : null,
 				"status": (data["idle"] != null) ? "online" : "idle"
-				]))
+				])
 		}
 	}
 
@@ -279,6 +279,18 @@ class Client{
 	Invite createInvite(def dest, Map data=[:]){
 		String id = (dest instanceof Channel) ? dest.id : (dest instanceof Server) ? dest.defaultChannel.id : dest
 		return new Invite(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/channels/${id}/invites", data)))
+	}
+
+	List<Invite> getInvitesFor(Server server){
+		return server.invites
+	}
+
+	List<Invite> getInvitesFor(Channel channel){
+		return channel.invites
+	}
+
+	List<Connection> getConnections(){
+		return JSONUtil.parse(api.requester.get("https://discordapp.com/api/users/@me/connections")).collect { new Connection(api, it) }
 	}
 
 	void moveToChannel(Member member, VoiceChannel channel){
