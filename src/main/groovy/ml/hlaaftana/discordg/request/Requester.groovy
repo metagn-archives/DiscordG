@@ -68,10 +68,21 @@ class Requester{
 	 */
 	def headerUp(def request, boolean isGet=false){
 		def req = request
-		if (api.token != null) req = req.header("Authorization", api.token)
-		if (!isGet) req = req.header("Content-Type", "application/json")
-		return req.header("User-Agent", "DiscordBot (https://github.com/hlaaftana/DiscordG, 1.5.0)")
+		if (req instanceof URLConnection){
+			if (api.token != null) req = req.setRequestProperty("Authorization", api.token)
+			if (!isGet) req = req.setRequestProperty("Content-Type", "application/json")
+			req.setRequestProperty("User-Agent", api.fullUserAgent)
+			return req
+		}else if (req instanceof URL){
+			return this.headerUp(req.openConnection(), isGet)
+		}else{
+			if (api.token != null) req = req.header("Authorization", api.token)
+			if (!isGet) req = req.header("Content-Type", "application/json")
+			return req.header("User-Agent", api.fullUserAgent)
+		}
 	}
+	
+	
 }
 
 

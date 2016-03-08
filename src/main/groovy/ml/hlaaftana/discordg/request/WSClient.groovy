@@ -22,6 +22,7 @@ class WSClient{
 	Session session
 	Thread keepAliveThread
 	def threadPool
+	int responseAmount
 	WSClient(API api){ this.api = api; threadPool = Executors.newFixedThreadPool(api.eventThreadCount) }
 
 	@OnWebSocketConnect
@@ -37,6 +38,7 @@ class WSClient{
 			"d": [
 				"token": api.token,
 				"v": 3,
+				"large_threshold": api.largeThreshold,
 				"properties": [
 					"\$os": System.getProperty("os.name"),
 					"\$browser": "DiscordG",
@@ -46,7 +48,6 @@ class WSClient{
 				],
 			],
 		]
-		if (api.largeThreshold) a["d"]["large_threshold"] = api.largeThreshold
 		this.send(a)
 		Log.info "Sent API details."
 		latch.countDown()
@@ -59,8 +60,8 @@ class WSClient{
 			String type = content["t"]
 			if (api.ignorePresenceUpdate && type == "PRESENCE_UPDATE") return
 			Map data = content["d"]
-			int responseAmount = content["s"]
-			if (type.equals("READY") || type.equals("RESUMED")){
+			this.responseAmount = content["s"]
+			if (type.equals("READY")){
 				long heartbeat = data["heartbeat_interval"]
 				try{
 					keepAliveThread = new Thread({
@@ -75,7 +76,7 @@ class WSClient{
 					e.printStackTrace()
 					System.exit(0)
 				}
-				api.readyData = data
+				api.readyData << data
 				api.readyData.guilds.each { Map g ->
 					g.members.each { Map m ->
 						m["guild_id"] = g["id"]
@@ -86,6 +87,9 @@ class WSClient{
 						if (c["type"] == "text"){
 							c["cached_messages"] = []
 						}
+					}
+					g.emojis.each { Map e ->
+						e["guild_id"] = g["id"]
 					}
 				}
 				api.readyData.private_channels.each { Map pc ->
@@ -98,7 +102,7 @@ class WSClient{
 			Closure t = { String ty -> return ty.equals(type) }
 			// i removed the switch here because it was slow
 			try{
-				if (t("READY")){
+				if (t("READY") || t("USER_GUILD_SETTINGS_UPDATE") || t("USER_SETTINGS_UPDATE") || t("MESSAGE_ACK")){
 					eventData = data
 				}else if (t("CHANNEL_CREATE") || t("CHANNEL_DELETE") || t("CHANNEL_UPDATE")){
 					if (!data.containsKey("guild_id")){
@@ -120,7 +124,7 @@ class WSClient{
 							channel: new VoiceChannel(api, data)
 							]
 					}
-				}else if (t("GUILD_BAN_ADD") && t("GUILD_BAN_REMOVE")){
+				}else if (t("GUILD_BAN_ADD") || t("GUILD_BAN_REMOVE")){
 					eventData = [
 						server: api.client.getServerById(data["guild_id"]),
 						guild: api.client.getServerById(data["guild_id"]),
@@ -148,6 +152,12 @@ class WSClient{
 					eventData = [
 						server: api.client.getServerById(data["guild_id"]),
 						guild: api.client.getServerById(data["guild_id"])
+						]
+				}else if (t("GUILD_EMOJIS_UPDATE")){
+					eventData = [
+						server: api.client.getServerById(data["guild_id"]),
+						guild: api.client.getServerById(data["guild_id"]),
+						emojis: data["emojis"].collect { new Emoji(api, it + ["guild_id": data["guild_id"]]) }
 						]
 				}else if (t("GUILD_MEMBER_ADD") || t("GUILD_MEMBER_UPDATE")){
 					eventData = [
@@ -191,15 +201,14 @@ class WSClient{
 						guild: new Server(api, newData)
 						]
 				}else if (t("MESSAGE_CREATE")){
+					Message messageO = new Message(api, data)
 					eventData = [
-						message: new Message(api, data),
-						sendMessage: { String cont, boolean tts=false ->
-							eventData.message.channel.sendMessage(cont, tts)
-						},
-						sendFile: { File file -> eventData.message.channel.sendFile(file) },
-						sendFile: { String file -> eventData.message.channel.sendFile(file) }
+						message: messageO,
+						sendMessage: messageO.channel.&sendMessage,
+						sendFile: messageO.channel.&sendFile,
+						author: messageO.channel?.server?.members?.find { it.id == messageO.author.id } ?: messageO.author
 						]
-					if (eventData.message.server == null){
+					if (eventData.message == null){
 						eventData.message = new Message(api, data)
 					}
 				}else if (t("MESSAGE_DELETE")){
@@ -223,7 +232,7 @@ class WSClient{
 						Message foundMessage = channels*.cachedLogs.find { it.id == data["id"] }
 						eventData = [
 							channel: api.client.getTextChannelById(data["channel_id"]),
-							message: (foundMessage != null) ? foundMessage : data["id"],
+							message: foundMessage ?: data["id"],
 							embeds: data["embeds"]
 							]
 					}
@@ -270,8 +279,14 @@ class WSClient{
 				}else if (t("VOICE_SERVER_UPDATE")){
 					api.voiceData << data
 					eventData = data
+				}else if (t("USER_UPDATE")){
+					eventData = [
+						user: new User(api, data)
+					]
 				}else{
 					eventData = data
+					Log.info "Unhandled websocket message: $type. Report to me, preferrably with the data I'm gonna send now."
+					Log.info data.toString()
 				}
 			}catch (ex){
 				if (Log.enableEventRegisteringCrashes) ex.printStackTrace()
@@ -289,11 +304,7 @@ class WSClient{
 	@OnWebSocketClose
 	void onClose(Session session, int code, String reason){
 		Log.info "Connection closed. Reason: " + reason + ", code: " + code.toString()
-		try{
-			if (keepAliveThread != null) keepAliveThread.interrupt(); keepAliveThread = null
-		}catch (ex){
-
-		}
+		if (keepAliveThread != null) keepAliveThread.interrupt(); keepAliveThread = null
 	}
 
 	@OnWebSocketError

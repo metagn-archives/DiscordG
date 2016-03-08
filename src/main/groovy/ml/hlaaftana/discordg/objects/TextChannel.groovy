@@ -3,6 +3,7 @@ package ml.hlaaftana.discordg.objects
 import groovy.json.JsonException
 import java.util.List
 
+import ml.hlaaftana.discordg.exceptions.RateLimitException
 import ml.hlaaftana.discordg.util.JSONUtil
 
 import com.mashape.unirest.http.Unirest
@@ -20,17 +21,6 @@ class TextChannel extends Channel {
 	 * @return the topic of the channel. Might be null.
 	 */
 	String getTopic() { return this.object["topic"] }
-	/**
-	 * @return a mention for the channel.
-	 */
-	String getMention() { return "<#${this.id}>" }
-
-	/**
-	 * Start typing in the channel.
-	 */
-	void startTyping() {
-		api.requester.post("https://discordapp.com/api/channels/${this.id}/typing", [:])
-	}
 
 	/**
 	 * Send a message to the channel.
@@ -40,21 +30,22 @@ class TextChannel extends Channel {
 	 */
 	Message sendMessage(String content, boolean tts=false) {
 		if (content.length() > 2000) throw new Exception("You tried to send a message longer than 2000 characters.")
+		String ass = api.requester.post("https://discordapp.com/api/channels/${this.id}/messages", ["content": content, "tts": tts, "channel_id": this.id])
 		try{
-			return new Message(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/channels/${this.id}/messages", ["content": content, "tts": tts, "channel_id": this.id])))
+			return new Message(api, JSONUtil.parse(ass))
 		}catch (JsonException ex){
-			println api.requester.post("https://discordapp.com/api/channels/${this.id}/messages", ["content": content, "tts": tts, "channel_id": this.id])
-			throw new Exception("You need to enter the chill zone.")
+			throw new RateLimitException(ass)
 		}
 	}
 
 	/**
 	 * Sends a file to a channel.
 	 * @param file - the File object to send.
+	 * @param data - optional data to send with the request
 	 * @return - the sent message as a Message object.
 	 */
-	Message sendFile(File file){
-		return new Message(api, JSONUtil.parse(Unirest.post("https://discordapp.com/api/channels/${this.id}/messages").header("authorization", api.token).header("user-agent", "https://github.com/hlaaftana/DiscordG, 1.0").field("file", file).asString().body))
+	Message sendFile(File file, Map data=[:]){
+		return new Message(api, JSONUtil.parse(Unirest.post("https://discordapp.com/api/channels/${this.id}/messages").header("authorization", api.token).header("user-agent", api.fullUserAgent).field("file", file).field("content", data["content"] == null ? "" : data["content"]).field("tts", data["tts"] as boolean).asString().body))
 	}
 
 	/**
@@ -62,7 +53,7 @@ class TextChannel extends Channel {
 	 * @param filePath - the file path as a string.
 	 * @return - the sent message as a Message object.
 	 */
-	Message sendFile(String filePath){ return this.sendFile(new File(filePath)) }
+	Message sendFile(String filePath, Map data=[:]){ return this.sendFile(new File(filePath)) }
 
 	/**
 	 * Get message history from the channel. Warning: this'll be quite slower each multiple of 100.
@@ -71,7 +62,7 @@ class TextChannel extends Channel {
 	 */
 	List<Message> getLogs(int max=100) {
 		if (max <= 100){
-			return JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=${max}")).collect { new Message(api, it) }
+			return JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=${max}")).collect { try{ new Message(api, it) }catch (ex){ throw new RateLimitException(it.toString()) } }
 		}else{
 			List<Message> initialRequest = JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=100")).collect { new Message(api, it) }
 			for (int m = 1; m < (int) Math.ceil(max / 100) - 1; m++){

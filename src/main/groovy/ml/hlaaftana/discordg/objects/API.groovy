@@ -18,6 +18,12 @@ import org.eclipse.jetty.websocket.client.WebSocketClient
  * @author Hlaaftana
  */
 class API{
+	static final String version = this.class.getResourceAsStream("/version").text
+	static final String github = "https://github.com/hlaaftana/DiscordG"
+	static final String userAgent = "DiscordBot ($github, $version)"
+	String customUserAgent = ""
+	String getFullUserAgent(){ "$userAgent $customUserAgent" }
+
 	Requester requester
 	String token
 	String email
@@ -27,15 +33,16 @@ class API{
 	VoiceWSClient voiceWsClient
 	VoiceClient voiceClient
 	Map<String, List<Closure>> listeners = new HashMap<String, List<Closure>>()
-	Map readyData
+	Map readyData = [:]
 	Map voiceData = [:]
+	String gateway
 	// if you want to use global variables through the API object. mostly for utility
 	Map<String, Object> fields = [:]
 	boolean cacheTokens = true
 	String tokenCachePath = "token.json"
 	int eventThreadCount = 3 // if your bot is on tons of big servers, this might help however take up some CPU
 	boolean ignorePresenceUpdate = false // if your bot is on tons of big servers, this might help you lose some CPU
-	int largeThreshold // if your bot is on tons of big servers, this might help your request speeds
+	int largeThreshold = 250 // if your bot is on tons of big servers, setting this to lower numbers might help your startup time
 	boolean copyReady = true // adds fullData to ready to archive the initial ready
 
 	/**
@@ -72,6 +79,8 @@ class API{
 		this.addGuildRoleUpdateListener()
 		this.addPresenceUpdateListener()
 		this.addVoiceStateUpdateListener()
+		this.addGuildEmojisUpdateListener()
+		this.addUserUpdateListener()
 	}
 
 	WSClient getWebSocketClient(){ return wsClient }
@@ -80,8 +89,8 @@ class API{
 		API newApi = new API()
 		def (sProps, tProps) = [this, newApi]*.properties*.keySet()
 	    def commonProps = sProps.intersect(tProps) - ["class", "metaClass"]
-	    commonProps.each { newApi[it] = !(it in ["requester", "wsClient", "client", "listeners", "readyData", "voiceData"]) ? this[it] : null }
-		return newApi.with { login(delegate.email, delegate.password) }
+	    commonProps.each { newApi[it] = !(it in ["requester", "wsClient", "client", "readyData", "voiceData", "loaded"]) ? this[it] : null }
+		return newApi
 	}
 
 	/**
@@ -90,42 +99,47 @@ class API{
 	 * @param password - the password to use.
 	 */
 	void login(String email, String password){
+		this.email = email
+		this.password = password
+		File tokenCache = new File(tokenCachePath)
+		if (tokenCache.exists()){
+			try{
+				if (cacheTokens){
+					token = new JsonSlurper().parse(tokenCache)[(email)]["token"]
+				}else{
+					token = JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
+				}
+			}catch (ex){
+				if (cacheTokens){
+					tokenCache.write(JsonOutput.prettyPrint(JSONUtil.json(new JsonSlurper().parse(tokenCache) + [(email): JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))])))
+
+					token = new JsonSlurper().parse(tokenCache)[(email)]["token"]
+				}else{
+					token = JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
+				}
+			}
+		}else{
+			if (cacheTokens){
+				tokenCache.createNewFile()
+				tokenCache.write(JsonOutput.prettyPrint(JSONUtil.json(new JsonSlurper().parse(tokenCache) + [(email): JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))])))
+
+				token = new JsonSlurper().parse(tokenCache)[(email)]["token"]
+			}else{
+				token = JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
+			}
+		}
+		this.login(this.token)
+	}
+
+	void login(String token){
 		Thread thread = new Thread({
 			try{
 				Log.info "Logging in..."
-				this.email = email
-				this.password = password
-				File tokenCache = new File(tokenCachePath)
-				if (tokenCache.exists()){
-					try{
-						if (cacheTokens){
-							token = new JsonSlurper().parse(tokenCache)[(email)]["token"]
-						}else{
-							token = JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
-						}
-					}catch (ex){
-						if (cacheTokens){
-							tokenCache.write(JsonOutput.prettyPrint(JSONUtil.json(new JsonSlurper().parse(tokenCache) + [(email): JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))])))
-
-							token = new JsonSlurper().parse(tokenCache)[(email)]["token"]
-						}else{
-							token = JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
-						}
-					}
-				}else{
-					if (cacheTokens){
-						tokenCache.createNewFile()
-						tokenCache.write(JsonOutput.prettyPrint(JSONUtil.json(new JsonSlurper().parse(tokenCache) + [(email): JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))])))
-
-						token = new JsonSlurper().parse(tokenCache)[(email)]["token"]
-					}else{
-						token = JSONUtil.parse(this.requester.post("https://discordapp.com/api/auth/login", ["email": email, "password": password]))["token"]
-					}
-				}
+				this.token = token
 				SslContextFactory sslFactory = new SslContextFactory()
 				WebSocketClient client = new WebSocketClient(sslFactory)
 				WSClient socket = new WSClient(this)
-				String gateway = JSONUtil.parse(this.requester.get("https://discordapp.com/api/gateway"))["url"]
+				gateway = JSONUtil.parse(this.requester.get("https://discordapp.com/api/gateway"))["url"]
 				client.start()
 				ClientUpgradeRequest upgreq = new ClientUpgradeRequest()
 				client.connect(socket, new URI(gateway), upgreq)
@@ -140,7 +154,7 @@ class API{
 		thread.start()
 	}
 
-	void logout(){
+	void logout(boolean exit = false){
 		try{
 			this.requester.post("https://discordapp.com/api/auth/logout", ["token": this.token])
 			this.wsClient.keepAliveThread.interrupt()
@@ -149,7 +163,7 @@ class API{
 			this.token = null
 			this.requester = null
 			this.client = null
-			System.exit(0)
+			if (exit) System.exit(0)
 		}catch (ex){
 
 		}
@@ -245,15 +259,19 @@ class API{
 	 */
 	void dispatchEvent(String type, Map data){
 		this.listeners.each { Map.Entry<String, List<Closure>> entry ->
-			try{
-				if (type == entry.key){
-					for (c in entry.value){
-						c.call(data)
+			if (type == entry.key){
+				for (c in entry.value){
+					try{
+						if (c.maximumNumberOfParameters == 1){
+							c.call(data)
+						}else if (c.maximumNumberOfParameters == 2){
+							c.call(data, c)
+						}
+					}catch (ex){
+						if (Log.enableListenerCrashes) ex.printStackTrace()
+						Log.info "Ignoring exception from event " + entry.key
 					}
 				}
-			}catch (ex){
-				if (Log.enableListenerCrashes) ex.printStackTrace()
-				Log.info "Ignoring exception from event " + entry.key
 			}
 		}
 	}
@@ -262,7 +280,7 @@ class API{
 	 * @return whether or not the api is loaded.
 	 */
 	boolean isLoaded(){
-		return requester != null && token != null && wsClient != null && client != null && readyData != null
+		return requester != null && token != null && wsClient != null && client != null && readyData != null && readyData["guilds"]?.size() == this.client.servers.size()
 	}
 
 	// Adding built-in listeners. Look above at "removeListenersFor" to understand why I did it like this.
@@ -270,48 +288,33 @@ class API{
 	void addGuildMemberAddListener(){
 		this.addListener("guild member add", { Map d ->
 			Server server = d.server
-			Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
-			Map serverInReady2 = serverInReady
-			serverInReady2["members"].add(d)
-			this.readyData["guilds"].remove(serverInReady)
-			this.readyData["guilds"].add(serverInReady2)
+			this.readyData["guilds"].find { it["id"] == server.id }["members"].add(d)
+			this.readyData["guilds"].find { it["id"] == server.id }["member_count"]++
 		})
 	}
 
 	void addGuildMemberRemoveListener(){
 		this.addListener("guild member remove", { Map d ->
-			try{
-				Server server = d.server
-				Member memberToRemove = d.member
-				Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
-				Map serverInReady2 = serverInReady.subMap(serverInReady.keySet())
-				serverInReady2["members"].remove(memberToRemove.object)
-				this.readyData["guilds"].remove(serverInReady)
-				this.readyData["guilds"].add(serverInReady2)
-			}catch (ex){}
+			Server server = d.server
+			Member member = d.member
+			Map memberObject = this.readyData["guilds"].find { it["id"] == server.id }["members"].find { it.user.id == member.id }
+			this.readyData["guilds"].find { it["id"] == server.id }["members"].remove(memberObject)
+			this.readyData["guilds"].find { it["id"] == server.id }["member_count"]--
 		})
 	}
 
 	void addGuildRoleCreateListener(){
 		this.addListener("guild role create", { Map d ->
 			Server server = d.server
-			Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
-			Map serverInReady2 = serverInReady
-			serverInReady2["roles"].add(d.role.object)
-			this.readyData["guilds"].remove(serverInReady)
-			this.readyData["guilds"].add(serverInReady2)
+			this.readyData["guilds"].find { it["id"] == server.id }["roles"].add(d.role.object)
 		})
 	}
 
 	void addGuildRoleDeleteListener(){
 		this.addListener("guild role delete", { Map d ->
 			Server server = d.server
-			Role roleToRemove = d.role
-			Map serverInReady = this.readyData["guilds"].find { it["id"] == server.id }
-			Map serverInReady2 = serverInReady
-			serverInReady2["roles"].remove(roleToRemove.object)
-			this.readyData["guilds"].remove(serverInReady)
-			this.readyData["guilds"].add(serverInReady2)
+			Map roleObject = this.readyData["guilds"].find { it["id"] == server.id }["roles"].find { it.id == d.role.id }
+			this.readyData["guilds"].find { it["id"] == server.id }["roles"].remove(roleObject)
 		})
 	}
 
@@ -342,11 +345,7 @@ class API{
 	void addChannelUpdateListener(){
 		this.addListener("channel update", { Map d ->
 			Server server = d.server
-			Map channelToRemove = this.readyData["guilds"].find { it.id == server.id }["channels"].find { it.id == d.channel.id }
-			Map copyOfChannelToRemove = channelToRemove
-			copyOfChannelToRemove << d.channel.object
-			this.readyData["guilds"].find { it.id == server.id }["channels"].remove(channelToRemove)
-			this.readyData["guilds"].find { it.id == server.id }["channels"].add(copyOfChannelToRemove)
+			this.readyData["guilds"].find { it.id == server.id }["channels"].find { it.id == d.channel.id } << d.channel.object
 		})
 	}
 
@@ -414,14 +413,7 @@ class API{
 		this.addListener("guild member update", { Map d ->
 			Server server = d.server
 			Member member = d.member
-			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
-			List membersToEdit = serverToRemove["members"]
-			Map memberToEdit = membersToEdit.find { it["user"]["id"] == member.id }
-			membersToEdit.remove(memberToEdit)
-			membersToEdit.add(member.object)
-			this.readyData["guilds"].remove(serverToRemove)
-			serverToRemove["members"] = membersToEdit
-			this.readyData["guilds"].add(serverToRemove)
+			this.readyData["guilds"].find { it["id"] == server.id }["members"].find { it["user"]["id"] == member.id }?.leftShift(member.object) ?: server.requestMembers()
 		})
 	}
 
@@ -429,25 +421,14 @@ class API{
 		this.addListener("guild role update", { Map d ->
 			Server server = d.server
 			Role role = d.role
-			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
-			List rolesToEdit = serverToRemove["roles"]
-			Map roleToEdit = rolesToEdit.find { it["id"] == role.id }
-			rolesToEdit.remove(roleToEdit)
-			rolesToEdit.add(role.object)
-			this.readyData["guilds"].remove(this.readyData["guilds"].find { it["id"] == server.id })
-			serverToRemove["roles"] = rolesToEdit
-			this.readyData["guilds"].add(serverToRemove)
+			this.readyData["guilds"].find { it["id"] == server.id }["roles"].find { it["id"] == role.id } << role.object
 		})
 	}
 
 	void addGuildUpdateListener(){
 		this.addListener("guild update", { Map d ->
-			Map newServer = d.server.object
-			Map serverToRemove = this.readyData["guilds"].find { it["id"] == newServer.id }
-			Map copyOfServerToRemove = serverToRemove
-			copyOfServerToRemove << newServer
-			this.readyData["guilds"].remove(serverToRemove)
-			this.readyData["guilds"].add(copyOfServerToRemove)
+			Map newServer = d.server
+			this.readyData["guilds"].find { it["id"] == newServer.id } << newServer.object
 		})
 	}
 
@@ -455,38 +436,12 @@ class API{
 		this.addListener("presence change", { Map d ->
 			Server server = d.server
 			if (server == null){ server = new Server(this, ["id": d.fullData["guild_id"]]) }
-			Map serverToAdd = this.readyData["guilds"].find { it["id"] == d.fullData["guild_id"] }
-			Map copyServer = serverToAdd
-			List members = copyServer.members.collect({ it })
 			if (d["newUser"] != null){
-				try{
-					Map m = members.find { it["user"]["id"] == d.newUser.id }
-					Map m2 = m
-					m2.user = d.newUser.object
-					serverToAdd.members.remove(m)
-					serverToAdd.members.add(m2)
-				}catch (ex){
-
-				}
+				this.readyData["guilds"].find { it["id"] == server.id }["members"].find { it["user"]["id"] == d.newUser.id }?.leftShift(d.newUser.object) ?: server.requestMembers()
 			}
-			List presences = copyServer.presences.collect({ it })
-			try{
-				Map p = presences.find { it["user"]["id"] == d.member.id }
-				Map p2 = p
-				p2.status = d.status
-				if (d.game == ""){
-					p2.game = null
-				}else{
-					p2.game = [name: d.game]
-				}
-				serverToAdd.presences.remove(p)
-				serverToAdd.presences.add(p)
-			}catch (ex){
-
+			this.readyData["guilds"].find { it["id"] == server.id }["presences"].find { it["user"]["id"] == d.member.id }?.leftShift([status: d.status, game: (d.game == "") ? null : [name: d.game]]) ?: { ->
+				this.readyData["guilds"].find { it["id"] == server.id }["presences"] += [status: d.status, game: (d.game == "") ? null : [name: d.game], user: [id: d.member.id]]
 			}
-			Map serverToRemove = this.readyData["guilds"].find { it["id"] == server.id }
-			this.readyData["guilds"].remove(serverToRemove)
-			this.readyData["guilds"].add(serverToAdd)
 		})
 	}
 
@@ -505,6 +460,19 @@ class API{
 			}
 			this.readyData["guilds"].remove(serverToRemove)
 			this.readyData["guilds"].add(copyOfServerToRemove)
+		}
+	}
+
+	void addGuildEmojisUpdateListener(){
+		this.addListener "guild emoji change", { Map d ->
+			Server server = d.server
+			this.readyData["guilds"].find { it.id == server.id }["emojis"] = d.emojis.collect { it.object }
+		}
+	}
+
+	void addUserUpdateListener(){
+		this.addListener "user change", { Map d ->
+			this.readyData["user"] << d.fullData
 		}
 	}
 }

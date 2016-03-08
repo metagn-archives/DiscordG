@@ -18,6 +18,8 @@ class Client{
 	 */
 	User getUser(){ return new User(api, api.readyData["user"]) }
 
+	boolean isVerified(){ return api.readyData["user"]["verified"] }
+
 	/**
 	 * @return the session ID for the session.
 	 */
@@ -56,8 +58,8 @@ class Client{
 	 * @param name - the name of the server.
 	 * @return the created server.
 	 */
-	Server createServer(String name) {
-		return new Server(api, JSONUtil.parse(api.getRequester().post("https://discordapp.com/api/guilds", ["name": name])))
+	Server createServer(Map data) {
+		return new Server(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/guilds", ["name": data.name.toString(), "region": data.region.toString()])))
 	}
 
 	/**
@@ -102,15 +104,11 @@ class Client{
 	 */
 	List<Server> getServers() {
 		List array = api.readyData["guilds"]
-		List<Server> servers = []
-		for (o in array){
-			servers.add(new Server(api, o))
-		}
-		return servers
+		return api.readyData["guilds"].collect { new Server(api, it) }
 	}
 
 	List<Server> requestServers(){
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/users/@me/guilds"))
+		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/users/@me/guilds"))
 		List<Server> servers = []
 		for (s in array){
 			def serverInReady = api.readyData["guilds"].find { it["id"] == s["id"] }
@@ -137,34 +135,28 @@ class Client{
 	 * @return a List of Users the client can see.
 	 */
 	List<User> getAllUsers() {
-		List users = []
-		for (s in this.servers){
-			for (m in s.members){
-				try{
-					if (!(m.user.id in users*.id)){
-						users.add(m.user)
-					}
-				}catch (ex){}
-			}
+		List<User> ass = []
+		for (m in this.allMembers){
+			if (m == null) println "wtf"; continue
+			if (!(m.id in ass*.id)){ ass += m.user }
 		}
-		return users
+		return ass
 	}
 
 	/**
 	 * @return a List of Members the client can see. Same users can be different member objects.
 	 */
 	List<Member> getAllMembers() {
-		List<Member> members = new ArrayList<Member>()
-		for (s in this.servers){
-			for (m in s.members){
-				members.add(m)
-			}
-		}
-		return members
+		return this.servers*.members.inject([]){ a, m -> a += m }
+	}
+
+	List<Role> getAllRoles(){
+		return this.servers*.roles.inject([]){ a, r -> a += r }
 	}
 
 	List<User> getUsers(){ return this.allUsers }
 	List<Member> getMembers(){ return this.allMembers }
+	List<Role> getRoles(){ return this.allRoles }
 
 	/**
 	 * See Member#editRoles.
@@ -244,6 +236,9 @@ class Client{
 				])
 		}
 	}
+
+	void play(String game){ this.changeStatus(game: game) }
+	void playGame(String game){ this.changeStatus(game: game) }
 
 	/**
 	 * Accepts an invite and joins a new server.

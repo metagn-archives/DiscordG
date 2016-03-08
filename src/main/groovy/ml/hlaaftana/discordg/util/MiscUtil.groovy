@@ -2,12 +2,13 @@ package ml.hlaaftana.discordg.util
 
 import java.awt.Color
 import java.text.SimpleDateFormat
+import ml.hlaaftana.discordg.request.JSONRequester
 
 /**
  * Utilities unrelated to the actual API itself. In fact, most are not even used.
  * @author Hlaaftana
  */
-class RandomUtil {
+class MiscUtil {
 	static Map namedColors = [
 		"aliceblue": "f0f8ff",
 		"antiquewhite": "faebd7",
@@ -195,15 +196,20 @@ class RandomUtil {
 		return [color.red, color.green, color.blue]
 	}
 
+	static List<Map<String, List<String>>> getEmojis(){
+		return JSONRequester.get("https://abal.moe/Discord/JSON/emojis.json")
+	}
+
+	static createShell(Map binding=[:]){ return new GroovyShell(new Binding([:])) }
+
 	/**
 	 * Registers a bunch of methods to help you with Discord formatting to the String meta class.
 	 */
-	static registerDiscordStringMethods(){
+	static registerStringMethods(){
 		String.metaClass.removeFormatting = {
-			return delegate.replace("~", "\u200b~").replace("_", "\u200b_").replace("*", "\u200b*")
-				.replace("`", "\u200b`").replace(":", "\u200b:").replace("  ", "\u200b`").replace("/", "\u200b/")
-				.replace("@", "\u200b@").replace("<", "\u200b<").replace(">", "\u200b>")
-
+			return delegate.replace("~", "\\~").replace("_", "\\_").replace("*", "\\*").replace("```", "\u200b`\u200b`\u200b`")
+				.replace("`", "\\`").replace(":", "\\:").replace("`", "\\`").replace("/", "\\/")
+				.replace("@", "\\@").replace("<", "\\<").replace(">", "\\>")
 		}
 		String.metaClass.bold = { return "**$delegate**" }
 		String.metaClass.bolden = { return "**$delegate**" }
@@ -213,6 +219,10 @@ class RandomUtil {
 		String.metaClass.code = { return "`$delegate`" }
 		String.metaClass.block = { String language="" -> return "```$language\n$delegate```" }
 		String.metaClass.strikethrough = { return "~~$delegate~~" }
+		String.metaClass.isNumeric = {
+			return delegate.toLowerCase() ==~ /[abcdef012346789]+/
+		}
+		String.metaClass.isCase = { def p1 -> return delegate.contains(p1 as String) }
 	}
 
 	static registerListMethods(){

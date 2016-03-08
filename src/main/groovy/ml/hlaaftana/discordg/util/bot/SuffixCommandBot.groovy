@@ -1,5 +1,6 @@
 package ml.hlaaftana.discordg.util.bot
 
+import ml.hlaaftana.discordg.APIBuilder
 import ml.hlaaftana.discordg.objects.API
 import ml.hlaaftana.discordg.util.Log
 
@@ -24,8 +25,12 @@ class SuffixCommandBot {
 		this.commands += commands
 	}
 
+	static def create(String email, String password, List commands=[]){
+		return new SuffixCommandBot(APIBuilder.build(email, password), commands)
+	}
+
 	static def create(List commands=[]){
-		return new SuffixCommandBot(new API(), commands)
+		return new SuffixCommandBot(APIBuilder.build(), commands)
 	}
 
 	/**

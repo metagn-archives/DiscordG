@@ -21,6 +21,7 @@ class Invite extends DiscordObject {
 	 * @return the code for this invite
 	 */
 	String getId(){ return this.object["code"] }
+	String getUrl(){ return "https://discord.gg/${this.id}" }
 	/**
 	 * @return the server where this invite is. This will usually return null. Use #getBaseServer().
 	 */
@@ -63,6 +64,8 @@ class Invite extends DiscordObject {
 	 * @return a base object containing the name, ID and type of the channel. You will, however, have to get the type by doing ".object.type".
 	 */
 	DiscordObject getBaseChannel(){ return new DiscordObject(api, this.object["channel"]) }
+
+	String toString(){ return this.url }
 
 	/**
 	 * Parses a URL string into an invite ID.

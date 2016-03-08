@@ -13,7 +13,5 @@ class MapObject {
 	MapObject(Map object){ this.object = object }
 	String toString(){ return this.object.toString() }
 	boolean equals(def other){ return this.object == other.object }
-	def putAt(def key, def value){ return this.object.putAt(key, value) }
-	def getAt(def key){ return this.object.getAt(key) }
 }
 
