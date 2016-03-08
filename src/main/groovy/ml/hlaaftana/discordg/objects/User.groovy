@@ -24,12 +24,13 @@ class User extends DiscordObject{
 	/**
 	 * @return the user's avatar's hash/ID.
 	 */
-	String getAvatarHash(){ return this.object["avatar"] ?: DefaultAvatars.get(Integer.parseInt(this.discriminator) % 5) }
+	String getAvatarHash(){ return this.object["avatar"] ?: DefaultAvatars.get(Integer.parseInt(this.discriminator) % 5).hash }
 	String getRawAvatarHash(){ return this.object["avatar"] }
 	/**
 	 * @return the user's avatar as a URL string.
 	 */
-	String getAvatar() { return "https://discordapp.com/api/users/${this.id}/avatars/${this.avatarHash}.jpg" }
+	String getAvatar() { return (this.object["avatar"] != null) ? "https://discordapp.com/api/users/${this.id}/avatars/${this.avatarHash}.jpg"
+		: "https://discordapp.com/assets/${this.avatarHash}.png" }
 	/**
 	 * @return the user's avatar as a URL object.
 	 */

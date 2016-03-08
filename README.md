@@ -20,13 +20,12 @@ Here's a simple bot that responds to "!ping":
 
 ```groovy
 import ml.hlaaftana.discordg.objects.API
-import ml.hlaaftana.discordg.objects.Event
 import ml.hlaaftana.discordg.APIBuilder
 
 API api = APIBuilder.build("example@example.com", "example123")
-api.addListener("message create") { Event e ->
-  if (e.data.message.content.startsWith("!ping")){
-    e.data.sendMessage("Pong!")
+api.addListener("message create") { Map d ->
+  if (d.message.content.startsWith("!ping")){
+    d.sendMessage("Pong!")
   }
 }
 ```

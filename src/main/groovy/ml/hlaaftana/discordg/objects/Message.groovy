@@ -40,7 +40,7 @@ class Message extends DiscordObject{
 	/**
 	 * @return whether or not this message has text to speech.
 	 */
-	boolean isTTS(){ return this.object["tts"] }
+	boolean isTts(){ return this.object["tts"] }
 	/**
 	 * @return whether or not the message mentions everyone. Yes, this method's name makes no sense, but Groovy inference is nice
 	 */
@@ -111,5 +111,13 @@ class Message extends DiscordObject{
 		boolean isImage(){ return this.object["width"] != null && this.object["height"] != null }
 		int getWidth(){ return this.object["width"] }
 		int getHeight(){ return this.object["height"] }
+		URL getUrlObject(){ return new URL(this.url) }
+		URL getProxyUrlObject(){ return new URL(this.url) }
+		File download(File file){ return file.withOutputStream { out ->
+				out << api.requester.headerUp(new URL(this.url))
+					.with { requestMethod = "GET"; delegate }.inputStream
+				delegate
+			}
+		}
 	}
 }

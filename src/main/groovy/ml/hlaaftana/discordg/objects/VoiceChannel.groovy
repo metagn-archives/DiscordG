@@ -30,11 +30,21 @@ class VoiceChannel extends Channel{
 		while (api.voiceData == [:]){}
 		api.voiceData << [
 			channel: this,
-			guild: this.server.id
+			guild: this.server
 		]
 		Map temp = api.voiceData
 		api.voiceData = temp.findAll { k, v -> k != "guild_id" }
 		api.voiceClient = new VoiceClient(api)
+		/*Thread.start {
+			while (api.voiceData["endpoint"] == null){}
+			SslContextFactory sslFactory = new SslContextFactory()
+			WebSocketClient client = new WebSocketClient(sslFactory)
+			VoiceWSClient socket = new VoiceWSClient(api)
+			client.start()
+			ClientUpgradeRequest upgreq = new ClientUpgradeRequest()
+			client.connect(socket, new URI("wss://" + api.voiceData["endpoint"].replace(":80", "")), upgreq)
+			api.voiceWsClient = socket
+		}*/
 		return api.voiceClient
 	}
 }

@@ -1,5 +1,6 @@
 package ml.hlaaftana.discordg.util.bot
 
+import ml.hlaaftana.discordg.APIBuilder
 import ml.hlaaftana.discordg.objects.API
 import ml.hlaaftana.discordg.util.Log
 
@@ -24,9 +25,14 @@ class RegexCommandBot {
 		this.commands += commands
 	}
 
-	static def create(List commands=[]){
-		return new RegexCommandBot(new API(), commands)
+	static def create(String email, String password, List commands=[]){
+		return new RegexCommandBot(APIBuilder.build(email, password), commands)
 	}
+
+	static def create(List commands=[]){
+		return new RegexCommandBot(APIBuilder.build(), commands)
+	}
+
 
 	/**
 	 * Adds a command.
@@ -64,7 +70,7 @@ class RegexCommandBot {
 			for (c in commands){
 				for (p in c.prefixes){
 					for (a in c.aliases){
-						if ((d.message.content + " ").toLowerCase() ==~ p.toLowerCase() + a.toLowerCase() + " .*"){
+						if ((d.message.content + " ").toLowerCase() ==~ (p.toLowerCase() + a.toLowerCase() + " .*")){
 							try{
 								if (acceptOwnCommands){
 									c.run(d)
@@ -122,7 +128,13 @@ class RegexCommandBot {
 		 * @return the arguments as a string.
 		 */
 		def args(Map d){
-			return (this.allCaptures(d)[0] != null) ? d.message.content.substring(this.allCaptures(d)[0].length() + 1) : ""
+			def value
+			try{
+				value = d.message.content.substring(this.allCaptures(d)[0].length() + 1)
+			}catch (ex){
+				value = ""
+			}
+			return value
 		}
 
 		def captures(Map d){

@@ -21,6 +21,8 @@ class VoiceWSClient {
 	long ping
 	boolean connected
 	boolean speaking
+	DatagramSocket udpSocket
+	Thread udpKeepAliveThread
 	VoiceWSClient(API api){ this.api = api; this.channel = api.voiceData.channel; this.endpoint = api.voiceData.endpoint }
 
 	@OnWebSocketConnect
@@ -44,6 +46,7 @@ class VoiceWSClient {
 
 	@OnWebSocketMessage
 	void onMessage(Session session, String message) throws IOException{
+		// jda
 		Map content = JSONUtil.parse(message)
 		def data = content["d"]
 		int op = content["op"]
@@ -52,6 +55,60 @@ class VoiceWSClient {
 			ssrc = data["ssrc"]
 			int port = data["port"]
 			long heartbeat = data["heartbeat_interval"]
+
+			udpSocket = new DatagramSocket()
+
+			ByteBuffer buffer = ByteBuffer.allocate(70)
+			buffer.putInt(ssrc)
+
+			DatagramPacket discoveryPacket = new DatagramPacket(buffer.array(), buffer.array().length, new InetSocketAddress(api.voiceData["endpoint"], port))
+			udpSocket.send(discoveryPacket)
+
+			DatagramPacket receivedPacket = new DatagramPacket(new byte[70], 70)
+			udpSocket.receive(receivedPacket)
+
+			byte[] received = receivedPacket.data
+
+			String ourIP = new String(receivedPacket.data)
+			ourIP = ourIP.substring(0, ourIP.length() - 2)
+			ourIP = ourIP.trim()
+
+			byte[] portBytes = new byte[2]
+			portBytes[0] = received[received.length - 1]
+			portBytes[1] = received[received.length - 2]
+
+			int firstByte = (0x000000FF & ((int) portBytes[0]))
+			int secondByte = (0x000000FF & ((int) portBytes[1]))
+
+			int ourPort = (firstByte << 8) | secondByte
+
+			udpKeepAliveThread = new Thread({
+				while (true){
+					ByteBuffer buffer2 = ByteBuffer.allocate(Long.BYTES + 1);
+                    buffer2.put((byte)0xC9);
+                    buffer2.putLong(0)
+                    DatagramPacket keepAlivePacket = new DatagramPacket(buffer2.array(), buffer2.array().length, new InetSocketAddress(api.voiceData["endpoint"], port))
+                    udpSocket.send(keepAlivePacket)
+
+                    Thread.sleep(5000)
+				}
+			})
+			udpKeepAliveThread.daemon = true
+			udpKeepAliveThread.start()
+
+			InetSocketAddress address = new InetSocketAddress(ourIP, ourPort);
+
+			this.send([
+				op: 1,
+				d: [
+					protocol: "udp",
+					data: [
+						address: address.hostString,
+						port: address.port,
+						mode: "plain"
+					]
+				]
+			])
 
 			keepAliveThread = new Thread({
 				while (true){

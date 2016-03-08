@@ -45,14 +45,7 @@ class Server extends DiscordObject {
 	/**
 	 * @return the owner of this server as a Member object.
 	 */
-	Member getOwner() {
-		for (m in this.members){
-			if (m.id == this.object["owner_id"]){
-				return m
-			}
-		}
-		return null
-	}
+	Member getOwner() { return this.members.find { it.id == this.object["owner_id"] } }
 
 	/**
 	 * @return the default text channel for this server.
@@ -62,6 +55,7 @@ class Server extends DiscordObject {
 	int getAfkTimeout(){ return this.object["afk_timeout"] }
 	Channel getWidgetChannel(){ return this.channels.find { it.id == this.object["embed_channel_id"] } }
 	boolean isWidgetEnabled(){ return this.object["embed_enabled"] }
+	boolean isLarge(){ return this.object["large"] }
 	VerificationLevels getVerificationLevel(){ return VerificationLevels.get(this.object["verification_level"]) }
 	int getRawVerificationLevel(){ return this.object["verification_level"] }
 
@@ -92,9 +86,16 @@ class Server extends DiscordObject {
 	}
 
 	/**
-	 * Leaves the server. Deletes it if the connected client owns it.
+	 * Leaves the server.
 	 */
 	void leave() {
+		api.requester.delete("https://discordapp.com/api/users/@me/guilds/${this.id}")
+	}
+
+	/**
+	 * Deletes the server.
+	 */
+	void delete() {
 		api.requester.delete("https://discordapp.com/api/guilds/${this.id}")
 	}
 
@@ -104,7 +105,7 @@ class Server extends DiscordObject {
 	 * @return a TextChannel object of the created text channel.
 	 */
 	TextChannel createTextChannel(String name) {
-		return new TextChannel(api, api.requester.post("https://discordapp.com/api/guilds/${this.id}/channels", ["name": name, "type": "text"]))
+		return new TextChannel(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/guilds/${this.id}/channels", ["name": name, "type": "text"])))
 	}
 
 	/**
@@ -113,7 +114,7 @@ class Server extends DiscordObject {
 	 * @return a VoiceChannel object of the created voice channel.
 	 */
 	VoiceChannel createVoiceChannel(String name) {
-		return new VoiceChannel(api, api.requester.post("https://discordapp.com/api/guilds/${this.id}/channels", ["name": name, "type": "voice"]))
+		return new VoiceChannel(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/guilds/${this.id}/channels", ["name": name, "type": "voice"])))
 	}
 
 	/**
@@ -341,6 +342,22 @@ class Server extends DiscordObject {
 	void deleteRole(Role role) {
 		api.requester.delete("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}")
 	}
+
+	List<Member> requestMembers(int limit=this.memberCount, boolean updateReady=true){
+		List members = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/members?limit=${limit}"))
+		if (updateReady){
+			api.readyData["guilds"].find { it.id == this.id }["members"] = members
+			api.readyData["guilds"].find { it.id == this.id }["member_count"] = members.size()
+		}
+		return members.collect { new Member(api, it + ["guild_id": this.id]) }
+	}
+
+	Member getMemberInfo(String id){ return new Member(api, JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/members/${id}"))) }
+	Member memberInfo(String id){ this.getMemberInfo(id) }
+
+	int getMemberCount(){ return this.object["member_count"] }
+	List<Emoji> getEmojis(){ return this.object["emojis"].collect { new Emoji(api, it + [guild_id: this.id]) } }
+	List<Emoji> getEmoji(){ return this.object["emojis"].collect { new Emoji(api, it + [guild_id: this.id]) } }
 
 	Member getMember(User user){ return this.members.find { it.id == user.id } }
 	Member member(User user){ return this.members.find { it.id == user.id } }

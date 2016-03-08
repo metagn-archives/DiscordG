@@ -66,6 +66,22 @@ class Member extends User{
 	}
 
 	/**
+	 * Mutes or deafens the user.
+	 * @param data - the map. <br>
+	 * [mute: true, deaf: false]
+	 */
+	void edit(Map data){
+		api.requester.patch("https://discordapp.com/api/guilds/${this.server.id}/members/${this.id}", data)
+	}
+
+	void mute(){ this.edit(mute: true) }
+	void unmute(){ this.edit(mute: false) }
+	void deafen(){ this.edit(deaf: true) }
+	void undeafen(){ this.edit(deaf: false) }
+	void ban(){ this.server.ban(this) }
+	void unban(){ this.server.unban(this) }
+
+	/**
 	 * @return the status of the user. e.g. "online", "offline", "idle"...
 	 */
 	String getStatus(){

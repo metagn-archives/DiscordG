@@ -45,6 +45,18 @@ class Channel extends DiscordObject{
 	}
 
 	/**
+	 * @return a mention for the channel.
+	 */
+	String getMention() { return "<#${this.id}>" }
+
+	/**
+	 * Start typing in the channel.
+	 */
+	void startTyping() {
+		api.requester.post("https://discordapp.com/api/channels/${this.id}/typing", [:])
+	}
+
+	/**
 	 * Deletes the channel.
 	 */
 	void delete() {
@@ -58,7 +70,7 @@ class Channel extends DiscordObject{
 	 * @return the edited channel.
 	 */
 	Channel edit(Map<String, Object> data) {
-		return new Channel(api, api.requester.patch("https://discordapp.com/api/channels/${this.id}", ["name": (data.containsKey("name")) ? data["name"].toString() : this.getName(), "position": (data.containsKey("position")) ? data["position"] : this.getPosition(), "topic": (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic()]))
+		return this.class.declaredConstructors[0].newInstance(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/channels/${this.id}", ["name": (data.containsKey("name")) ? data["name"].toString() : this.getName(), "position": (data.containsKey("position")) ? data["position"] : this.getPosition(), "topic": (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic()])))
 	}
 
 	void editPermissions(DiscordObject target, def allow, def deny){
