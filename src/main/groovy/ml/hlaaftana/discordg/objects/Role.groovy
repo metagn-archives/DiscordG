@@ -5,8 +5,8 @@ package ml.hlaaftana.discordg.objects
  * @author Hlaaftana
  */
 class Role extends DiscordObject{
-	Role(API api, Map object){
-		super(api, object)
+	Role(Client client, Map object){
+		super(client, object)
 	}
 
 	/**

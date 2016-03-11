@@ -1,7 +1,9 @@
 package ml.hlaaftana.discordg.util.bot
 
-import ml.hlaaftana.discordg.APIBuilder
-import ml.hlaaftana.discordg.objects.API
+import java.util.Map;
+
+import ml.hlaaftana.discordg.DiscordG
+import ml.hlaaftana.discordg.objects.Client
 import ml.hlaaftana.discordg.util.Log
 
 /**
@@ -9,28 +11,63 @@ import ml.hlaaftana.discordg.util.Log
  * @author Hlaaftana
  */
 class CommandBot {
-	String name = "DiscordG|CommandBot"
-	API api
-	List commands = []
-	static def defaultPrefix
-	boolean acceptOwnCommands = false
+	static class Configuration {
+		String logName = "DiscordG|CommandBot"
+		def trigger = []
+		BotType type = BotType.PREFIX
+		Client client = new Client()
+		List commands = []
+		boolean acceptOwnCommands = false
+
+		Configuration(Map map=[:]){
+			this.properties.findAll { k, v -> !(k in ["class"]) && (k in map) }.each { k, v ->
+				this[k] = map[k]
+			}
+		}
+
+		Configuration leftShift(Configuration other){
+			this.properties.findAll { k, v -> !(k in ["class"]) && (k in map) }.each { k, v ->
+				this[k] = map[k]
+			}
+			return this
+		}
+	}
+	static enum BotType {
+		// These have IDs for convenience sake
+		PREFIX(0),
+		SUFFIX(1),
+		REGEX(2)
+
+		int id
+		BotType(int id){ this.id = id }
+	}
+	String logName
+	def trigger
+	BotType type
+	Client client
+	List commands
+	boolean acceptOwnCommands
 	private boolean loggedIn = false
 
 	/**
-	 * @param api - The API object this bot should use.
+	 * @param client - The API object this bot should use.
 	 * @param commands - A List of Commands you want to register right off the bat. Empty by default.
 	 */
-	CommandBot(API api, List commands=[]){
-		this.api = api
-		this.commands += commands
+	CommandBot(Configuration config = new Configuration()){
+		this.logName = config.logName
+		this.trigger = config.trigger
+		this.type = config.type
+		this.client = config.client
+		this.commands = config.commands
+		this.acceptOwnCommands = config.acceptOwnCommands
 	}
 
-	static def create(String email, String password, List commands=[]){
-		return new CommandBot(APIBuilder.build(email, password), commands)
+	static def create(String email, String password, def config = new Configuration()){
+		return new CommandBot((config instanceof Configuration ? config : new Configuration(config)) << new Configuration(client: DiscordG.withLogin(email, password)))
 	}
 
-	static def create(List commands=[]){
-		return new CommandBot(APIBuilder.build(), commands)
+	static def create(def config = new Configuration()){
+		return new CommandBot(config instanceof Configuration ? config : new Configuration(config))
 	}
 
 	/**
@@ -38,7 +75,7 @@ class CommandBot {
 	 * @param command - the command.
 	 */
 	def addCommand(Command command){
-		commands.add(command)
+		this.commands.add(command)
 	}
 
 	/**
@@ -56,7 +93,7 @@ class CommandBot {
 	 */
 	def login(String email, String password){
 		loggedIn = true
-		api.login(email, password)
+		client.login(email, password)
 	}
 
 	/**
@@ -65,20 +102,64 @@ class CommandBot {
 	 * @param password - the password to log in with.
 	 */
 	def initialize(String email="", String password=""){
-		api.addListener("message create") { Map d ->
-			for (c in commands){
-				for (p in c.prefixes){
-					for (a in c.aliases){
-						if ((d.message.content + " ").toLowerCase().startsWith(p.toLowerCase() + a.toLowerCase() + " ")){
-							try{
-								if (acceptOwnCommands){
-									c.run(d)
-								}else if (!(d.message.author.id == api.client.user.id)){
-									c.run(d)
+		if (this.type.id == BotType.PREFIX.id){
+			client.addListener("message create") { Map d ->
+				for (c in commands){
+					for (p in c.triggers){
+						for (a in c.aliases){
+							if ((d.message.content + " ").toLowerCase().startsWith(p.toLowerCase() + a.toLowerCase() + " ")){
+								try{
+									if (acceptOwnCommands){
+										c.run(d)
+									}else if (!(d.message.author.id == client.user.id)){
+										c.run(d)
+									}
+								}catch (ex){
+									ex.printStackTrace()
+									Log.error "Command threw exception", this.name
 								}
-							}catch (ex){
-								ex.printStackTrace()
-								Log.error "Command threw exception", this.name
+							}
+						}
+					}
+				}
+			}
+		}else if (this.type.id == BotType.SUFFIX.id){
+			client.addListener("message create") { Map d ->
+				for (c in commands){
+					for (p in c.triggers){
+						for (a in c.aliases){
+							if ((d.message.content + " ").toLowerCase().startsWith(a.toLowerCase() + p.toLowerCase() + " ")){
+								try{
+									if (acceptOwnCommands){
+										c.run(d)
+									}else if (!(d.message.author.id == client.user.id)){
+										c.run(d)
+									}
+								}catch (ex){
+									ex.printStackTrace()
+									Log.error "Command threw exception", this.name
+								}
+							}
+						}
+					}
+				}
+			}
+		}else if (this.type.id == BotType.REGEX.id){
+			client.addListener("message create") { Map d ->
+				for (c in commands){
+					for (p in c.triggers){
+						for (a in c.aliases){
+							if ((d.message.content + " ").toLowerCase() ==~ (p.toLowerCase() + a.toLowerCase() + " .*")){
+								try{
+									if (acceptOwnCommands){
+										c.run(d)
+									}else if (!(d.message.author.id == client.user.id)){
+										c.run(d)
+									}
+								}catch (ex){
+									ex.printStackTrace()
+									Log.error "Command threw exception", this.name
+								}
 							}
 						}
 					}
@@ -87,7 +168,7 @@ class CommandBot {
 		}
 		if (!loggedIn){
 			if (email.empty || password.empty) throw new Exception()
-			api.login(email, password)
+			client.login(email, password)
 		}
 	}
 
@@ -95,24 +176,24 @@ class CommandBot {
 	 * A command.
 	 * @author Hlaaftana
 	 */
-	static abstract class Command{
-		List prefixes = []
+	abstract class Command{
+		List triggers = []
 		List aliases = []
 
 		/**
 		 * @param aliasOrAliases - A String or List of Strings of aliases this command will trigger with.
-		 * @param prefixOrPrefixes - A String or List of Strings this command will be triggered by. Note that this is optional, and is CommandBot.defaultPrefix by default.
+		 * @param triggerOrTriggers - A String or List of Strings this command will be triggerd by. Note that this is optional, and is CommandBot.defaultTrigger by default.
 		 */
-		Command(def aliasOrAliases, def prefixOrPrefixes=CommandBot.defaultPrefix){
+		Command(def aliasOrAliases, def triggerOrTriggers=CommandBot.this.trigger){
 			if (aliasOrAliases instanceof List || aliasOrAliases instanceof Object[]){
 				aliases.addAll(aliasOrAliases)
 			}else{
 				aliases.add(aliasOrAliases.toString())
 			}
-			if (prefixOrPrefixes instanceof List || prefixOrPrefixes instanceof Object[]){
-				prefixes.addAll(prefixOrPrefixes)
+			if (triggerOrTriggers instanceof List || triggerOrTriggers instanceof Object[]){
+				triggers.addAll(triggerOrTriggers)
 			}else{
-				prefixes.add(prefixOrPrefixes.toString())
+				triggers.add(triggerOrTriggers.toString())
 			}
 		}
 
@@ -123,15 +204,61 @@ class CommandBot {
 		 */
 		def args(Map d){
 			try{
-				for (p in prefixes){
-					for (a in aliases){
-						if ((d.message.content + " ").toLowerCase().startsWith(p.toLowerCase() + a.toLowerCase() + " ")){
-							return d.message.content.substring((p + a + " ").length())
+				if (CommandBot.this.type.id == BotType.PREFIX.id){
+					for (p in triggers){
+						for (a in aliases){
+							if ((d.message.content + " ").toLowerCase().startsWith(p.toLowerCase() + a.toLowerCase() + " ")){
+								return d.message.content.substring((p + a + " ").length())
+							}
 						}
 					}
+				}else if (CommandBot.this.type.id == BotType.SUFFIX.id){
+					for (p in triggers){
+						for (a in aliases){
+							if ((d.message.content + " ").toLowerCase().startsWith(a.toLowerCase() + p.toLowerCase() + " ")){
+								return d.message.content.substring((a + p + " ").length())
+							}
+						}
+					}
+				}else if (CommandBot.this.type.id == BotType.REGEX.id){
+					def value
+					try{
+						value = d.message.content.substring(this.allCaptures(d)[0].length() + 1)
+					}catch (ex){
+						value = ""
+					}
+					return value
 				}
 			}catch (ex){
 				return ""
+			}
+		}
+
+		// only for regex
+		def captures(Map d){
+			if (CommandBot.this.type.id == BotType.REGEX.id){
+				return this.allCaptures(d).with { remove(0); delegate }
+			}else{ return [this.args(d)] }
+		}
+
+		// only for regex
+		def allCaptures(Map d){
+			try{
+				if (CommandBot.this.type.id == BotType.REGEX.id){
+					for (p in triggers){
+						for (a in aliases){
+							if ((d.message.content + " ") ==~ (p + a + " .*")){
+								def match = (d.message.content =~ p + a).collect{it}[0]
+								List holyShit = (match instanceof String) ? [match] : match
+								return holyShit
+							}
+						}
+					}
+				}else{
+					throw new Exception("da")
+				}
+			}catch (ex){
+				return [d.message.content.substring(0, d.message.content.indexOf(this.args(d))), this.args(d)]
 			}
 		}
 
@@ -146,15 +273,15 @@ class CommandBot {
 	 * An implementation of Command with a string response.
 	 * @author Hlaaftana
 	 */
-	static class ResponseCommand extends Command{
+	class ResponseCommand extends Command{
 		String response
 
 		/**
 		 * @param response - a string to respond with to this command. <br>
 		 * The rest of the parameters are Command's parameters.
 		 */
-		ResponseCommand(String response, def aliasOrAliases, def prefixOrPrefixes=CommandBot.defaultPrefix){
-			super(aliasOrAliases, prefixOrPrefixes)
+		ResponseCommand(String response, def aliasOrAliases, def triggerOrTriggers=CommandBot.this.trigger){
+			super(aliasOrAliases, triggerOrTriggers)
 			this.response = response
 		}
 
@@ -167,14 +294,14 @@ class CommandBot {
 	 * An implementation of Command with a closure response.
 	 * @author Hlaaftana
 	 */
-	static class ClosureCommand extends Command{
+	class ClosureCommand extends Command{
 		Closure response
 
 		/**
 		 * @param response - a closure to respond with to this command. Can take one parameter, which is the data of the event.
 		 */
-		ClosureCommand(Closure response, def aliasOrAliases, def prefixOrPrefixes=CommandBot.defaultPrefix){
-			super(aliasOrAliases, prefixOrPrefixes)
+		ClosureCommand(Closure response, def aliasOrAliases, def triggerOrTriggers=CommandBot.trigger){
+			super(aliasOrAliases, triggerOrTriggers)
 			response.delegate = this
 			this.response = response
 		}

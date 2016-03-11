@@ -9,8 +9,8 @@ import ml.hlaaftana.discordg.util.*
  * @author Hlaaftana
  */
 class Message extends DiscordObject{
-	Message(API api, Map object){
-		super(api, object)
+	Message(Client client, Map object){
+		super(client, object)
 	}
 
 	/**
@@ -48,7 +48,7 @@ class Message extends DiscordObject{
 	/**
 	 * @return a List of Attachments.
 	 */
-	List<Attachment> getAttachments(){ return this.object["attachments"].collect { new Attachment(api, it) } }
+	List<Attachment> getAttachments(){ return this.object["attachments"].collect { new Attachment(client, it) } }
 	/**
 	 * @return a List of Maps containing the embeds. Might replace with Embed objects.
 	 */
@@ -56,7 +56,7 @@ class Message extends DiscordObject{
 	/**
 	 * @return the author of the message.
 	 */
-	User getAuthor() { return new User(api, this.object["author"]) }
+	User getAuthor() { return new User(client, this.object["author"]) }
 	/**
 	 * @return the author of the message.
 	 */
@@ -68,7 +68,7 @@ class Message extends DiscordObject{
 	/**
 	 * @return the channel the message is in.
 	 */
-	TextChannel getTextChannel() { return api.client.getTextChannelById(this.object["channel_id"]) }
+	TextChannel getTextChannel() { return client.getTextChannelById(this.object["channel_id"]) }
 	/**
 	 * @return the channel the message is in.
 	 */
@@ -77,7 +77,7 @@ class Message extends DiscordObject{
 	/**
 	 * @return a list of users who were mentioned in this message.
 	 */
-	List<User> getMentions(){ return this.object["mentions"].collect { new User(api, it) } }
+	List<User> getMentions(){ return this.object["mentions"].collect { new User(client, it) } }
 
 	/**
 	 * Edits the message.
@@ -85,14 +85,14 @@ class Message extends DiscordObject{
 	 * @return the edited Message.
 	 */
 	Message edit(String newContent) {
-		return new Message(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/channels/${this.object["channel_id"]}/messages/${this.id}", ["content": newContent])))
+		return new Message(client, JSONUtil.parse(client.requester.patch("https://discordapp.com/api/channels/${this.object["channel_id"]}/messages/${this.id}", ["content": newContent])))
 	}
 
 	/**
 	 * Deletes the message.
 	 */
 	void delete() {
-		api.requester.delete("https://discordapp.com/api/channels/${this.object["channel_id"]}/messages/${this.id}")
+		client.requester.delete("https://discordapp.com/api/channels/${this.object["channel_id"]}/messages/${this.id}")
 	}
 
 	// removed ack method because of discord dev request
@@ -100,7 +100,7 @@ class Message extends DiscordObject{
 	String toString(){ return this.author.name + ": " + this.content }
 
 	static class Attachment extends DiscordObject {
-		Attachment(API api, Map object){ this.api = api; this.object = object }
+		Attachment(Client client, Map object){ this.client = client; this.object = object }
 
 		String getName(){ return this.object["filename"] }
 		String getFilename(){ return this.object["filename"] }
@@ -114,7 +114,7 @@ class Message extends DiscordObject{
 		URL getUrlObject(){ return new URL(this.url) }
 		URL getProxyUrlObject(){ return new URL(this.url) }
 		File download(File file){ return file.withOutputStream { out ->
-				out << api.requester.headerUp(new URL(this.url))
+				out << client.requester.headerUp(new URL(this.url))
 					.with { requestMethod = "GET"; delegate }.inputStream
 				delegate
 			}

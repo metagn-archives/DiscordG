@@ -1,7 +1,7 @@
 package ml.hlaaftana.discordg.util.bot
 
-import ml.hlaaftana.discordg.APIBuilder
-import ml.hlaaftana.discordg.objects.API
+import ml.hlaaftana.discordg.DiscordG
+import ml.hlaaftana.discordg.objects.Client
 import ml.hlaaftana.discordg.util.Log
 
 /**
@@ -10,27 +10,27 @@ import ml.hlaaftana.discordg.util.Log
  */
 class SuffixCommandBot {
 	String name = "DiscordG|SuffixCommandBot"
-	API api
+	Client client
 	List commands = []
 	static def defaultSuffix
 	boolean acceptOwnCommands = false
 	private boolean loggedIn = false
 
 	/**
-	 * @param api - The API object this bot should use.
+	 * @paramclient - The API object this bot should use.
 	 * @param commands - A List of Commands you want to register right off the bat. Empty by default.
 	 */
-	SuffixCommandBot(API api, List commands=[]){
-		this.api = api
+	SuffixCommandBot(Client client, List commands=[]){
+		this.client = client
 		this.commands += commands
 	}
 
 	static def create(String email, String password, List commands=[]){
-		return new SuffixCommandBot(APIBuilder.build(email, password), commands)
+		return new SuffixCommandBot(DiscordG.build(email, password), commands)
 	}
 
 	static def create(List commands=[]){
-		return new SuffixCommandBot(APIBuilder.build(), commands)
+		return new SuffixCommandBot(DiscordG.build(), commands)
 	}
 
 	/**
@@ -56,7 +56,7 @@ class SuffixCommandBot {
 	 */
 	def login(String email, String password){
 		loggedIn = true
-		api.login(email, password)
+		client.login(email, password)
 	}
 
 	/**
@@ -65,7 +65,7 @@ class SuffixCommandBot {
 	 * @param password - the password to log in with.
 	 */
 	def initialize(String email="", String password=""){
-		api.addListener("message create") { Map d ->
+		client.addListener("message create") { Map d ->
 			for (c in commands){
 				for (p in c.suffixes){
 					for (a in c.aliases){
@@ -73,7 +73,7 @@ class SuffixCommandBot {
 							try{
 								if (acceptOwnCommands){
 									c.run(d)
-								}else if (!(d.message.author.id == api.client.user.id)){
+								}else if (!(d.message.author.id == client.user.id)){
 									c.run(d)
 								}
 							}catch (ex){
@@ -87,7 +87,7 @@ class SuffixCommandBot {
 		}
 		if (!loggedIn){
 			if (email.empty || password.empty) throw new Exception()
-			api.login(email, password)
+			client.login(email, password)
 		}
 	}
 

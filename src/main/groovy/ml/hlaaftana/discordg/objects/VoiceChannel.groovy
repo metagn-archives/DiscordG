@@ -11,14 +11,14 @@ import org.eclipse.jetty.websocket.client.WebSocketClient
  * @author Hlaaftana
  */
 class VoiceChannel extends Channel{
-	VoiceChannel(API api, Map object){ super(api, object) }
+	VoiceChannel(Client client, Map object){ super(client, object) }
 
 	void moveMember(Member member){
-		api.requester.patch("https://discordapp.com/api/guilds/${member.server.id}/members/{member.id}", ["channel_id": this.id])
+		client.requester.patch("https://discordapp.com/api/guilds/${member.server.id}/members/{member.id}", ["channel_id": this.id])
 	}
 
 	VoiceClient join(Map muteDeaf=[:]){
-		api.wsClient.send([
+		client.wsClient.send([
 			"op": 4,
 			"d": [
 				"guild_id": this.server.id,
@@ -27,24 +27,24 @@ class VoiceChannel extends Channel{
 				"self_deaf": muteDeaf["deaf"] as boolean,
 			]
 		])
-		while (api.voiceData == [:]){}
-		api.voiceData << [
+		while (client.voiceData == [:]){}
+		client.voiceData << [
 			channel: this,
 			guild: this.server
 		]
-		Map temp = api.voiceData
-		api.voiceData = temp.findAll { k, v -> k != "guild_id" }
-		api.voiceClient = new VoiceClient(api)
+		Map temp = client.voiceData
+		client.voiceData = temp.findAll { k, v -> k != "guild_id" }
+		client.voiceClient = new VoiceClient(client)
 		/*Thread.start {
-			while (api.voiceData["endpoint"] == null){}
+			while (client.voiceData["endpoint"] == null){}
 			SslContextFactory sslFactory = new SslContextFactory()
 			WebSocketClient client = new WebSocketClient(sslFactory)
-			VoiceWSClient socket = new VoiceWSClient(api)
+			VoiceWSClient socket = new VoiceWSClient(client)
 			client.start()
 			ClientUpgradeRequest upgreq = new ClientUpgradeRequest()
-			client.connect(socket, new URI("wss://" + api.voiceData["endpoint"].replace(":80", "")), upgreq)
-			api.voiceWsClient = socket
+			client.connect(socket, new URI("wss://" + client.voiceData["endpoint"].replace(":80", "")), upgreq)
+			client.voiceWsClient = socket
 		}*/
-		return api.voiceClient
+		return client.voiceClient
 	}
 }

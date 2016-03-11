@@ -11,8 +11,8 @@ import ml.hlaaftana.discordg.util.*
  * @author Hlaaftana
  */
 class Server extends DiscordObject {
-	Server(API api, Map object){
-		super(api, object)
+	Server(Client client, Map object){
+		super(client, object)
 	}
 
 	/**
@@ -82,21 +82,21 @@ class Server extends DiscordObject {
 			}
 		}
 		copyOfData = copyOfCopyOfData
-		return new Server(api, this.object << JSONUtil.parse(api.requester.patch("https://discordapp.com/api/guilds/${this.id}", copyOfData)))
+		return new Server(client, this.object << JSONUtil.parse(client.requester.patch("https://discordapp.com/api/guilds/${this.id}", copyOfData)))
 	}
 
 	/**
 	 * Leaves the server.
 	 */
 	void leave() {
-		api.requester.delete("https://discordapp.com/api/users/@me/guilds/${this.id}")
+		client.requester.delete("https://discordapp.com/api/users/@me/guilds/${this.id}")
 	}
 
 	/**
 	 * Deletes the server.
 	 */
 	void delete() {
-		api.requester.delete("https://discordapp.com/api/guilds/${this.id}")
+		client.requester.delete("https://discordapp.com/api/guilds/${this.id}")
 	}
 
 	/**
@@ -105,7 +105,7 @@ class Server extends DiscordObject {
 	 * @return a TextChannel object of the created text channel.
 	 */
 	TextChannel createTextChannel(String name) {
-		return new TextChannel(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/guilds/${this.id}/channels", ["name": name, "type": "text"])))
+		return new TextChannel(client, JSONUtil.parse(client.requester.post("https://discordapp.com/api/guilds/${this.id}/channels", ["name": name, "type": "text"])))
 	}
 
 	/**
@@ -114,17 +114,17 @@ class Server extends DiscordObject {
 	 * @return a VoiceChannel object of the created voice channel.
 	 */
 	VoiceChannel createVoiceChannel(String name) {
-		return new VoiceChannel(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/guilds/${this.id}/channels", ["name": name, "type": "voice"])))
+		return new VoiceChannel(client, JSONUtil.parse(client.requester.post("https://discordapp.com/api/guilds/${this.id}/channels", ["name": name, "type": "voice"])))
 	}
 
 	/**
 	 * @return a List of TextChannels in the server.
 	 */
 	List<TextChannel> requestTextChannels(){
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
+		List array = JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
 		List<TextChannel> channels = []
 		for (o in array){
-			if (o["type"] == "text") channels.add(new TextChannel(api, o))
+			if (o["type"] == "text") channels.add(new TextChannel(client, o))
 		}
 		return channels
 	}
@@ -133,10 +133,10 @@ class Server extends DiscordObject {
 	 * @return a List of VoiceChannels in the server.
 	 */
 	List<VoiceChannel> requestVoiceChannels(){
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
+		List array = JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
 		List<VoiceChannel> channels = []
 		for (o in array){
-			if (o["type"] == "voice") channels.add(new VoiceChannel(api, o))
+			if (o["type"] == "voice") channels.add(new VoiceChannel(client, o))
 		}
 		return channels
 	}
@@ -163,10 +163,10 @@ class Server extends DiscordObject {
 	 * @return all channels in the server.
 	 */
 	List<Channel> requestChannels(){
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
+		List array = JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/channels"))
 		List<Channel> channels = []
 		for (o in array){
-			channels.add(new Channel(api, o))
+			channels.add(new Channel(client, o))
 		}
 		return channels
 	}
@@ -175,14 +175,14 @@ class Server extends DiscordObject {
 	 * @return a List of TextChannels in the server.
 	 */
 	List<TextChannel> getTextChannels(){
-		return this.channels.findAll { it.type == "text" }.collect { new TextChannel(api, it.object) }
+		return this.channels.findAll { it.type == "text" }.collect { new TextChannel(client, it.object) }
 	}
 
 	/**
 	 * @return a List of VoiceChannels in the server.
 	 */
 	List<VoiceChannel> getVoiceChannels(){
-		return this.channels.findAll { it.type == "voice" }.collect { new VoiceChannel(api, it.object) }
+		return this.channels.findAll { it.type == "voice" }.collect { new VoiceChannel(client, it.object) }
 	}
 
 	/**
@@ -207,7 +207,7 @@ class Server extends DiscordObject {
 	 * @return all channels in the server.
 	 */
 	List<Channel> getChannels(){
-		return this.object["channels"].collect { (it.type == "text") ? new TextChannel(api, it) : new VoiceChannel(api, it) }
+		return this.object["channels"].collect { (it.type == "text") ? new TextChannel(client, it) : new VoiceChannel(client, it) }
 	}
 
 	/**
@@ -217,7 +217,7 @@ class Server extends DiscordObject {
 		List array = this.object["roles"].collect { it }
 		List<Role> roles = []
 		for (o in array){
-			roles.add(new Role(api, o))
+			roles.add(new Role(client, o))
 		}
 		return roles
 	}
@@ -229,7 +229,7 @@ class Server extends DiscordObject {
 		List array = this.object["members"].collect { it }
 		List<Member> members = []
 		for (o in array){
-			members.add(new Member(api, o))
+			members.add(new Member(client, o))
 		}
 		return members
 	}
@@ -244,7 +244,7 @@ class Server extends DiscordObject {
 		for (r in roles){
 			rolesArray.add(r.id)
 		}
-		api.requester.patch("https://discordapp.com/api/guilds/${this.id}/members/${member.id}", ["roles": rolesArray])
+		client.requester.patch("https://discordapp.com/api/guilds/${this.id}/members/${member.id}", ["roles": rolesArray])
 	}
 
 	/**
@@ -261,31 +261,31 @@ class Server extends DiscordObject {
 	 * @param member - the Member object to kick.
 	 */
 	void kickMember(Member member) {
-		api.requester.delete("https://discordapp.com/api/guilds/${this.id}/members/$member.id")
+		client.requester.delete("https://discordapp.com/api/guilds/${this.id}/members/$member.id")
 	}
 
 	/**
 	 * @return a List of Users who are banned.
 	 */
 	List<User> getBans() {
-		List array = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/bans"))
+		List array = JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/bans"))
 		List<User> bans = []
 		for (o in array){
-			bans.add(new User(api, o["user"]))
+			bans.add(new User(client, o["user"]))
 		}
 		return bans
 	}
 
 	List<VoiceState> getVoiceStates(){
-		return this.object["voice_states"].collect { new VoiceState(api, it) }
+		return this.object["voice_states"].collect { new VoiceState(client, it) }
 	}
 
 	List<Invite> getInvites(){
-		return JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/invites")).collect { new Invite(api, it) }
+		return JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/invites")).collect { new Invite(client, it) }
 	}
 
 	List<Region> getRegions(){
-		return JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/regions")).collect { new Region(api, it) }
+		return JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/regions")).collect { new Region(client, it) }
 	}
 
 	Region getRegion(){
@@ -298,7 +298,7 @@ class Server extends DiscordObject {
 	 * @param days - the amount of days to delete the user's messages until. I explained that badly but you get the deal if you ever banned someone on Discord.
 	 */
 	void ban(User user, int days=0) {
-		api.requester.put("https://discordapp.com/api/guilds/${this.id}/bans/${user.id}?delete-message-days=${days}", [:])
+		client.requester.put("https://discordapp.com/api/guilds/${this.id}/bans/${user.id}?delete-message-days=${days}", [:])
 	}
 
 	/**
@@ -306,7 +306,7 @@ class Server extends DiscordObject {
 	 * @param user - the User object.
 	 */
 	void unban(User user) {
-		api.requester.delete("https://discordapp.com/api/guilds/${this.id}/bans/${user.id}")
+		client.requester.delete("https://discordapp.com/api/guilds/${this.id}/bans/${user.id}")
 	}
 
 	/**
@@ -317,7 +317,7 @@ class Server extends DiscordObject {
 	 */
 	Role createRole(Map<String, Object> data) {
 		Map defaultData = [color: 0, hoist: false, name: "new role", permissions: 0]
-		Role createdRole = new Role(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/guilds/${this.id}/roles", [:])))
+		Role createdRole = new Role(client, JSONUtil.parse(client.requester.post("https://discordapp.com/api/guilds/${this.id}/roles", [:])))
 		return editRole(createdRole, defaultData << data)
 	}
 
@@ -332,7 +332,7 @@ class Server extends DiscordObject {
 	Role editRole(Role role, Map<String, Object> data) {
 		if (data["color"] instanceof Color) data["color"] = data["color"].value
 		if (data["permissions"] instanceof Permissions) data["permissions"] = data["permissions"].value
-		return new Role(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}", data)))
+		return new Role(client, JSONUtil.parse(client.requester.patch("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}", data)))
 	}
 
 	/**
@@ -340,24 +340,24 @@ class Server extends DiscordObject {
 	 * @param role - the Role object.
 	 */
 	void deleteRole(Role role) {
-		api.requester.delete("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}")
+		client.requester.delete("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}")
 	}
 
 	List<Member> requestMembers(int limit=this.memberCount, boolean updateReady=true){
-		List members = JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/members?limit=${limit}"))
+		List members = JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/members?limit=${limit}"))
 		if (updateReady){
-			api.readyData["guilds"].find { it.id == this.id }["members"] = members
-			api.readyData["guilds"].find { it.id == this.id }["member_count"] = members.size()
+			client.readyData["guilds"].find { it.id == this.id }["members"] = members
+			client.readyData["guilds"].find { it.id == this.id }["member_count"] = members.size()
 		}
-		return members.collect { new Member(api, it + ["guild_id": this.id]) }
+		return members.collect { new Member(client, it + ["guild_id": this.id]) }
 	}
 
-	Member getMemberInfo(String id){ return new Member(api, JSONUtil.parse(api.requester.get("https://discordapp.com/api/guilds/${this.id}/members/${id}"))) }
+	Member getMemberInfo(String id){ return new Member(client, JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/members/${id}"))) }
 	Member memberInfo(String id){ this.getMemberInfo(id) }
 
 	int getMemberCount(){ return this.object["member_count"] }
-	List<Emoji> getEmojis(){ return this.object["emojis"].collect { new Emoji(api, it + [guild_id: this.id]) } }
-	List<Emoji> getEmoji(){ return this.object["emojis"].collect { new Emoji(api, it + [guild_id: this.id]) } }
+	List<Emoji> getEmojis(){ return this.object["emojis"].collect { new Emoji(client, it + [guild_id: this.id]) } }
+	List<Emoji> getEmoji(){ return this.object["emojis"].collect { new Emoji(client, it + [guild_id: this.id]) } }
 
 	Member getMember(User user){ return this.members.find { it.id == user.id } }
 	Member member(User user){ return this.members.find { it.id == user.id } }
@@ -367,12 +367,12 @@ class Server extends DiscordObject {
 	Message sendFile(String filePath){ this.defaultChannel.sendFile(filePath) }
 
 	static class VoiceState extends DiscordObject {
-		VoiceState(API api, Map object){ super(api, object) }
+		VoiceState(Client client, Map object){ super(client, object) }
 
-		VoiceChannel getChannel(){ return api.client.getVoiceChannelById(this.object["channel_id"]) }
-		VoiceChannel getVoiceChannel(){ return api.client.getVoiceChannelById(this.object["channel_id"]) }
-		User getUser(){ return api.client.getUserById(this.object["user_id"]) }
-		Server getServer(){ return api.client.getServerById(this.object["guild_id"]) }
+		VoiceChannel getChannel(){ return client.getVoiceChannelById(this.object["channel_id"]) }
+		VoiceChannel getVoiceChannel(){ return client.getVoiceChannelById(this.object["channel_id"]) }
+		User getUser(){ return client.getUserById(this.object["user_id"]) }
+		Server getServer(){ return client.getServerById(this.object["guild_id"]) }
 		Member getMember(){ return this.server.member(this.user) }
 		boolean isDeaf(){ return this.object["deaf"] }
 		boolean isMute(){ return this.object["mute"] }

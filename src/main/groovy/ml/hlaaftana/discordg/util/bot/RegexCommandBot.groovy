@@ -1,7 +1,7 @@
 package ml.hlaaftana.discordg.util.bot
 
-import ml.hlaaftana.discordg.APIBuilder
-import ml.hlaaftana.discordg.objects.API
+import ml.hlaaftana.discordg.DiscordG
+import ml.hlaaftana.discordg.objects.Client
 import ml.hlaaftana.discordg.util.Log
 
 /**
@@ -10,27 +10,27 @@ import ml.hlaaftana.discordg.util.Log
  */
 class RegexCommandBot {
 	String name = "DiscordG|CommandBot"
-	API api
+	Client client
 	List commands = []
 	static def defaultPrefix
 	boolean acceptOwnCommands = false
 	private boolean loggedIn = false
 
 	/**
-	 * @param api - The API object this bot should use.
+	 * @paramclient - The API object this bot should use.
 	 * @param commands - A List of Commands you want to register right off the bat. Empty by default.
 	 */
-	RegexCommandBot(API api, List commands=[]){
-		this.api = api
+	RegexCommandBot(Client client, List commands=[]){
+		this.client =client
 		this.commands += commands
 	}
 
 	static def create(String email, String password, List commands=[]){
-		return new RegexCommandBot(APIBuilder.build(email, password), commands)
+		return new RegexCommandBot(DiscordG.withLogin(email, password), commands)
 	}
 
 	static def create(List commands=[]){
-		return new RegexCommandBot(APIBuilder.build(), commands)
+		return new RegexCommandBot(new Client(), commands)
 	}
 
 
@@ -57,7 +57,7 @@ class RegexCommandBot {
 	 */
 	def login(String email, String password){
 		loggedIn = true
-		api.login(email, password)
+		client.login(email, password)
 	}
 
 	/**
@@ -66,7 +66,7 @@ class RegexCommandBot {
 	 * @param password - the password to log in with.
 	 */
 	def initialize(String email="", String password=""){
-		api.addListener("message create") { Map d ->
+		client.addListener("message create") { Map d ->
 			for (c in commands){
 				for (p in c.prefixes){
 					for (a in c.aliases){
@@ -74,7 +74,7 @@ class RegexCommandBot {
 							try{
 								if (acceptOwnCommands){
 									c.run(d)
-								}else if (!(d.message.author.id == api.client.user.id)){
+								}else if (!(d.message.author.id == client.user.id)){
 									c.run(d)
 								}
 							}catch (ex){
@@ -88,7 +88,7 @@ class RegexCommandBot {
 		}
 		if (!loggedIn){
 			if (email.empty || password.empty) throw new Exception()
-			api.login(email, password)
+			client.login(email, password)
 		}
 	}
 
@@ -175,7 +175,7 @@ class RegexCommandBot {
 		 * @param response - a string to respond with to this command. <br>
 		 * The rest of the parameters are Command's parameters.
 		 */
-		ResponseCommand(String response, def aliasOrAliases, def prefixOrPrefixes=CommandBot.defaultPrefix){
+		ResponseCommand(String response, def aliasOrAliases, def prefixOrPrefixes=RegexCommandBot.defaultPrefix){
 			super(aliasOrAliases, prefixOrPrefixes)
 			this.response = response
 		}
@@ -195,7 +195,7 @@ class RegexCommandBot {
 		/**
 		 * @param response - a closure to respond with to this command. Can take one parameter, which is the data of the event.
 		 */
-		ClosureCommand(Closure response, def aliasOrAliases, def prefixOrPrefixes=CommandBot.defaultPrefix){
+		ClosureCommand(Closure response, def aliasOrAliases, def prefixOrPrefixes=RegexCommandBot.defaultPrefix){
 			super(aliasOrAliases, prefixOrPrefixes)
 			response.delegate = this
 			this.response = response

@@ -9,10 +9,10 @@ import java.util.Date;
 class DiscordObject extends APIMapObject {
 	/**
 	 * A Discord object with a map containing data and an API object to use.
-	 * @param api - the API object.
+	 * @param client - the API object.
 	 * @param object - the map to use.
 	 */
-	DiscordObject(API api, Map object){ super(api, object) }
+	DiscordObject(Client client, Map object){ super(client, object) }
 	/**
 	 * @return the ID of the object.
 	 */

@@ -13,14 +13,26 @@ import com.mashape.unirest.http.Unirest
  * @author Hlaaftana
  */
 class TextChannel extends Channel {
-	TextChannel(API api, Map object){
-		super(api, object)
+	TextChannel(Client client, Map object){
+		super(client, object)
 	}
 
 	/**
 	 * @return the topic of the channel. Might be null.
 	 */
 	String getTopic() { return this.object["topic"] }
+
+	/**
+	 * @return a mention for the channel.
+	 */
+	String getMention() { return "<#${this.id}>" }
+
+	/**
+	 * Start typing in the channel.
+	 */
+	void startTyping() {
+		client.requester.post("https://discordapp.com/api/channels/${this.id}/typing", [:])
+	}
 
 	/**
 	 * Send a message to the channel.
@@ -30,9 +42,9 @@ class TextChannel extends Channel {
 	 */
 	Message sendMessage(String content, boolean tts=false) {
 		if (content.length() > 2000) throw new Exception("You tried to send a message longer than 2000 characters.")
-		String ass = api.requester.post("https://discordapp.com/api/channels/${this.id}/messages", ["content": content, "tts": tts, "channel_id": this.id])
+		String ass = client.requester.post("https://discordapp.com/api/channels/${this.id}/messages", ["content": content, "tts": tts, "channel_id": this.id])
 		try{
-			return new Message(api, JSONUtil.parse(ass))
+			return new Message(client, JSONUtil.parse(ass))
 		}catch (JsonException ex){
 			throw new RateLimitException(ass)
 		}
@@ -45,7 +57,7 @@ class TextChannel extends Channel {
 	 * @return - the sent message as a Message object.
 	 */
 	Message sendFile(File file, Map data=[:]){
-		return new Message(api, JSONUtil.parse(Unirest.post("https://discordapp.com/api/channels/${this.id}/messages").header("authorization", api.token).header("user-agent", api.fullUserAgent).field("file", file).field("content", data["content"] == null ? "" : data["content"]).field("tts", data["tts"] as boolean).asString().body))
+		return new Message(client, JSONUtil.parse(Unirest.post("https://discordapp.com/api/channels/${this.id}/messages").header("authorization", client.token).header("user-agent", client.fullUserAgent).field("file", file).field("content", data["content"] == null ? "" : data["content"]).field("tts", data["tts"] as boolean).asString().body))
 	}
 
 	/**
@@ -53,7 +65,7 @@ class TextChannel extends Channel {
 	 * @param filePath - the file path as a string.
 	 * @return - the sent message as a Message object.
 	 */
-	Message sendFile(String filePath, Map data=[:]){ return this.sendFile(new File(filePath)) }
+	Message sendFile(String filePath, Map data=[:]){ return this.sendFile(new File(filePath), data) }
 
 	/**
 	 * Get message history from the channel. Warning: this'll be quite slower each multiple of 100.
@@ -62,20 +74,20 @@ class TextChannel extends Channel {
 	 */
 	List<Message> getLogs(int max=100) {
 		if (max <= 100){
-			return JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=${max}")).collect { try{ new Message(api, it) }catch (ex){ throw new RateLimitException(it.toString()) } }
+			return JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=${max}")).collect { try{ new Message(client, it) }catch (ex){ throw new RateLimitException(it.toString()) } }
 		}else{
-			List<Message> initialRequest = JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=100")).collect { new Message(api, it) }
+			List<Message> initialRequest = JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=100")).collect { new Message(client, it) }
 			for (int m = 1; m < (int) Math.ceil(max / 100) - 1; m++){
-				initialRequest += JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=100")).collect { new Message(api, it) }
+				initialRequest += JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=100")).collect { new Message(client, it) }
 			}
-			if (max % 100 > 0) initialRequest += JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=${max % 100}")).collect { new Message(api, it) }
-			else initialRequest += JSONUtil.parse(api.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=${100}")).collect { new Message(api, it) }
+			if (max % 100 > 0) initialRequest += JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=${max % 100}")).collect { new Message(client, it) }
+			else initialRequest += JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=${100}")).collect { new Message(client, it) }
 			return initialRequest
 		}
 	}
 
 	List<Message> getCachedLogs(){
-		return this.object["cached_messages"].collect { new Message(api, it) }
+		return this.object["cached_messages"].collect { new Message(client, it) }
 	}
 
 	String getLastMessageId(){

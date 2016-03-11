@@ -1,6 +1,6 @@
 package ml.hlaaftana.discordg.request
 
-import ml.hlaaftana.discordg.objects.API
+import ml.hlaaftana.discordg.objects.Client
 import ml.hlaaftana.discordg.util.JSONUtil
 
 import com.mashape.unirest.http.HttpResponse
@@ -11,8 +11,8 @@ import com.mashape.unirest.http.Unirest
  * @author Hlaaftana
  */
 class Requester{
-	API api
-	Requester(API api){ this.api = api }
+	Client client
+	Requester(Client client){ this.client = client }
 
 	/**
 	 * GETs from a URL.
@@ -69,20 +69,20 @@ class Requester{
 	def headerUp(def request, boolean isGet=false){
 		def req = request
 		if (req instanceof URLConnection){
-			if (api.token != null) req = req.setRequestProperty("Authorization", api.token)
+			if (client.token != null) req = req.setRequestProperty("Authorization", client.token)
 			if (!isGet) req = req.setRequestProperty("Content-Type", "application/json")
-			req.setRequestProperty("User-Agent", api.fullUserAgent)
+			req.setRequestProperty("User-Agent", client.fullUserAgent)
 			return req
 		}else if (req instanceof URL){
 			return this.headerUp(req.openConnection(), isGet)
 		}else{
-			if (api.token != null) req = req.header("Authorization", api.token)
+			if (client.token != null) req = req.header("Authorization", client.token)
 			if (!isGet) req = req.header("Content-Type", "application/json")
-			return req.header("User-Agent", api.fullUserAgent)
+			return req.header("User-Agent", client.fullUserAgent)
 		}
 	}
-	
-	
+
+
 }
 
 

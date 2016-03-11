@@ -12,7 +12,7 @@ import org.eclipse.jetty.websocket.api.annotations.*
 
 @WebSocket
 class VoiceWSClient {
-	API api
+	Client client
 	Session session
 	Thread keepAliveThread
 	VoiceChannel channel
@@ -23,7 +23,7 @@ class VoiceWSClient {
 	boolean speaking
 	DatagramSocket udpSocket
 	Thread udpKeepAliveThread
-	VoiceWSClient(API api){ this.api = api; this.channel = api.voiceData.channel; this.endpoint = api.voiceData.endpoint }
+	VoiceWSClient(Client client){ this.client = client; this.channel = client.voiceData.channel; this.endpoint = client.voiceData.endpoint }
 
 	@OnWebSocketConnect
 	void onConnect(Session session){
@@ -35,10 +35,10 @@ class VoiceWSClient {
 		Map a = [
 			"op": 0,
 			"d": [
-				"token": api.token,
+				"token": client.token,
 				"server_id": channel.server.id,
-				"user_id": api.client.user.id,
-				"session_id": api.client.sessionId
+				"user_id": client.user.id,
+				"session_id": client.sessionId
 			],
 		]
 		this.send(a)
@@ -61,7 +61,7 @@ class VoiceWSClient {
 			ByteBuffer buffer = ByteBuffer.allocate(70)
 			buffer.putInt(ssrc)
 
-			DatagramPacket discoveryPacket = new DatagramPacket(buffer.array(), buffer.array().length, new InetSocketAddress(api.voiceData["endpoint"], port))
+			DatagramPacket discoveryPacket = new DatagramPacket(buffer.array(), buffer.array().length, new InetSocketAddress(client.voiceData["endpoint"], port))
 			udpSocket.send(discoveryPacket)
 
 			DatagramPacket receivedPacket = new DatagramPacket(new byte[70], 70)
@@ -87,7 +87,7 @@ class VoiceWSClient {
 					ByteBuffer buffer2 = ByteBuffer.allocate(Long.BYTES + 1);
                     buffer2.put((byte)0xC9);
                     buffer2.putLong(0)
-                    DatagramPacket keepAlivePacket = new DatagramPacket(buffer2.array(), buffer2.array().length, new InetSocketAddress(api.voiceData["endpoint"], port))
+                    DatagramPacket keepAlivePacket = new DatagramPacket(buffer2.array(), buffer2.array().length, new InetSocketAddress(client.voiceData["endpoint"], port))
                     udpSocket.send(keepAlivePacket)
 
                     Thread.sleep(5000)
@@ -119,15 +119,15 @@ class VoiceWSClient {
 			keepAliveThread.daemon = true
 			keepAliveThread.start()
 
-			api.dispatchEvent("VOICE_READY", data << ["fullData": data])
+			client.dispatchEvent("VOICE_READY", data << ["fullData": data])
 		}else if(o(3)){
 			this.ping = System.currentTimeMillis() - data
-			api.dispatchEvent("VOICE_PING_UPDATE", ["ping": this.ping, "fullData": data])
+			client.dispatchEvent("VOICE_PING_UPDATE", ["ping": this.ping, "fullData": data])
 		}else if(o(4)){
 			this.connected = true
-			api.dispatchEvent("VOICE_CONNECTED", ["fullData": data])
+			client.dispatchEvent("VOICE_CONNECTED", ["fullData": data])
 		}else if(o(5)){
-			api.dispatchEvent("USER_SPEAKING_UPDATE", ["speaking": data["speaking"], "user": api.client.getUserById(data["user_id"]), "fullData": data])
+			client.dispatchEvent("USER_SPEAKING_UPDATE", ["speaking": data["speaking"], "user": client.getUserById(data["user_id"]), "fullData": data])
 		}else{
 			Log.info "Unhandled voice op code ${op}. Full content (please report to Hlaaftana):\n${content}"
 		}
@@ -162,7 +162,7 @@ class VoiceWSClient {
 	void close(boolean mute=false, boolean deaf=false){
 		if (keepAliveThread != null){ keepAliveThread.interrupt(); keepAliveThread = null }
 
-		api.wsClient.send([
+		client.wsClient.send([
 			"op": 4,
 			"d": [
 				"guild_id": null,
