@@ -2,6 +2,7 @@ package ml.hlaaftana.discordg.request
 
 import java.util.concurrent.*
 
+import org.eclipse.jetty.websocket.api.Session
 import org.eclipse.jetty.websocket.api.*
 import org.eclipse.jetty.websocket.api.annotations.*
 
@@ -18,12 +19,12 @@ import ml.hlaaftana.discordg.objects.Server.VoiceState
 @WebSocket
 class WSClient{
 	CountDownLatch latch = new CountDownLatch(1)
-	API api
+	Client client
 	Session session
 	Thread keepAliveThread
 	def threadPool
 	int responseAmount
-	WSClient(API api){ this.api = api; threadPool = Executors.newFixedThreadPool(api.eventThreadCount) }
+	WSClient(Client client){ this.client = client; threadPool = Executors.newFixedThreadPool(client.eventThreadCount) }
 
 	@OnWebSocketConnect
 	void onConnect(Session session){
@@ -36,9 +37,9 @@ class WSClient{
 		Map a = [
 			"op": 2,
 			"d": [
-				"token": api.token,
+				"token":client.token,
 				"v": 3,
-				"large_threshold": api.largeThreshold,
+				"large_threshold":client.largeThreshold,
 				"properties": [
 					"\$os": System.getProperty("os.name"),
 					"\$browser": "DiscordG",
@@ -58,7 +59,7 @@ class WSClient{
 		threadPool.submit({
 			Map content = JSONUtil.parse(message)
 			String type = content["t"]
-			if (api.ignorePresenceUpdate && type == "PRESENCE_UPDATE") return
+			if (client.ignorePresenceUpdate && type == "PRESENCE_UPDATE") return
 			Map data = content["d"]
 			this.responseAmount = content["s"]
 			if (type.equals("READY")){
@@ -76,8 +77,8 @@ class WSClient{
 					e.printStackTrace()
 					System.exit(0)
 				}
-				api.readyData << data
-				api.readyData.guilds.each { Map g ->
+				client.readyData << data
+				client.readyData.guilds.each { Map g ->
 					g.members.each { Map m ->
 						m["guild_id"] = g["id"]
 					}
@@ -92,12 +93,12 @@ class WSClient{
 						e["guild_id"] = g["id"]
 					}
 				}
-				api.readyData.private_channels.each { Map pc ->
+				client.readyData.private_channels.each { Map pc ->
 					pc["cached_messages"] = []
 				}
 				Log.info "Done loading."
 			}
-			if (!api.isLoaded()) return
+			if (!client.isLoaded()) return
 			Map eventData = [:]
 			Closure t = { String ty -> return ty.equals(type) }
 			// i removed the switch here because it was slow
@@ -109,32 +110,32 @@ class WSClient{
 						eventData = [
 							server: null,
 							guild: null,
-							channel: new PrivateChannel(api, data)
+							channel: new PrivateChannel(client, data)
 							]
 					}else if (data["type"].equals("text")){
 						eventData = [
-							server: api.client.getServerById(data["guild_id"]),
-							guild: api.client.getServerById(data["guild_id"]),
-							channel: new TextChannel(api, data)
+							server: client.getServerById(data["guild_id"]),
+							guild: client.getServerById(data["guild_id"]),
+							channel: new TextChannel(client, data)
 							]
 					}else if (data["type"].equals("voice")){
 						eventData = [
-							server: api.client.getServerById(data["guild_id"]),
-							guild: api.client.getServerById(data["guild_id"]),
-							channel: new VoiceChannel(api, data)
+							server: client.getServerById(data["guild_id"]),
+							guild: client.getServerById(data["guild_id"]),
+							channel: new VoiceChannel(client, data)
 							]
 					}
 				}else if (t("GUILD_BAN_ADD") || t("GUILD_BAN_REMOVE")){
 					eventData = [
-						server: api.client.getServerById(data["guild_id"]),
-						guild: api.client.getServerById(data["guild_id"]),
-						user: new User(api, data["user"])
+						server: client.getServerById(data["guild_id"]),
+						guild: client.getServerById(data["guild_id"]),
+						user: new User(client, data["user"])
 						]
 				}else if (t("GUILD_CREATE")){
 					if (!data.containsKey("unavailable")){
 						eventData = [
-							server: new Server(api, data),
-							guild: new Server(api, data)
+							server: new Server(client, data),
+							guild: new Server(client, data)
 							]
 					}else{
 						eventData = data
@@ -142,146 +143,126 @@ class WSClient{
 				}else if (t("GUILD_DELETE")){
 					if (!data.containsKey("unavailable")){
 						eventData = [
-							server: api.client.getServerById(data["id"]),
-							guild: api.client.getServerById(data["id"])
+							server: client.getServerById(data["id"]),
+							guild: client.getServerById(data["id"])
 							]
 					}else{
 						eventData = data
 					}
 				}else if (t("GUILD_INTEGRATIONS_UPDATE")){
 					eventData = [
-						server: api.client.getServerById(data["guild_id"]),
-						guild: api.client.getServerById(data["guild_id"])
+						server: client.getServerById(data["guild_id"]),
+						guild: client.getServerById(data["guild_id"])
 						]
 				}else if (t("GUILD_EMOJIS_UPDATE")){
 					eventData = [
-						server: api.client.getServerById(data["guild_id"]),
-						guild: api.client.getServerById(data["guild_id"]),
-						emojis: data["emojis"].collect { new Emoji(api, it + ["guild_id": data["guild_id"]]) }
+						server: client.getServerById(data["guild_id"]),
+						guild: client.getServerById(data["guild_id"]),
+						emojis: data["emojis"].collect { new Emoji(client, it + ["guild_id": data["guild_id"]]) }
 						]
 				}else if (t("GUILD_MEMBER_ADD") || t("GUILD_MEMBER_UPDATE")){
 					eventData = [
-						server: api.client.getServerById(data["guild_id"]),
-						guild: api.client.getServerById(data["guild_id"]),
-						member: new Member(api, data)
+						server: client.getServerById(data["guild_id"]),
+						guild: client.getServerById(data["guild_id"]),
+						member: new Member(client, data)
 						]
 				}else if (t("GUILD_MEMBER_REMOVE")){
-					try{
-						eventData = [
-							server: api.client.getServerById(data["guild_id"]),
-							guild: api.client.getServerById(data["guild_id"]),
-							member: api.client.getServerById(data["guild_id"]).getMembers().find { try{it.getUser().getId().equals(data["user"]["id"])}catch (ex){} }
-						]
-					}catch (ex){
-						println data
-						println data["user"]
-					}
+					eventData = [
+						server: client.getServerById(data["guild_id"]),
+						guild: client.getServerById(data["guild_id"]),
+						member: { -> try{
+							return client.getServerById(data["guild_id"]).members.find { it.id == data["user"]["id"] }
+						}catch (ex){
+							return null
+						} }()
+					]
 				}else if (t("GUILD_ROLE_CREATE") || t("GUILD_ROLE_UPDATE")){
 					eventData = [
-						server: api.client.getServerById(data["guild_id"]),
-						guild: api.client.getServerById(data["guild_id"]),
-						role: new Role(api, data["role"])
+						server: client.getServerById(data["guild_id"]),
+						guild: client.getServerById(data["guild_id"]),
+						role: new Role(client, data["role"])
 						]
 				}else if (t("GUILD_ROLE_DELETE")){
 					eventData = [
-						server: api.client.getServerById(data["guild_id"]),
-						guild: api.client.getServerById(data["guild_id"]),
-						role: api.client.getServerById(data["guild_id"]).getRoles().find { it.getId().equals(data["role_id"]) }
+						server: client.getServerById(data["guild_id"]),
+						guild: client.getServerById(data["guild_id"]),
+						role: client.getServerById(data["guild_id"]).getRoles().find { it.getId().equals(data["role_id"]) }
 						]
 				}else if (t("GUILD_UPDATE")){
-					Map newData = data
-					Server oldServer = api.client.getServerById(newData["id"])
-					List<Map> memberJsons = new ArrayList<Map>()
-					for (m in oldServer.getMembers()){
-						memberJsons.add(m.object)
-					}
-					newData.put("members", memberJsons)
 					eventData = [
-						server: new Server(api, newData),
-						guild: new Server(api, newData)
+						server: new Server(client, data),
+						guild: new Server(client, data)
 						]
 				}else if (t("MESSAGE_CREATE")){
-					Message messageO = new Message(api, data)
+					Message messageO = new Message(client, data)
 					eventData = [
 						message: messageO,
 						sendMessage: messageO.channel.&sendMessage,
 						sendFile: messageO.channel.&sendFile,
-						author: messageO.channel?.server?.members?.find { it.id == messageO.author.id } ?: messageO.author
+						author: messageO.channel?.server?.members?.find { try{ it?.id == messageO.author.id }catch (ex){ false } } ?: messageO.author
 						]
-					if (eventData.message == null){
-						eventData.message = new Message(api, data)
-					}
 				}else if (t("MESSAGE_DELETE")){
-					List<TextChannel> channels = new ArrayList<TextChannel>()
-					for (s in api.client.getServers()) channels.addAll(s.getTextChannels())
-					channels.addAll(api.client.getPrivateChannels())
+					List<TextChannel> channels = []
+					client.servers.each { channels += it.textChannels }
+					channels += client.privateChannels
 					Message foundMessage = channels*.cachedLogs.find { it.id == data["id"] }
 					eventData = [
-						channel: channels.find { it.getId().equals(data["channel_id"]) },
+						channel: channels.find { it.id == data["channel_id"] },
 						message: (foundMessage != null) ? foundMessage : data["id"]
 						]
 				}else if (t("MESSAGE_UPDATE")){
 					if (data.containsKey("content")){
 						eventData = [
-							message: new Message(api, data)
+							message: new Message(client, data)
 							]
 					}else{
-						List<TextChannel> channels = new ArrayList<TextChannel>()
-						for (s in api.client.getServers()) channels.addAll(s.getTextChannels())
-						channels.addAll(api.client.getPrivateChannels())
+						List<TextChannel> channels = []
+						client.servers.each { channels << it.textChannels }
+						channels << client.privateChannels
 						Message foundMessage = channels*.cachedLogs.find { it.id == data["id"] }
 						eventData = [
-							channel: api.client.getTextChannelById(data["channel_id"]),
+							channel: client.getTextChannelById(data["channel_id"]),
 							message: foundMessage ?: data["id"],
 							embeds: data["embeds"]
 							]
 					}
 				}else if (t("PRESENCE_UPDATE")){
-					try{
-						eventData = [
-							server: api.client.servers.find { it.id == data["guild_id"] },
-							guild: api.client.servers.find { it.id == data["guild_id"] },
-							member: api.client.servers.find({ it.id == data["guild_id"] }).members.find { try { it.id == data["user"]["id"] }catch (ex){ false } },
-							game: (data["game"] != null) ? data["game"]["name"] : "",
-							status: data["status"]
-						]
-					}catch (ex){
-						if (api.client.servers.find { it.id == data["guild_id"] } != null){
-							eventData.server = api.client.servers.find { it.id == data["guild_id"] }
-							eventData.guild = eventData.server
-						}
-					}
-					if (eventData.server == null){
-						if (api.client.servers.find { it.id == data["guild_id"] } != null){
-							eventData.server = api.client.servers.find { it.id == data["guild_id"] }
-							eventData.guild = eventData.server
-						}
-					}
+					eventData = [
+						server: client.servers.find { it.id == data["guild_id"] },
+						guild: client.servers.find { it.id == data["guild_id"] },
+						member: { ->
+							try{
+								return client.members.find { it.id == data["user"]["id"] && it.server.id == client.servers.find { it.id == data["guild_id"] }.id } ?: client.members.find { it.id == data["user"]["id"] }
+							}catch (ex){
+								return null
+							}
+						}(),
+						game: (data["game"] != null) ? data["game"]["name"] : "",
+						status: data["status"]
+					]
 					// this here is sort of dangerous
-					if (eventData.member == null) eventData.member = new Member(api, data)
-					if (data["user"]["username"] != null) eventData["newUser"] = new User(api, data["user"])
+					if (data["user"]["username"] != null){ eventData["newUser"] = new User(client, data["user"]) }
 				}else if (t("TYPING_START")){
 					eventData = [
-						channel: api.client.getTextChannelById(data["channel_id"]),
-						user: api.client.getUserById(data["user_id"])
+						channel: client.getTextChannelById(data["channel_id"]),
+						user: client.getUserById(data["user_id"])
 						]
 				}else if (t("VOICE_STATE_UPDATE")){
 					eventData = [
-						voiceState: new VoiceState(api, data)
+						voiceState: new VoiceState(client, data)
 						]
-					if (data["user_id"] == api.client.user.id){
-						if (api.voiceWsClient != null){ // voice connected
-							api.voiceData.channel = api.client.getVoiceChannelById(data["channel_id"])
+					if (data["user_id"] == client.user.id){
+						if (client.voiceWsClient != null){ // voice connected
+							client.voiceData.channel = client.getVoiceChannelById(data["channel_id"])
 						}
-
-						api.voiceData.session_id = data["session_id"]
+						client.voiceData.session_id = data["session_id"]
 					}
 				}else if (t("VOICE_SERVER_UPDATE")){
-					api.voiceData << data
+					client.voiceData << data
 					eventData = data
 				}else if (t("USER_UPDATE")){
 					eventData = [
-						user: new User(api, data)
+						user: new User(client, data)
 					]
 				}else{
 					eventData = data
@@ -292,11 +273,11 @@ class WSClient{
 				if (Log.enableEventRegisteringCrashes) ex.printStackTrace()
 				Log.info "Ignoring exception from event object registering"
 			}
-			if (!t("READY")) eventData.put("fullData", data)
-			else if (api.copyReady) eventData.put("fullData", data)
+			if (!t("READY")){ eventData.put("fullData", data)
+			}else if (client.copyReady){ eventData.put("fullData", data) }
 			Map event = eventData
-			if (api.isLoaded()){
-				api.dispatchEvent(type, event)
+			if (client.isLoaded()){
+				Thread.start { client.dispatchEvent(type, event) }
 			}
 		} as Callable)
 	}

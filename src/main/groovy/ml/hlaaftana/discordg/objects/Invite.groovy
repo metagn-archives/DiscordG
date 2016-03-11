@@ -7,7 +7,7 @@ import ml.hlaaftana.discordg.util.*
  * @author Hlaaftana
  */
 class Invite extends DiscordObject {
-	Invite(API api, Map object){ super(api, object) }
+	Invite(Client client, Map object){ super(client, object) }
 
 	/**
 	 * @return the amount of... some sort of time measure until this invite expires
@@ -26,12 +26,12 @@ class Invite extends DiscordObject {
 	 * @return the server where this invite is. This will usually return null. Use #getBaseServer().
 	 */
 	Server getServer(){
-		return api.client.getServerById(this.object["guild"]["id"])
+		return client.getServerById(this.object["guild"]["id"])
 	}
 	/**
 	 * @return a Base containing the ID and name of the server.
 	 */
-	DiscordObject getBaseServer(){ return new DiscordObject(api, this.object["guild"]) }
+	DiscordObject getBaseServer(){ return new DiscordObject(client, this.object["guild"]) }
 	/**
 	 * @return whether or not the invite was revoked.
 	 */
@@ -59,11 +59,11 @@ class Invite extends DiscordObject {
 	/**
 	 * @return the person who created the invite.
 	 */
-	User getInviter(){ return new User(api, this.object["inviter"]) }
+	User getInviter(){ return new User(client, this.object["inviter"]) }
 	/**
 	 * @return a base object containing the name, ID and type of the channel. You will, however, have to get the type by doing ".object.type".
 	 */
-	DiscordObject getBaseChannel(){ return new DiscordObject(api, this.object["channel"]) }
+	DiscordObject getBaseChannel(){ return new DiscordObject(client, this.object["channel"]) }
 
 	String toString(){ return this.url }
 

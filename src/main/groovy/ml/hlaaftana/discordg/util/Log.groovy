@@ -3,7 +3,7 @@ package ml.hlaaftana.discordg.util
 import java.time.*
 import java.util.logging.Level
 
-import ml.hlaaftana.discordg.objects.API
+import ml.hlaaftana.discordg.objects.Client
 
 /**
  * Adds methods to provide ease for logging.

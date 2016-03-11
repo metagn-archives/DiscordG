@@ -7,13 +7,13 @@ import java.util.Map
  * @author Hlaaftana
  */
 class PrivateChannel extends TextChannel {
-	PrivateChannel(API api, Map object){
-		super(api, object)
+	PrivateChannel(Client client, Map object){
+		super(client, object)
 	}
 	/**
 	 * @return the user the conversation is with.
 	 */
-	User getUser(){ return new User(api, this.object["recipient"] )}
+	User getUser(){ return new User(client, this.object["recipient"] )}
 	Server getServer(){ return null }
 	String getTopic(){ return null }
 	String getPosition(){ return null }

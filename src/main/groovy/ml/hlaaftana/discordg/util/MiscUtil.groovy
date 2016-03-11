@@ -2,6 +2,7 @@ package ml.hlaaftana.discordg.util
 
 import java.awt.Color
 import java.text.SimpleDateFormat
+import ml.hlaaftana.discordg.objects.Game
 import ml.hlaaftana.discordg.request.JSONRequester
 
 /**
@@ -196,11 +197,17 @@ class MiscUtil {
 		return [color.red, color.green, color.blue]
 	}
 
-	static List<Map<String, List<String>>> getEmojis(){
+	static List requestEmojis(){
 		return JSONRequester.get("https://abal.moe/Discord/JSON/emojis.json")
 	}
 
-	static createShell(Map binding=[:]){ return new GroovyShell(new Binding([:])) }
+	static List requestEmojiShortcuts(){
+		return JSONRequester.get("https://abal.moe/Discord/JSON/emoji-shortcuts.json")
+	}
+
+	static List<Game> requestGames(){
+		return JSONRequester.get("https://abal.moe/Discord/JSON/games.json").collect { new Game(null, it) }
+	}
 
 	/**
 	 * Registers a bunch of methods to help you with Discord formatting to the String meta class.

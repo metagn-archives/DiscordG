@@ -11,8 +11,8 @@ import ml.hlaaftana.discordg.util.*
  * @author Hlaaftana
  */
 class Member extends User{
-	Member(API api, Map object){
-		super(api, object)
+	Member(Client client, Map object){
+		super(client, object)
 	}
 
 	String getId(){ return this.user.id }
@@ -27,11 +27,11 @@ class Member extends User{
 	/**
 	 * @return the User which this Member is.
 	 */
-	User getUser(){ return new User(api, this.object["user"]) }
+	User getUser(){ return new User(client, this.object["user"]) }
 	/**
 	 * @return the server the member comes from.
 	 */
-	Server getServer(){ return api.client.getServerById(this.object["guild_id"]) }
+	Server getServer(){ return client.getServerById(this.object["guild_id"]) }
 	/**
 	 * @return a timestamp of when the member joined the server.
 	 */
@@ -71,7 +71,7 @@ class Member extends User{
 	 * [mute: true, deaf: false]
 	 */
 	void edit(Map data){
-		api.requester.patch("https://discordapp.com/api/guilds/${this.server.id}/members/${this.id}", data)
+		client.requester.patch("https://discordapp.com/api/guilds/${this.server.id}/members/${this.id}", data)
 	}
 
 	void mute(){ this.edit(mute: true) }
@@ -116,10 +116,10 @@ class Member extends User{
 	}
 
 	void moveTo(VoiceChannel channel){
-		api.requester.patch("https://discordapp.com/api/guilds/${this.server.id}/members/{this.id}", ["channel_id": channel.id])
+		client.requester.patch("https://discordapp.com/api/guilds/${this.server.id}/members/{this.id}", ["channel_id": channel.id])
 	}
 
-	User toUser(){ return new User(api, this.object["user"]) }
+	User toUser(){ return new User(client, this.object["user"]) }
 	def asType(Class target){
 		if (target == User) return this.toUser()
 	}

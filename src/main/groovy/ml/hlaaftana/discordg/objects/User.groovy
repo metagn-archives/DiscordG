@@ -9,8 +9,8 @@ import ml.hlaaftana.discordg.util.JSONUtil
  * @author Hlaaftana
  */
 class User extends DiscordObject{
-	User(API api, Map object){
-		super(api, object)
+	User(Client client, Map object){
+		super(client, object)
 	}
 
 	/**
@@ -42,11 +42,11 @@ class User extends DiscordObject{
 	 * @return a private channel for the user. If not created already, it'll create a new one.
 	 */
 	PrivateChannel getPrivateChannel(){
-		for (pc in api.client.privateChannels){
+		for (pc in client.privateChannels){
 			if (pc.user.id == this.id) return pc
 		}
-		PrivateChannel pc = new PrivateChannel(api, JSONUtil.parse(api.requester.post("https://discordapp.com/api/users/$api.client.user.id/channels", [recipient_id: this.id])))
-		api.readyData["private_channels"].add(pc.object)
+		PrivateChannel pc = new PrivateChannel(client, JSONUtil.parse(client.requester.post("https://discordapp.com/api/users/@me/channels", [recipient_id: this.id])))
+		client.readyData["private_channels"].add(pc.object)
 		return pc
 	}
 	/**

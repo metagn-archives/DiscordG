@@ -9,8 +9,8 @@ import ml.hlaaftana.discordg.util.JSONUtil
  * @author Hlaaftana
  */
 class Channel extends DiscordObject{
-	Channel(API api, Map object){
-		super(api, object)
+	Channel(Client client, Map object){
+		super(client, object)
 	}
 
 	/**
@@ -33,15 +33,15 @@ class Channel extends DiscordObject{
 	 * @return the server of the channel. null if private.
 	 */
 	Server getServer(){ if (this."private") return null
-		return api.client.servers.find { it.id == this.object["guild_id"] }
+		return client.servers.find { it.id == this.object["guild_id"] }
 	}
 
 	List<PermissionOverwrite> getPermissionOverwrites(){
-		return this.object["permission_overwrites"].collect { new PermissionOverwrite(api, it) }
+		return this.object["permission_overwrites"].collect { new PermissionOverwrite(client, it) }
 	}
 
 	List<Invite> getInvites(){
-		return JSONUtil.parse(api.requester.get("https://discordapi.com/api/channels/${this.id}/invites")).collect { new Invite(api, it) }
+		return JSONUtil.parse(client.requester.get("https://discordclient.com/api/channels/${this.id}/invites")).collect { new Invite(client, it) }
 	}
 
 	/**
@@ -53,14 +53,14 @@ class Channel extends DiscordObject{
 	 * Start typing in the channel.
 	 */
 	void startTyping() {
-		api.requester.post("https://discordapp.com/api/channels/${this.id}/typing", [:])
+		client.requester.post("https://discordapp.com/api/channels/${this.id}/typing", [:])
 	}
 
 	/**
 	 * Deletes the channel.
 	 */
 	void delete() {
-		api.requester.delete("https://discordapp.com/api/channels/${this.id}")
+		client.requester.delete("https://discordapp.com/api/channels/${this.id}")
 	}
 
 	/**
@@ -70,7 +70,7 @@ class Channel extends DiscordObject{
 	 * @return the edited channel.
 	 */
 	Channel edit(Map<String, Object> data) {
-		return this.class.declaredConstructors[0].newInstance(api, JSONUtil.parse(api.requester.patch("https://discordapp.com/api/channels/${this.id}", ["name": (data.containsKey("name")) ? data["name"].toString() : this.getName(), "position": (data.containsKey("position")) ? data["position"] : this.getPosition(), "topic": (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic()])))
+		return this.class.declaredConstructors[0].newInstance(client, JSONUtil.parse(client.requester.patch("https://discordapp.com/api/channels/${this.id}", ["name": (data.containsKey("name")) ? data["name"].toString() : this.getName(), "position": (data.containsKey("position")) ? data["position"] : this.getPosition(), "topic": (data.containsKey("topic")) ? data["topic"].toString() : this.getTopic()])))
 	}
 
 	void editPermissions(DiscordObject target, def allow, def deny){
@@ -78,7 +78,7 @@ class Channel extends DiscordObject{
 		String type = (target instanceof Role) "role" : "member"
 		int allowBytes = (allow instanceof int) allow : allow.value
 		int denyBytes = (deny instanceof int) deny : deny.value
-		api.requester.put("https://discordapp.com/api/channels/${this.id}/permissions/${id}", [allow: allowBytes, deny: denyBytes, id: id, type: type])
+		client.requester.put("https://discordapp.com/api/channels/${this.id}/permissions/${id}", [allow: allowBytes, deny: denyBytes, id: id, type: type])
 	}
 
 	void addPermissions(DiscordObject target, def allow, def deny){
@@ -86,11 +86,11 @@ class Channel extends DiscordObject{
 	}
 
 	void deletePermissions(DiscordObject target){
-		api.requester.delete("https://discordapp.com/api/channels/${this.id}/permissions/${target.id}")
+		client.requester.delete("https://discordapp.com/api/channels/${this.id}/permissions/${target.id}")
 	}
 
 	static class PermissionOverwrite extends DiscordObject {
-		PermissionOverwrite(API api, Map object){ super(api, object) }
+		PermissionOverwrite(Client client, Map object){ super(client, object) }
 
 		Permissions getAllowed(){ return new Permissions(this.object["allow"]) }
 		Permissions getDenied(){ return new Permissions(this.object["deny"]) }
@@ -98,11 +98,11 @@ class Channel extends DiscordObject{
 		DiscordObject getAffected(){
 			if (this.type == "role"){
 				List<Role> roles = []
-				api.client.servers.each { roles.addAll(it.roles) }
+				client.servers.each { roles.addAll(it.roles) }
 				return roles.find { it.id == this.id }
 			}else if (this.type == "member"){
 				List<Member> members = []
-				api.client.servers.each { members.addAll(it.members) }
+				client.servers.each { members.addAll(it.members) }
 				return members.find { it.id == this.id }
 			}
 			return (DiscordObject) this
