@@ -1,0 +1,40 @@
+package io.github.hlaaftana.discordg.objects
+
+class Color {
+	static final Color DEFAULT = new Color(0)
+	static final Color AQUA = new Color(0x1ABC9C)
+	static final Color DARK_AQUA = new Color(0x11806a)
+	static final Color GREEN = new Color(0x2ECC71)
+	static final Color DARK_GREEN = new Color(0x1F8B4C)
+	static final Color BLUE = new Color(0x3498DB)
+	static final Color DARK_BLUE = new Color(0x206694)
+	static final Color PURPLE = new Color(0x9B59B6)
+	static final Color DARK_PURPLE = new Color(0x71368A)
+	static final Color MAGENTA = new Color(0xE91E63)
+	static final Color DARK_MAGENTA = new Color(0xAD1457)
+	static final Color GOLD = new Color(0xF1C40F)
+	static final Color DARK_GOLD = new Color(0xC27C0E)
+	static final Color ORANGE = new Color(0xE67E22)
+	static final Color DARK_ORANGE = new Color(0xA84300)
+	static final Color RED = new Color(0xE74C3C)
+	static final Color DARK_RED = new Color(0x992D22)
+	static final Color LIGHT_GRAY = new Color(0x95A5A6)
+	static final Color GRAY = new Color(0x607D8B)
+	static final Color LIGHT_BLUE_GRAY = new Color(0x979C9F)
+	static final Color BLUE_GRAY = new Color(0x546E7A)
+	static final Color LIGHT_GREY = new Color(0x95A5A6)
+	static final Color GREY = new Color(0x607D8B)
+	static final Color LIGHT_BLUE_GREY = new Color(0x979C9F)
+	static final Color BLUE_GREY = new Color(0x546E7A)
+	static final Color ABS_RED = new Color(0xFF0000)
+	static final Color ABS_GREEN = new Color(0x00FF00)
+	static final Color ABS_BLUE = new Color(0x0000FF)
+	static final Color ABS_YELLOW = new Color(0xFFFF00)
+	static final Color ABS_MAGENTA = new Color(0xFF00FF)
+	static final Color ABS_TURQUIOSE = new Color(0x00FFFF)
+	static final Color ABS_WHITE = new Color(0xFFFFFF)
+	static final Color ABS_BLACK = new Color(0x000000)
+
+	int value
+	Color(int value){ this.value = value }
+}

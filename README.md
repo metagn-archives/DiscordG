@@ -16,14 +16,26 @@ Well, there are tons of other wrappers for Discord for different languages out t
 and I really like Groovy myself. You can also technically use this in Java, however there are way too many Java libs and people would be unimpressed if I made this Java. Suit yourself however.
 
 ## OK, how do I "use" it?
-Here's a simple bot that responds to "!ping":
+Here's a couple of simple bots that responds to "!ping":
 
 ```groovy
-import ml.hlaaftana.discordg.objects.API
-import ml.hlaaftana.discordg.APIBuilder
+import ml.hlaaftana.discordg.objects.Client
 
-API api = APIBuilder.build("example@example.com", "example123")
-api.addListener("message create") { Map d ->
+Client client = new Client()
+client.addListener("message create") { Map d ->
+  if (d.message.content.startsWith("!ping")){
+    d.sendMessage("Pong!")
+  }
+}
+client.login("example@example.com", "example123")
+```
+
+```groovy
+import ml.hlaaftana.discordg.objects.Client
+import ml.hlaaftana.discordg.DiscordG
+
+Client client = DiscordG.withLogin("example@example.com", "example123")
+client.addListener("message create") { Map d ->
   if (d.message.content.startsWith("!ping")){
     d.sendMessage("Pong!")
   }

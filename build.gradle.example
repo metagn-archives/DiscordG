@@ -1,18 +1,5 @@
 apply plugin: 'groovy'
 
-String discordGVersion = "2.0.0"
-
-def downloadDiscordG = {
-	return new File("libs/${discordGVersion}.jar").with {
-		createNewFile()
-		mkdirs()
-		delegate
-	}.withOutputStream { out ->
-		out << new URL("https://github.com/hlaaftana/DiscordG/releases/download/${discordGVersion}/DiscordG-${discordGVersion}.jar").openStream()
-		delegate
-	}
-}
-
 jar {
     from { configurations.compile.findAll { !it.path.contains("groovy") }.collect { it.directory ? it : zipTree(it) } }
 }
