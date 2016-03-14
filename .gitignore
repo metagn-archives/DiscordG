@@ -9,6 +9,5 @@
 *.bat
 /gradlew
 /.gradle/
-/build.gradle
 /build/
 /gradle/
