@@ -347,7 +347,7 @@ class Server extends DiscordObject {
 			members += JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/members?offset=${(int)((Math.ceil(max / 1000) - 1) * 1000)+1}&limit=1000"))
 		}
 		if (updateReady){
-			client.readyData["guilds"].find { it.id == this.id }["members"] = members
+			client.readyData["guilds"].find { it.id == this.id }["members"] = members.collect { it + ["guild_id": this.id] }
 			client.readyData["guilds"].find { it.id == this.id }["member_count"] = members.size()
 		}
 		return members.collect { new Member(client, it + ["guild_id": this.id]) }

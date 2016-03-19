@@ -5,6 +5,10 @@ import io.github.hlaaftana.discordg.util.Log
 import io.github.hlaaftana.discordg.util.MiscUtil
 
 class DiscordG {
+	static final String VERSION = "3.0.0"
+	static final String GITHUB = "https://github.com/hlaaftana/DiscordG"
+	static final String USER_AGENT = "DiscordBot ($GITHUB, $VERSION)"
+
 	/**
 	 * Instantiates a client object and logs in with basic setup.
 	 * @param email - the email to log in with.
