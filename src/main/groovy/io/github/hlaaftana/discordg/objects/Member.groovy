@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.List
 import java.net.URL
 
-import ml.hlaaftana.discordg.util.*
+import io.github.hlaaftana.discordg.util.*
 
 /**
  * A member of a server. Extends the User object.

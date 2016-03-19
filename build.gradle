@@ -6,12 +6,6 @@ jar {
     from { configurations.compile.findAll { !it.path.contains("groovy") }.collect { it.directory ? it : zipTree(it) } }
 }
 
-buildscript {
-	dependencies {
-		compile "org.codehaus.groovy:groovy-all:2.4.6"
-	}
-}
-
 repositories {
     mavenCentral()
 	maven {
@@ -20,11 +14,12 @@ repositories {
 }
 
 dependencies {
+	compile 'org.codehaus.groovy:groovy-all:2.4.6'
 	compile 'org.eclipse.jetty.websocket:websocket-client:9.3.7.v20160115'
 	compile 'com.mashape.unirest:unirest-java:1.4.7'
 	compile 'net.tomp2p:opus-wrapper:1.3'
 }
 
-version = "3.0.0"
+version = "3.1.0"
 group = "com.github.hlaaftana"
 archivesBaseName = "DiscordG"

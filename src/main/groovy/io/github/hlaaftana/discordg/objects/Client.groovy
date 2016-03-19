@@ -4,6 +4,7 @@ import com.mashape.unirest.http.*
 
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
+import io.github.hlaaftana.discordg.DiscordG
 import io.github.hlaaftana.discordg.request.*
 import io.github.hlaaftana.discordg.util.*
 import io.github.hlaaftana.discordg.oauth.Application
@@ -19,11 +20,8 @@ import org.eclipse.jetty.websocket.client.WebSocketClient
  * @author Hlaaftana
  */
 class Client {
-	static final String version = "3.0.0"
-	static final String github = "https://github.com/hlaaftana/DiscordG"
-	static final String userAgent = "DiscordBot ($github, $version)"
 	String customUserAgent = ""
-	String getFullUserAgent(){ "$userAgent $customUserAgent" }
+	String getFullUserAgent(){ "$DiscordG.USER_AGENT $customUserAgent" }
 
 	Requester requester
 	String token
@@ -625,6 +623,14 @@ class Client {
 		return application.createBot(oldAccountToken)
 	}
 
+	Server getServerInfo(String id){ return new Server(this, JSONUtil.parse(this.requester.get("https://discordapp.com/api/guilds/${id}"))) }
+	Server serverInfo(String id){ return this.getServerInfo(id) }
+	Channel getChannelInfo(String id){
+		Map response = JSONUtil.parse(this.requester.get("https://discordapp.com/api/channels/${id}"))
+		return (response.type == "text") ? new TextChannel(this, response) : new VoiceChannel(this, response)
+	}
+	Channel channelInfo(String id){ return this.getChannelInfo(id) }
+
 	/**
 	 * Gets a user by its ID.
 	 * @param id - the ID.
@@ -848,7 +854,7 @@ class Client {
 				return
 			}
 			if (d["newUser"] != null){
-				this.readyData["guilds"].find { it["id"] == server.id }["members"].find { it["user"]["id"] == d.newUser.id }?.leftShift(d.newUser.object) ?: server.requestMembers()
+				this.readyData["guilds"].find { it["id"] == server.id }["members"].find { it["user"]["id"] == d.newUser.id }?.leftShift(d.newUser.object)
 			}
 			try{ this.readyData["guilds"].find { it["id"] == server.id }["presences"].find { it["user"]["id"] == d.member.id }?.leftShift([status: d.status, game: (d.game == "") ? null : [name: d.game]]) }catch (ex){
 				this.readyData["guilds"].find { it["id"] == server.id }["presences"] += [status: d.status, game: (d.game == "") ? null : [name: d.game], user: [id: d.member.id]]
