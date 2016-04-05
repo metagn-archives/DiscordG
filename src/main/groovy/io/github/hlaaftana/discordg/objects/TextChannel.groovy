@@ -72,13 +72,15 @@ class TextChannel extends Channel {
 	 * @param max - the max number of messages. 100 by default.
 	 * @return a List of Message containing the messages in the channel.
 	 */
-	List<Message> getLogs(int max=100) {
+	List<Message> getLogs(int max=100, long sleepLength=2000) {
 		if (max <= 100){
 			return JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=${max}")).collect { try{ new Message(client, it) }catch (ex){ throw new RateLimitException(it.toString()) } }
 		}else{
 			List<Message> initialRequest = JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/messages?limit=100")).collect { new Message(client, it) }
+			Thread.sleep(sleepLength)
 			for (int m = 1; m < (int) Math.ceil(max / 100) - 1; m++){
 				initialRequest += JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=100")).collect { new Message(client, it) }
+				Thread.sleep(sleepLength)
 			}
 			if (max % 100 > 0) initialRequest += JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=${max % 100}")).collect { new Message(client, it) }
 			else initialRequest += JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/messages?before=${initialRequest[initialRequest.size() - 1].id}&limit=${100}")).collect { new Message(client, it) }
@@ -88,6 +90,15 @@ class TextChannel extends Channel {
 
 	List<Message> getCachedLogs(){
 		return this.object["cached_messages"].collect { new Message(client, it) }
+	}
+
+	boolean clearMessagesOf(User user, int messageCount=100){
+		try{
+			this.getLogs(messageCount)*.deleteIf { it.author == user }
+		}catch (ex){
+			return false
+		}
+		return true
 	}
 
 	String getLastMessageId(){

@@ -25,9 +25,18 @@ class Role extends DiscordObject{
 	/**
 	 * @return the permission bits for this role as an int. I will replace this with a Permissions object later
 	 */
-	int getPermissions(){ return this.object["permissions"] }
+	Permissions getPermissions(){ return new Permissions(this.object["permissions"]) }
+	int getPermissionValue(){ return this.object["permissions"] }
 	/**
 	 * @return the position index for the role.
 	 */
 	int getPosition(){ return this.object["position"] }
+
+	Server getServer(){ return client.server(this.object["guild_id"]) }
+
+	List<Member> getMembers(){ return this.server.members.findAll { this in it.roles } }
+	Role edit(Map data){ return this.server.editRole(this, data) }
+	void delete(){ this.server.deleteRole(this) }
+	void addTo(Member user){ this.server.addRole(user, this) }
+	void addTo(List<Member> users){ users.each { this.server.addRole(it, this) } }
 }

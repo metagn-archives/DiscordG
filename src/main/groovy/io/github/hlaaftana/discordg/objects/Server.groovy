@@ -226,12 +226,8 @@ class Server extends DiscordObject {
 	 * @param member - the member as a Member object.
 	 * @param roles - the roles the member will be overriden with.
 	 */
-	void editRoles(Member member, List<Role> roles) {
-		List rolesArray = []
-		for (r in roles){
-			rolesArray.add(r.id)
-		}
-		client.requester.patch("https://discordapp.com/api/guilds/${this.id}/members/${member.id}", ["roles": rolesArray])
+	void editRoles(User member, List<Role> roles) {
+		client.requester.patch("https://discordapp.com/api/guilds/${this.id}/members/${member.id}", ["roles": roles*.id])
 	}
 
 	/**
@@ -243,11 +239,13 @@ class Server extends DiscordObject {
 		this.editRoles(member, member.roles + roles)
 	}
 
+	void addRole(Member member, Role role){ this.addRoles(member, [role]) }
+
 	/**
 	 * Kicks a member.
 	 * @param member - the Member object to kick.
 	 */
-	void kickMember(Member member) {
+	void kick(User member) {
 		client.requester.delete("https://discordapp.com/api/guilds/${this.id}/members/$member.id")
 	}
 
@@ -273,6 +271,14 @@ class Server extends DiscordObject {
 
 	List<Region> getRegions(){
 		return JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/regions")).collect { new Region(client, it) }
+	}
+
+	List<Integration> getIntegrations(){
+		return JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/integrations")).collect { new Integration(client, it) }
+	}
+
+	Integration createIntegration(String type, String id){
+		return new Integration(client, JSONUtil.parse(client.requester.post("https://discordapp.com/api/guilds/${this.id}/integrations", [type: type, id: id])))
 	}
 
 	Region getRegion(){
@@ -311,7 +317,7 @@ class Server extends DiscordObject {
 	 * @return the created role.
 	 */
 	Role createRole(Map<String, Object> data) {
-		Map defaultData = [color: 0, hoist: false, name: "new role", permissions: 0]
+		Map defaultData = [color: 0, hoist: false, name: "new role", permissions: this.defaultRole.permissionValue]
 		Role createdRole = new Role(client, JSONUtil.parse(client.requester.post("https://discordapp.com/api/guilds/${this.id}/roles", [:])))
 		return editRole(createdRole, defaultData << data)
 	}
@@ -325,9 +331,10 @@ class Server extends DiscordObject {
 	 * @return the edited role.
 	 */
 	Role editRole(Role role, Map<String, Object> data) {
+		Map defaultData = [name: role.name, color: role.colorValue, permissions: role.permissionValue, hoist: role.hoist]
 		if (data["color"] instanceof Color) data["color"] = data["color"].value
 		if (data["permissions"] instanceof Permissions) data["permissions"] = data["permissions"].value
-		return new Role(client, JSONUtil.parse(client.requester.patch("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}", data)))
+		return new Role(client, JSONUtil.parse(client.requester.patch("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}", defaultData << data)))
 	}
 
 	/**
@@ -338,11 +345,13 @@ class Server extends DiscordObject {
 		client.requester.delete("https://discordapp.com/api/guilds/${this.id}/roles/${role.id}")
 	}
 
-	List<Member> requestMembers(int max=1000, boolean updateReady=true){
+	List<Member> requestMembers(int max=1000, long sleepLength=2000, boolean updateReady=true){
 		List members = JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/members?limit=${max}"))
 		if (max > 1000){
+			Thread.sleep(sleepLength)
 			for (int m = 1; m < (int) Math.ceil(max / 1000) - 1; m++){
 				members += JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/members?offset=${(m * 1000) + 1}&limit=1000"))
+				Thread.sleep(sleepLength)
 			}
 			members += JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/members?offset=${(int)((Math.ceil(max / 1000) - 1) * 1000)+1}&limit=1000"))
 		}
@@ -356,6 +365,8 @@ class Server extends DiscordObject {
 	Member getMemberInfo(String id){ return new Member(client, JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/members/${id}"))) }
 	Member memberInfo(String id){ this.getMemberInfo(id) }
 
+	Member getLastMember(){ return this.members.max { it.joinDate } }
+	Member getLatestMember(){ return this.members.max { it.joinDate } }
 	int getMemberCount(){ return this.object["member_count"] }
 	List<Emoji> getEmojis(){ return this.object["emojis"].collect { new Emoji(client, it + [guild_id: this.id]) } }
 	List<Emoji> getEmoji(){ return this.object["emojis"].collect { new Emoji(client, it + [guild_id: this.id]) } }
@@ -366,6 +377,22 @@ class Server extends DiscordObject {
 	Message sendMessage(String message, boolean tts=false){ this.defaultChannel.sendMessage(message, tts) }
 	Message sendFile(File file){ this.defaultChannel.sendFile(file) }
 	Message sendFile(String filePath){ this.defaultChannel.sendFile(filePath) }
+
+	Embed getEmbed(){
+		return new Embed(client, JSONUtil.parse(client.requester.get("https://discordapp.com/api/guilds/${this.id}/embed")))
+	}
+
+	static class Embed extends APIMapObject {
+		Embed(Client client, Map object){ super(client, object) }
+
+		boolean isEnabled(){ return this.object["enabled"] }
+		Channel getChannel(){ return client.channels.find { it.id == this.object["channel_id"] } }
+		Server getServer(){ return this.channel.server }
+		Embed edit(Map data){
+			Map fullData = [channel_id: (data["channel"] instanceof Channel) ? data["channel"].id : data["channel"].toString() ?: this.channel.id, enabled: data["enabled"] ?: this.enabled]
+			return new Embed(client, JSONUtil.parse(client.requester.patch("https://discordapp.com/api/guilds/${this.id}/embed", fullData)))
+		}
+	}
 
 	static class VoiceState extends DiscordObject {
 		VoiceState(Client client, Map object){ super(client, object) }
