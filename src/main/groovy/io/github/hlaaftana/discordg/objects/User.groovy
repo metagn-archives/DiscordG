@@ -1,6 +1,7 @@
 package io.github.hlaaftana.discordg.objects
 
 import java.net.URL
+import java.util.List;
 
 import io.github.hlaaftana.discordg.util.JSONUtil
 
@@ -50,10 +51,33 @@ class User extends DiscordObject{
 		client.readyData["private_channels"].add(pc.object)
 		return pc
 	}
+	List<UserServer> getServers(){
+		return JSONUtil.parse(client.requester.get("https://discordapp.com/api/users/${this.id}/guilds")).collect { new UserServer(client, it) }
+	}
 	/**
 	 * @return a mention string for the user.
 	 */
 	String getMention(){ return "<@${this.id}>" }
 	Member getMember(Server server){ return server.members.find { it.id == this.id } }
 	Member member(Server server){ return server.members.find { it.id == this.id } }
+
+	static class UserServer extends DiscordObject {
+		UserServer(Client client, Map object){ super(client, object) }
+
+		/**
+		 * @return the hash/ID of this server's icon.
+		 */
+		String getIconHash(){ return this.object["icon"] }
+		/**
+		 * @return the URL of the icon of this server as a string.
+		 */
+		String getIcon() {
+			if (this.iconHash != null){
+				return "https://cdn.discordapp.com/icons/${this.id}/${this.iconHash}.jpg"
+			}else{
+				return ""
+			}
+		}
+		boolean isOwner(){ return this.object["owner"] }
+	}
 }

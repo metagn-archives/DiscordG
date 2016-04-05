@@ -6,4 +6,5 @@ class Region extends DiscordObject {
 	String getSampleHostname(){ return this.object["sample_hostname"] }
 	int getSamplePort(){ return this.object["sample_port"] }
 	boolean isVip(){ return this.object["vip"] }
+	boolean isOptimal(){ return this.object["optimal"] }
 }

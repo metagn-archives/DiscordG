@@ -16,11 +16,11 @@ class Channel extends DiscordObject{
 	/**
 	 * @return whether the channel is private or not.
 	 */
-	boolean isPrivate(){ return this.object["is_private"] }
+	boolean isPrivate(){ return this.object["is_private"] as boolean }
 	/**
 	 * @return the position index of the channel. null if private.
 	 */
-	String getPosition(){ return this.object["position"] }
+	int getPosition(){ return this.object["position"] }
 	/**
 	 * @return the type of channel this channel is. can be "text" or "voice".
 	 */
@@ -41,7 +41,7 @@ class Channel extends DiscordObject{
 	}
 
 	List<Invite> getInvites(){
-		return JSONUtil.parse(client.requester.get("https://discordclient.com/api/channels/${this.id}/invites")).collect { new Invite(client, it) }
+		return JSONUtil.parse(client.requester.get("https://discordapp.com/api/channels/${this.id}/invites")).collect { new Invite(client, it) }
 	}
 
 	/**
@@ -75,9 +75,9 @@ class Channel extends DiscordObject{
 
 	void editPermissions(DiscordObject target, def allow, def deny){
 		String id = target.id
-		String type = (target instanceof Role) "role" : "member"
-		int allowBytes = (allow instanceof int) allow : allow.value
-		int denyBytes = (deny instanceof int) deny : deny.value
+		String type = (target instanceof Role) ? "role" : "member"
+		int allowBytes = (allow instanceof int) ? allow : allow.value
+		int denyBytes = (deny instanceof int) ? deny : deny.value
 		client.requester.put("https://discordapp.com/api/channels/${this.id}/permissions/${id}", [allow: allowBytes, deny: denyBytes, id: id, type: type])
 	}
 

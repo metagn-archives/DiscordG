@@ -5,19 +5,18 @@ import io.github.hlaaftana.discordg.objects.*
 import io.github.hlaaftana.discordg.util.*
 
 class BotClient extends Client {
-	/*private String actualToken
+	private String actualToken
 	String getToken(){ return "Bot " + actualToken }
-	void setToken(String newToken){ actualToken = newToken }*/
+	void setToken(String newToken){ actualToken = newToken }
 
-	void login(String token, boolean threaded=true){
+	/*void login(String token, boolean threaded=true){
 		Closure a = {
 			super.login(token, false)
-			while(!this.loaded){}
-			this.token = "Bot $token"
+			while(this.wsClient == null){}
 		}
 		if (threaded){ Thread.start(a) }
 		else{ a() }
-	}
+	}*/
 
 	void login(String customBotName, Closure requestToken, boolean threaded = true){
 		Closure a = {

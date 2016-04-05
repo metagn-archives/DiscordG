@@ -18,7 +18,7 @@ class DiscordObject extends APIMapObject {
 	 */
 	String getId(){ return this.object["id"] }
 	/**
-	 * @return the name of the object.
+	 * @return the     of the object.
 	 */
 	String getName(){ return this.object["name"] }
 	String toString(){ return this.name }
@@ -27,7 +27,8 @@ class DiscordObject extends APIMapObject {
 	 */
 	Date getCreateTime(){ return new Date(this.createTimeMillis) }
 	long getCreateTimeMillis(){ return ((Long.parseLong(this.id) >> 22) + (1420070400000 as long)) as long }
-	static forId(String id, Class<? extends DiscordObject> clazz=this.class){ return new DiscordObject(null, [id: id]) }
+	static forId(String id, Class<? extends DiscordObject> clazz= this.class){ return new DiscordObject(null, [id: id]) }
+	boolean isCase(def other){ return this.id.isCase(other) }
 	boolean equals(def other){ return this.id == other.id }
 	def asMap(){
 		def getters = this.metaClass.methods.findAll { it.name.startsWith("get") || it.name.startsWith("is") }.collect { this.&"$it.name" }

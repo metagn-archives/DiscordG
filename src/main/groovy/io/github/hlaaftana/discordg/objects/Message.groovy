@@ -2,7 +2,7 @@ package io.github.hlaaftana.discordg.objects
 
 import java.util.List
 
-import ml.hlaaftana.discordg.util.*
+import io.github.hlaaftana.discordg.util.*
 
 /**
  * A Discord message.
@@ -95,12 +95,15 @@ class Message extends DiscordObject{
 		client.requester.delete("https://discordapp.com/api/channels/${this.object["channel_id"]}/messages/${this.id}")
 	}
 
-	// removed ack method because of discord dev request
+	void deleteAfter(long ms){ Thread.sleep(ms); this.delete() }
+	Message editAfter(String newContent, long ms){ Thread.sleep(ms); return this.edit(newContent) }
+	void deleteIf(Closure closure){ if (closure(this)){ this.delete() } }
+	Message editIf(String newContent, Closure closure){ if (closure(this)){ this.edit(newContent) } }
 
 	String toString(){ return this.author.name + ": " + this.content }
 
 	static class Attachment extends DiscordObject {
-		Attachment(Client client, Map object){ this.client = client; this.object = object }
+		Attachment(Client client, Map object){ super(client, object) }
 
 		String getName(){ return this.object["filename"] }
 		String getFilename(){ return this.object["filename"] }
@@ -114,7 +117,7 @@ class Message extends DiscordObject{
 		URL getUrlObject(){ return new URL(this.url) }
 		URL getProxyUrlObject(){ return new URL(this.url) }
 		File download(File file){ return file.withOutputStream { out ->
-				out << client.requester.headerUp(new URL(this.url))
+				out << client.requester.headerUp(this.urlObject, true)
 					.with { requestMethod = "GET"; delegate }.inputStream
 				delegate
 			}

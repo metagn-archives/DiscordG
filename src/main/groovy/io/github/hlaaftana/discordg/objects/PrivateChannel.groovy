@@ -16,6 +16,6 @@ class PrivateChannel extends TextChannel {
 	User getUser(){ return new User(client, this.object["recipient"] )}
 	Server getServer(){ return null }
 	String getTopic(){ return null }
-	String getPosition(){ return null }
+	int getPosition(){ return null }
 	String getType(){ return "text" }
 }

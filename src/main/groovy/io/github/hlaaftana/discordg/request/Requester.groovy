@@ -11,6 +11,8 @@ import com.mashape.unirest.http.Unirest
  * @author Hlaaftana
  */
 class Requester{
+	static String discordApi = "https://discordapp.com/api/"
+	
 	Client client
 	Requester(Client client){ this.client = client }
 
@@ -69,8 +71,8 @@ class Requester{
 	def headerUp(def request, boolean isGet=false){
 		def req = request
 		if (req instanceof URLConnection){
-			if (client.token != null) req = req.setRequestProperty("Authorization", client.token)
-			if (!isGet) req = req.setRequestProperty("Content-Type", "application/json")
+			if (client.token != null) req.setRequestProperty("Authorization", client.token)
+			if (!isGet) req.setRequestProperty("Content-Type", "application/json")
 			req.setRequestProperty("User-Agent", client.fullUserAgent)
 			return req
 		}else if (req instanceof URL){
@@ -81,8 +83,6 @@ class Requester{
 			return req.header("User-Agent", client.fullUserAgent)
 		}
 	}
-
-
 }
 
 

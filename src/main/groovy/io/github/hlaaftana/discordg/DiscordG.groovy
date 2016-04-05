@@ -5,7 +5,7 @@ import io.github.hlaaftana.discordg.util.Log
 import io.github.hlaaftana.discordg.util.MiscUtil
 
 class DiscordG {
-	static final String VERSION = "3.0.0"
+	static final String VERSION = "3.1.0"
 	static final String GITHUB = "https://github.com/hlaaftana/DiscordG"
 	static final String USER_AGENT = "DiscordBot ($GITHUB, $VERSION)"
 

@@ -12,18 +12,9 @@ import io.github.hlaaftana.discordg.util.*
  */
 class Member extends User{
 	Member(Client client, Map object){
-		super(client, object)
+		super(client, object + object["user"])
 	}
 
-	String getId(){ return this.user.id }
-	String getName(){ return this.user.name }
-	String getUsername() { return this.user.username }
-	String getAvatarHash(){ return this.user.avatarHash }
-	String getAvatar() { return this.user.avatar }
-	URL getAvatarURL(){ return this.user.avatarURL }
-	URL getAvatarUrl(){ return this.user.avatarUrl }
-	String getDiscriminator(){ return this.user.discriminator }
-	String getDiscrim(){ return this.user.discriminator }
 	/**
 	 * @return the User which this Member is.
 	 */
@@ -108,6 +99,8 @@ class Member extends User{
 		this.server.addRoles(this, roles)
 	}
 
+	void addRole(Role role){ this.addRoles([role]) }
+
 	/**
 	 * Kicks the member from its server.
 	 */
@@ -122,5 +115,6 @@ class Member extends User{
 	User toUser(){ return new User(client, this.object["user"]) }
 	def asType(Class target){
 		if (target == User) return this.toUser()
+		else return super.asType(target)
 	}
 }

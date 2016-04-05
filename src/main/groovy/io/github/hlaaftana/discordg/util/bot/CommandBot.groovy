@@ -115,7 +115,7 @@ class CommandBot {
 									}
 								}catch (ex){
 									ex.printStackTrace()
-									Log.error "Command threw exception", this.name
+									Log.error "Command threw exception", this.logName
 								}
 							}
 						}
@@ -136,7 +136,7 @@ class CommandBot {
 									}
 								}catch (ex){
 									ex.printStackTrace()
-									Log.error "Command threw exception", this.name
+									Log.error "Command threw exception", this.logName
 								}
 							}
 						}
@@ -157,7 +157,7 @@ class CommandBot {
 									}
 								}catch (ex){
 									ex.printStackTrace()
-									Log.error "Command threw exception", this.name
+									Log.error "Command threw exception", this.logName
 								}
 							}
 						}
@@ -273,19 +273,20 @@ class CommandBot {
 	 * @author Hlaaftana
 	 */
 	class ResponseCommand extends Command{
-		String response
+		def response
 
 		/**
 		 * @param response - a string to respond with to this command. <br>
 		 * The rest of the parameters are Command's parameters.
 		 */
-		ResponseCommand(String response, def aliasOrAliases, def triggerOrTriggers=CommandBot.this.trigger){
+		ResponseCommand(def response, def aliasOrAliases, def triggerOrTriggers=CommandBot.this.trigger){
 			super(aliasOrAliases, triggerOrTriggers)
-			this.response = response
+			this.response = (response instanceof Closure) ? response : { Map d -> response.toString() }
+			this.response.delegate = this
 		}
 
 		def run(Map d){
-			d.sendMessage(response)
+			d.sendMessage(response(d))
 		}
 	}
 
