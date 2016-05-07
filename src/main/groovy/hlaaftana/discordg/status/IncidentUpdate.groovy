@@ -1,7 +1,7 @@
-package io.github.hlaaftana.discordg.status
+package hlaaftana.discordg.status
 
-import io.github.hlaaftana.discordg.objects.MapObject;
-import io.github.hlaaftana.discordg.util.ConversionUtil
+import hlaaftana.discordg.objects.MapObject;
+import hlaaftana.discordg.util.ConversionUtil
 
 class IncidentUpdate extends MapObject {
 	IncidentUpdate(Map object){ super(object) }

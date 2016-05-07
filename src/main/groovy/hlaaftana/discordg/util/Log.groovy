@@ -1,9 +1,9 @@
-package io.github.hlaaftana.discordg.util
+package hlaaftana.discordg.util
 
 import java.time.*
 import java.util.logging.Level
 
-import io.github.hlaaftana.discordg.objects.Client
+import hlaaftana.discordg.objects.Client
 
 /**
  * Adds methods to provide ease for logging.
@@ -14,6 +14,7 @@ class Log {
 	static boolean enableError = true
 	static boolean enableWarn = true
 	static boolean enableDebug = false
+	static boolean enableTrace = false
 	static boolean enableListenerCrashes = true
 	static boolean enableEventRegisteringCrashes = false
 
@@ -33,8 +34,7 @@ class Log {
 	 * @param by - What the name of the logger will be. "DiscordG" by default.
 	 */
 	static info(String str, String by="DiscordG"){
-		if (enableInfo)
-			log(str, "info", by)
+		if (enableInfo) log(str, "info", by)
 	}
 
 	/**
@@ -43,8 +43,7 @@ class Log {
 	 * @param by - What the name of the logger will be. "DiscordG" by default.
 	 */
 	static debug(String str, String by="DiscordG"){
-		if (enableDebug)
-			log(str, "debug", by)
+		if (enableDebug) log(str, "debug", by)
 	}
 
 	/**
@@ -53,8 +52,7 @@ class Log {
 	 * @param by - What the name of the logger will be. "DiscordG" by default.
 	 */
 	static error(String str, String by="DiscordG"){
-		if (enableError)
-			log(str, "error", by)
+		if (enableError) log(str, "error", by)
 	}
 
 	/**
@@ -63,7 +61,10 @@ class Log {
 	 * @param by - What the name of the logger will be. "DiscordG" by default.
 	 */
 	static warn(String str, String by="DiscordG"){
-		if (enableWarn)
-			log(str, "warn", by)
+		if (enableWarn) log(str, "warn", by)
+	}
+
+	static trace(String str, String by="DiscordG"){
+		if (enableTrace) log(str, "trace", by)
 	}
 }

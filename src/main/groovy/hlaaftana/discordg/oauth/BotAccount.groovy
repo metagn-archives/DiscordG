@@ -1,6 +1,6 @@
-package io.github.hlaaftana.discordg.oauth
+package hlaaftana.discordg.oauth
 
-import io.github.hlaaftana.discordg.objects.*
+import hlaaftana.discordg.objects.*
 
 class BotAccount extends User {
 	BotAccount(Client client, Map object){ super(client, object) }

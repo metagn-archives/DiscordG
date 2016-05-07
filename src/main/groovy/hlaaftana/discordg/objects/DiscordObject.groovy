@@ -1,4 +1,4 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
 import java.util.Date;
 
@@ -28,6 +28,27 @@ class DiscordObject extends APIMapObject {
 	Date getCreateTime(){ return new Date(this.createTimeMillis) }
 	long getCreateTimeMillis(){ return ((Long.parseLong(this.id) >> 22) + (1420070400000 as long)) as long }
 	static forId(String id, Class<? extends DiscordObject> clazz= this.class){ return new DiscordObject(null, [id: id]) }
+	static findWithId(def withId, List coll){
+		return coll.find { it.id == withId }
+	}
+	static resolveId(def thing){
+		try {
+			return thing.id
+		}catch (ex){
+			return thing.toString()
+		}
+	}
+	def get(List collection, String propertyName, def value){
+		return collection.find { it.getProperty(propertyName) == value }
+	}
+	def get(String collPropName, String propName, def value){
+		return this.getProperty("collPropName").find { it.getProperty(propName) == value }
+	}
+	DiscordObject swapClient(Client newClient){
+		def oldNotClient = this
+		oldNotClient.client = newClient
+		return oldNotClient // this is the spiritually longest and guiltiest method i have written in the entire lib
+	}
 	boolean isCase(def other){ return this.id.isCase(other) }
 	boolean equals(def other){ return this.id == other.id }
 	def asMap(){

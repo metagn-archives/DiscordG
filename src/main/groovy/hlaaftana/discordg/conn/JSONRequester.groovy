@@ -1,6 +1,7 @@
-package io.github.hlaaftana.discordg.request
+package hlaaftana.discordg.conn
 
-import io.github.hlaaftana.discordg.util.JSONUtil
+import hlaaftana.discordg.DiscordG
+import hlaaftana.discordg.util.JSONUtil
 
 import com.mashape.unirest.http.Unirest
 
@@ -11,7 +12,7 @@ class JSONRequester {
 	 * @return the response as a string.
 	 */
 	static get(String url){
-		return JSONUtil.parse(Unirest.get(url).asString().getBody())
+		return JSONUtil.parse(Unirest.get(url).header("User-Agent", DiscordG.USER_AGENT).asString().getBody())
 	}
 
 	/**
@@ -20,7 +21,7 @@ class JSONRequester {
 	 * @return the response as a string.
 	 */
 	static delete(String url){
-		return JSONUtil.parse(Unirest.delete(url).asString().getBody())
+		return JSONUtil.parse(Unirest.delete(url).header("User-Agent", DiscordG.USER_AGENT).asString().getBody())
 	}
 
 	/**
@@ -30,7 +31,7 @@ class JSONRequester {
 	 * @return the response as a string.
 	 */
 	static post(String url, Map body){
-		return JSONUtil.parse(Unirest.post(url).body(JSONUtil.json(body)).asString().getBody())
+		return JSONUtil.parse(Unirest.post(url).header("User-Agent", DiscordG.USER_AGENT).body(JSONUtil.json(body)).asString().getBody())
 	}
 
 	/**
@@ -40,7 +41,7 @@ class JSONRequester {
 	 * @return the response as a string.
 	 */
 	static patch(String url, Map body){
-		return JSONUtil.parse(Unirest.patch(url).body(JSONUtil.json(body)).asString().getBody())
+		return JSONUtil.parse(Unirest.patch(url).header("User-Agent", DiscordG.USER_AGENT).body(JSONUtil.json(body)).asString().getBody())
 	}
 
 	/**
@@ -49,6 +50,6 @@ class JSONRequester {
 	 * @return the response as a string.
 	 */
 	static put(String url, Map body){
-		return JSONUtil.parse(Unirest.put(url).body(JSONUtil.json(body)).asString().getBody())
+		return JSONUtil.parse(Unirest.put(url).header("User-Agent", DiscordG.USER_AGENT).body(JSONUtil.json(body)).asString().getBody())
 	}
 }

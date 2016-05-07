@@ -1,33 +1,27 @@
-package io.github.hlaaftana.discordg.dsl
+package hlaaftana.discordg.dsl
 
-import io.github.hlaaftana.discordg.objects.Events
+import hlaaftana.discordg.objects.Events
 
 class DelegatableEvent {
 	Events type
 	Map data
 	DelegatableEvent(type, Map data){ this.type = Events.get(type); this.data = data }
 
-	def getProperty(String name){
-		return data[name]
+	def propertyMissing(String name){
+		if (data.containsKey(name))
+			return data[name]
+		else throw new MissingPropertyException(name, this.class)
 	}
 
-	def getAt(String name){
-		return data[name]
+	void propertyMissing(String name, thing){
+		if (data.containsKey(name))
+			data[name] = thing
+		else throw new MissingPropertyException(name, this.class)
 	}
 
-	void setProperty(String name, thing){
-		data[name] = thing
-	}
-
-	def putAt(String name, thing){
-		return data[name] = thing
-	}
-
-	def invokeMethod(String name, args){
-		return data[name].call(args)
-	}
-
-	def invokeMethod(String name, ...args){
-		return invokeMethod(name, args as List)
+	def methodMissing(String name, args){
+		if (data.containsKey(name))
+			data[name].call(args)
+		else throw new MissingMethodException(name, this.class, args)
 	}
 }

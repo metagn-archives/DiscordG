@@ -1,11 +1,7 @@
-package io.github.hlaaftana.discordg.dsl
-
-import io.github.hlaaftana.discordg.util.bot.CommandBot.Command
-import io.github.hlaaftana.discordg.util.bot.CommandBot.ResponseCommand
-import io.github.hlaaftana.discordg.util.bot.CommandBot.ClosureCommand
+package hlaaftana.discordg.dsl
 
 class CommandType {
-	static CommandType regularAbstract = new CommandType(Command, )
+	static CommandType regularAbstract = new CommandType( )
 
 	Class clazz
 	def builder

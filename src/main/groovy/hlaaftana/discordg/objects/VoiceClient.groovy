@@ -1,6 +1,6 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
-import io.github.hlaaftana.discordg.util.AudioUtil
+import hlaaftana.discordg.util.AudioUtil
 
 class VoiceClient {
 	Client client

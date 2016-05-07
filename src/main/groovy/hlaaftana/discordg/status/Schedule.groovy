@@ -1,6 +1,6 @@
-package io.github.hlaaftana.discordg.status
+package hlaaftana.discordg.status
 
-import io.github.hlaaftana.discordg.objects.MapObject
+import hlaaftana.discordg.objects.MapObject
 
 class Schedule extends MapObject {
 	Schedule(Map object){ super(object) }

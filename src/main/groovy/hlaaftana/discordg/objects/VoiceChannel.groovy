@@ -1,7 +1,7 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
-import io.github.hlaaftana.discordg.request.VoiceWSClient
-import io.github.hlaaftana.discordg.objects.VoiceClient
+import hlaaftana.discordg.conn.VoiceWSClient
+import hlaaftana.discordg.objects.VoiceClient
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest
 import org.eclipse.jetty.websocket.client.WebSocketClient
@@ -13,10 +13,13 @@ import org.eclipse.jetty.websocket.client.WebSocketClient
 class VoiceChannel extends Channel{
 	VoiceChannel(Client client, Map object){ super(client, object) }
 
+	List<Server.VoiceState> getVoiceStates(){ return this.server.voiceStates.findAll { it.channel == this } }
+	List<Member> getMembers(){ return this.voiceStates*.member }
+
 	int getBitrate(){ return this.object["bitrate"] }
 
 	void moveMember(Member member){
-		client.requester.patch("https://discordapp.com/api/guilds/${member.server.id}/members/{member.id}", ["channel_id": this.id])
+		client.requester.patch("guilds/${member.server.id}/members/{member.id}", ["channel_id": this.id])
 	}
 
 	VoiceClient join(Map muteDeaf=[:]){

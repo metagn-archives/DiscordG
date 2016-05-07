@@ -1,4 +1,4 @@
-package io.github.hlaaftana.discordg.util
+package hlaaftana.discordg.util
 
 import java.nio.*
 import net.tomp2p.opuswrapper.Opus

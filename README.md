@@ -19,23 +19,25 @@ and I really like Groovy myself. You can also technically use this in Java, howe
 Here's a couple of simple bots that responds to "!ping":
 
 ```groovy
-import io.github.hlaaftana.discordg.objects.Client
+import hlaaftana.discordg.objects.BotClient
+import hlaaftana.discordg.objects.Events
 
-Client client = new Client()
-client.addListener("message create") { Map d ->
+BotClient client = new BotClient()
+client.addListener(Events.MESSAGE) { Map d ->
   if (d.message.content.startsWith("!ping")){
     d.sendMessage("Pong!")
   }
 }
-client.login("example@example.com", "example123")
+client.login("token")
 ```
 
 ```groovy
-import io.github.hlaaftana.discordg.objects.Client
-import io.github.hlaaftana.discordg.DiscordG
+import hlaaftana.discordg.objects.BotClient
+import hlaaftana.discordg.objects.Events
+import hlaaftana.discordg.DiscordG
 
-Client client = DiscordG.withLogin("example@example.com", "example123")
-client.addListener("message create") { Map d ->
+BotClient client = DiscordG.withToken("token")
+client.addListener(Events.MESSAGE) { Map d ->
   if (d.message.content.startsWith("!ping")){
     d.sendMessage("Pong!")
   }

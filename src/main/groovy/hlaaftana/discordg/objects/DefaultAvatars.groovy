@@ -1,4 +1,4 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
 enum DefaultAvatars {
 	BLUE("b3afd12bc47a87507780ce5f53a9d6a1", 0),

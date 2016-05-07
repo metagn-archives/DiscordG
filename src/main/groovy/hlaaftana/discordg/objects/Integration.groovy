@@ -1,7 +1,7 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
-import io.github.hlaaftana.discordg.util.ConversionUtil
-import io.github.hlaaftana.discordg.util.JSONUtil
+import hlaaftana.discordg.util.ConversionUtil
+import hlaaftana.discordg.util.JSONUtil
 
 class Integration extends DiscordObject {
 	Integration(Client client, Map object){ super(client, object) }
@@ -20,13 +20,13 @@ class Integration extends DiscordObject {
 	Date getSyncTime(){ return ConversionUtil.fromJsonDate(this.object["synced_at"]) }
 	String getType(){ return this.object["type"] }
 	Integration edit(Map data){
-		return new Integration(JSONUtil.parse(client.requester.patch("https://discordapp.com/api/guilds/${this.server.id}/integrations/${this.id}", data)))
+		return new Integration(JSONUtil.parse(client.requester.patch("guilds/${this.server.id}/integrations/${this.id}", data)))
 	}
 	void delete(){
-		client.requester.delete("https://discordapp.com/api/guilds/${this.server.id}/integrations/${this.id}")
+		client.requester.delete("guilds/${this.server.id}/integrations/${this.id}")
 	}
 	void sync(){
-		client.requester.post("https://discordapp.com/api/guilds/${this.server.id}/integrations/${this.id}/sync", [:])
+		client.requester.post("guilds/${this.server.id}/integrations/${this.id}/sync", [:])
 	}
 }
 

@@ -1,10 +1,8 @@
-import ml.hlaaftana.discordg.objects.API
-import ml.hlaaftana.discordg.objects.Event
-import ml.hlaaftana.discordg.objects.Message
-import ml.hlaaftana.discordg.APIBuilder
+import hlaaftana.discordg.objects.*
+import hlaaftana.discordg.DiscordG
 
 // This example doesn't really teach you anything about the API, just wanted to help beginners.
-API api
+BotClient client
 // This is the character before the message which the bot will use.
 // You can change this to a string at your own will.
 char prefix = '!'
@@ -35,8 +33,8 @@ Closure getCommandArgs = { String message, String command ->
 	}
 }
 
-api = APIBuilder.build("email@example.com", "password123")
-api.addListener("message create", { // We didn't type "Map d ->" here, since we can just use
+client = DiscordG.withToken("token")
+client.addListener(Events.MESSAGE){ // We didn't type "Map d ->" here, since we can just use
 									// an implicit parameter which Groovy names "it".
 	// Doing this because it'll get annoying to refer to the same variable
 	// in the same lengthy way later. Don't blame me, you're gonna end up

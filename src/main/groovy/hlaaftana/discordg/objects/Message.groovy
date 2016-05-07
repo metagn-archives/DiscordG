@@ -1,8 +1,9 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
 import java.util.List
 
-import io.github.hlaaftana.discordg.util.*
+import hlaaftana.discordg.exceptions.MessageTooLongException
+import hlaaftana.discordg.util.*
 
 /**
  * A Discord message.
@@ -21,14 +22,6 @@ class Message extends DiscordObject{
 	 * @return the content of this message.
 	 */
 	String getContent(){ return this.object["content"] }
-	/**
-	 * @return a raw timestamp string of when the message was created.
-	 */
-	String getRawCreateTime(){ return this.object["timestamp"] }
-	/**
-	 * @return a Date of when the message was created.
-	 */
-	Date getCreateTime(){ return ConversionUtil.fromJsonDate(this.rawCreateTime) }
 	/**
 	 * @return a raw timestamp string of when the message was edited.
 	 */
@@ -52,7 +45,7 @@ class Message extends DiscordObject{
 	/**
 	 * @return a List of Maps containing the embeds. Might replace with Embed objects.
 	 */
-	List getEmbeds() { return this.object["embeds"] }
+	List<Embed> getEmbeds() { return this.object["embeds"].collect { new Embed(client, it) } }
 	/**
 	 * @return the author of the message.
 	 */
@@ -78,6 +71,12 @@ class Message extends DiscordObject{
 	 * @return a list of users who were mentioned in this message.
 	 */
 	List<User> getMentions(){ return this.object["mentions"].collect { new User(client, it) } }
+	List<Role> getMentionedRoles(){ return this.object["mention_roles"].collect { this.server.roleMap[it] } }
+	List<Role> getRoleMentions(){ return this.mentionedRoles }
+
+	boolean isMentioned(){
+		return client.user in this.mentions || this.server.me.roles.any { it in this.mentionedRoles }
+	}
 
 	/**
 	 * Edits the message.
@@ -85,14 +84,19 @@ class Message extends DiscordObject{
 	 * @return the edited Message.
 	 */
 	Message edit(String newContent) {
-		return new Message(client, JSONUtil.parse(client.requester.patch("https://discordapp.com/api/channels/${this.object["channel_id"]}/messages/${this.id}", ["content": newContent])))
+		return this.edit(content: newContent)
+	}
+
+	Message edit(Map data){
+		if (data["content"] && data["content"].size() > 2000) throw new MessageTooLongException()
+		return new Message(client, JSONUtil.parse(client.requester.patch("channels/${this.object["channel_id"]}/messages/${this.id}", data)))
 	}
 
 	/**
 	 * Deletes the message.
 	 */
 	void delete() {
-		client.requester.delete("https://discordapp.com/api/channels/${this.object["channel_id"]}/messages/${this.id}")
+		client.requester.delete("channels/${this.object["channel_id"]}/messages/${this.id}")
 	}
 
 	void deleteAfter(long ms){ Thread.sleep(ms); this.delete() }
@@ -108,12 +112,12 @@ class Message extends DiscordObject{
 		String getName(){ return this.object["filename"] }
 		String getFilename(){ return this.object["filename"] }
 		String getFileName(){ return this.object["filename"] }
-		String getProxyUrl(){ return this.object["proxy_url"] }
-		String getUrl(){ return this.object["url"] }
 		int getSize(){ return this.object["size"] }
 		boolean isImage(){ return this.object["width"] != null && this.object["height"] != null }
 		int getWidth(){ return this.object["width"] }
 		int getHeight(){ return this.object["height"] }
+		String getProxyUrl(){ return this.object["proxy_url"] }
+		String getUrl(){ return this.object["url"] }
 		URL getUrlObject(){ return new URL(this.url) }
 		URL getProxyUrlObject(){ return new URL(this.url) }
 		File download(File file){ return file.withOutputStream { out ->
@@ -123,4 +127,35 @@ class Message extends DiscordObject{
 			}
 		}
 	}
+
+	static class Embed extends DiscordObject {
+		Embed(Client client, Map object){ super(client, object) }
+
+		String getName(){ return this.object["title"] }
+		String getTitle(){ return this.object["title"] }
+		String getType(){ return this.object["type"] }
+		String getDescription(){ return this.object["description"] }
+		String getUrl(){ return this.object["url"] }
+		URL getUrlObject(){ return new URL(this.url) }
+		Thumbnail getThumbnail(){ return new Thumbnail(client, this.object["thumbnail"]) }
+		Provider getProvider(){ return new Provider(client, this.object["provider"]) }
+
+		static class Thumbnail extends APIMapObject {
+			Thumbnail(Client client, Map object){ super(client, object) }
+
+			String getProxyUrl(){ return this.object["proxy_url"] }
+			String getUrl(){ return this.object["url"] }
+			URL getUrlObject(){ return new URL(this.url) }
+			URL getProxyUrlObject(){ return new URL(this.url) }
+			int getWidth(){ return this.object["width"] }
+			int getHeight(){ return this.object["height"] }
+		}
+
+		static class Provider extends APIMapObject {
+			Provider(Client client, Map object){ super(client, object) }
+
+			String getUrl(){ return this.object["url"] }
+			URL getUrlObject(){ return new URL(this.url) }
+		}
+ 	}
 }

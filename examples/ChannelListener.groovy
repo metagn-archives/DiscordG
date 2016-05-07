@@ -1,27 +1,27 @@
-import ml.hlaaftana.discordg.objects.*
-import ml.hlaaftana.discordg.APIBuilder
+import hlaaftana.discordg.objects.*
+import hlaaftana.discordg.DiscordG
 
-API api = APIBuilder.build("example@example.com", "example123")
-api.addListener("channel create") { Map d ->
+BotClient client = DiscordG.withToken("token")
+client.addListener(Events.CHANNEL) { Map d ->
 	if (d.channel instanceof TextChannel && d.guild != null){
 		d.channel.sendMessage("Hello there, new channel!")
 	}
 }
-api.addListener("channel delete") { Map d ->
+client.addListener(Events.CHANNEL_DELETE) { Map d ->
 	if (d.guild != null)
-		d.guild.defaultChannel.sendMessage("Looks like $d.channel.type channel \"$d.channel.name\" was deleted.")
+		d.guild.sendMessage("Looks like $d.channel.type channel \"$d.channel.name\" was deleted.")
 }
 
-api.addListener("channel update") { Map d ->
+client.addListener(Events.CHANNEL_UPDATE) { Map d ->
 	Channel oldChan
 	TextChannel chan
 	if (d.channel instanceof TextChannel){
 		chan = d.channel
-		oldChan = d.guild.getTextChannelById(d.channel.id)
+		oldChan = d.guild.textChannel(d.channel.id)
 		chan.sendMessage("It seems this channel was modified.")
 	}else{
 		chan = d.guild.defaultChannel
-		oldChan = d.guild.getVoiceChannelById(d.channel.id)
+		oldChan = d.guild.voiceChannel(d.channel.id)
 		chan.sendMessage("It seems voice channel $chan.name was modified.")
 	}
 }
