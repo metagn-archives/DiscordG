@@ -1,15 +1,26 @@
-package io.github.hlaaftana.discordg.util
+package hlaaftana.discordg.util
 
 import java.awt.Color
 import java.text.SimpleDateFormat
-import io.github.hlaaftana.discordg.objects.Game
-import io.github.hlaaftana.discordg.request.JSONRequester
+import java.util.List;
+import java.util.Map;
+
+import hlaaftana.discordg.objects.Client;
+import hlaaftana.discordg.objects.DiscordObject;
+import hlaaftana.discordg.conn.JSONRequester
 
 /**
  * Utilities unrelated to the actual API itself. In fact, most are not even used.
  * @author Hlaaftana
  */
 class MiscUtil {
+	static class Game extends DiscordObject {
+		Game(Client client, Map object){ super(client, object) }
+
+		Map<String, List<String>> getExecutables(){ return this.object["executables"] }
+		String getCommandLineOptions(){ return this.object["cmdline"] ?: "" }
+	}
+
 	static Map namedColors = [
 		"aliceblue": "f0f8ff",
 		"antiquewhite": "faebd7",
@@ -160,6 +171,8 @@ class MiscUtil {
 		"yellowgreen": "9acd32",
 	]
 
+	static Random listRandom = new Random()
+
 	/**
 	 * @return a Map of hex colors mapped to names. This reads ml/hlaaftana/discordg/util/svgcolors.json.
 	 */
@@ -197,6 +210,14 @@ class MiscUtil {
 		return [color.red, color.green, color.blue]
 	}
 
+	static copy(String content){
+		java.awt.Toolkit.defaultToolkit.systemClipboard.setContents(new java.awt.datatransfer.StringSelection(content), null)
+	}
+
+	static String paste(){
+		return java.awt.Toolkit.defaultToolkit.systemClipboard.getContents(null).getTransferData(java.awt.datatransfer.DataFlavor.stringFlavor)
+	}
+
 	static List requestEmojis(){
 		return JSONRequester.get("https://abal.moe/Discord/JSON/emojis.json")
 	}
@@ -209,6 +230,24 @@ class MiscUtil {
 		return JSONRequester.get("https://abal.moe/Discord/JSON/games.json").collect { new Game(null, it) }
 	}
 
+	static dump(list, newItem, Closure doto = Closure.IDENTITY){
+		if (newItem instanceof Collection || newItem?.class.array){
+			newItem.each { list += doto(it) }
+		}else{
+			list += doto(newItem)
+		}
+		return list
+	}
+
+	static undump(list, newItem, Closure doto = Closure.IDENTITY){
+		if (newItem instanceof Collection || newItem?.class.array){
+			newItem.each { list -= doto(it) }
+		}else{
+			list -= doto(newItem)
+		}
+		return list
+	}
+
 	/**
 	 * Registers a bunch of methods to help you with Discord formatting to the String meta class.
 	 */
@@ -218,18 +257,19 @@ class MiscUtil {
 				.replace("`", "\\`").replace(":", "\\:").replace("`", "\\`").replace("/", "\\/")
 				.replace("@", "\\@").replace("<", "\\<").replace(">", "\\>")
 		}
-		String.metaClass.bold = { return "**$delegate**" }
-		String.metaClass.bolden = { return "**$delegate**" }
-		String.metaClass.italic = { boolean underscore=false -> return (underscore) ? "_${delegate}_" : "*$delegate*" }
-		String.metaClass.italicize = { boolean underscore=false -> return (underscore) ? "_${delegate}_" : "*$delegate*" }
-		String.metaClass.underline = { return "__${delegate}__" }
-		String.metaClass.code = { return "`$delegate`" }
-		String.metaClass.block = { String language="" -> return "```$language\n$delegate```" }
-		String.metaClass.strikethrough = { return "~~$delegate~~" }
+		String.metaClass.surround = { String sur -> "$sur$delegate$sur" }
+		String.metaClass.bold = { surround "**" }
+		String.metaClass.bolden = { surround "**" }
+		String.metaClass.italic = { boolean underscore=false -> underscore ? surround("_") : surround("*") }
+		String.metaClass.italicize = { boolean underscore=false -> underscore ? surround("_") : surround("*") }
+		String.metaClass.underline = { surround "__" }
+		String.metaClass.code = { surround "`" }
+		String.metaClass.block = { String language="" -> "```$language\n$delegate```" }
+		String.metaClass.strikethrough = { surround "~~" }
 		String.metaClass.isNumeric = {
 			return delegate.toLowerCase() ==~ /[abcdef012346789]+/
 		}
-		String.metaClass.isCase = { def p1 -> return delegate.contains(p1 as String) }
+		String.metaClass.isCase = { def p1 -> return p1 ? delegate ==~ /.*$p1.*/ : false }
 	}
 
 	static registerListMethods(){
@@ -240,7 +280,7 @@ class MiscUtil {
 			}
 			return areEqual
 		}
-		AbstractList.metaClass.randomItem = { Random random = new Random() ->
+		AbstractList.metaClass.randomItem = { Random random = listRandom ->
 			return delegate[random.nextInt(delegate.size())]
 		}
 	}

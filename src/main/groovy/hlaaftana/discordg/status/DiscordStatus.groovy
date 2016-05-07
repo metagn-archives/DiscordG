@@ -1,6 +1,6 @@
-package io.github.hlaaftana.discordg.status
+package hlaaftana.discordg.status
 
-import io.github.hlaaftana.discordg.request.JSONRequester
+import hlaaftana.discordg.conn.JSONRequester
 
 class DiscordStatus {
 	static Schedule getActiveSchedule(){ return new Schedule(JSONRequester.get("https://status.discordapp.com/api/v2/scheduled-maintenances/active.json")) }

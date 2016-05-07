@@ -1,7 +1,7 @@
-package io.github.hlaaftana.discordg.dsl
+package hlaaftana.discordg.dsl
 
-import io.github.hlaaftana.discordg.objects.Client
-import io.github.hlaaftana.discordg.util.bot.CommandBot
+import hlaaftana.discordg.objects.Client
+import hlaaftana.discordg.util.bot.CommandBot
 
 class BotBuilder {
 	Map options

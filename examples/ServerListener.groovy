@@ -1,14 +1,14 @@
-import ml.hlaaftana.discordg.objects.*
-import ml.hlaaftana.discordg.APIBuilder
+import hlaaftana.discordg.objects.*
+import hlaaftana.discordg.DiscordG
 
-API api = APIBuilder.build("example@example.com", "example123")
-api.addListener("server create") { Map d ->
-	d.server.defaultChannel.sendMessage("Hello there, new channel!")
+BotClient client = DiscordG.withToken("token")
+client.addListener(Events.SERVER) { Map d ->
+	d.server.sendMessage("Hello there, new channel!")
 }
-api.addListener("server delete") { Map d ->
-	println "It seems I left or was banned in/kicked out of " + d.server.name
+client.addListener(Events.SERVER_DELETE) { Map d ->
+	println "It seems I left or was banned in/kicked out of $d.server.name"
 }
 
-api.addListener("server update") { Map d ->
+client.addListener(Events.SERVER_UPDATE) { Map d ->
 	d.server.defaultChannel.sendMessage("Seems this server updated.")
 }

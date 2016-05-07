@@ -1,11 +1,11 @@
-package io.github.hlaaftana.discordg.request
+package hlaaftana.discordg.conn
 
 import java.nio.*
 
 import org.eclipse.jetty.websocket.api.Session
 
-import io.github.hlaaftana.discordg.objects.*
-import io.github.hlaaftana.discordg.util.*
+import hlaaftana.discordg.objects.*
+import hlaaftana.discordg.util.*
 
 import org.eclipse.jetty.websocket.api.*
 import org.eclipse.jetty.websocket.api.annotations.*

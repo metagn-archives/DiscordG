@@ -1,19 +1,30 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
+import java.io.File;
 import java.net.URL
 import java.util.List;
 
-import io.github.hlaaftana.discordg.util.JSONUtil
+import hlaaftana.discordg.util.JSONUtil
 
 /**
  * A Discord user.
  * @author Hlaaftana
  */
 class User extends DiscordObject{
+	static final MENTION_REGEX = { String id = /\d+/ -> /<@!?$id>/ }
+
 	User(Client client, Map object){
 		super(client, object)
 	}
 
+	List<Presence> getPresences(){ return this.sharedServers.collect { it.member(this).presence } - null }
+	String getStatus(){ return this.presences[0]?.status ?: "offline" }
+	Presence.Game getGame(){ return this.presences[0]?.game ?: "game" }
+	boolean isOnline(){ return this.status == "online" }
+	boolean isOffline(){ return this.status == "offline" }
+	boolean isIdle(){ return this.status == "idle" }
+	boolean isAway(){ return this.status == "idle" }
+	String getMentionRegex(){ return MENTION_REGEX(id) }
 	/**
 	 * @return the user's username.
 	 */
@@ -37,6 +48,7 @@ class User extends DiscordObject{
 	 */
 	URL getAvatarURL(){ return new URL(this.avatar) }
 	URL getAvatarUrl(){ return new URL(this.avatar) }
+	InputStream downloadAvatar(){ return client.requester.headerUp(this.avatarUrl).inputStream }
 	String getDiscriminator(){ return this.object["discriminator"] }
 	String getDiscrim(){ return this.object["discriminator"] }
 	boolean isBot(){ return this.object["bot"] as boolean }
@@ -47,13 +59,11 @@ class User extends DiscordObject{
 		for (pc in client.privateChannels){
 			if (pc.user.id == this.id) return pc
 		}
-		PrivateChannel pc = new PrivateChannel(client, JSONUtil.parse(client.requester.post("https://discordapp.com/api/users/@me/channels", [recipient_id: this.id])))
-		client.readyData["private_channels"].add(pc.object)
+		PrivateChannel pc = new PrivateChannel(client, JSONUtil.parse(client.requester.post("users/@me/channels", [recipient_id: this.id])))
 		return pc
 	}
-	List<UserServer> getServers(){
-		return JSONUtil.parse(client.requester.get("https://discordapp.com/api/users/${this.id}/guilds")).collect { new UserServer(client, it) }
-	}
+
+	List<Server> getSharedServers(){ return client.servers.findAll { it.members*.id.contains(this.id) } }
 	/**
 	 * @return a mention string for the user.
 	 */
@@ -61,23 +71,7 @@ class User extends DiscordObject{
 	Member getMember(Server server){ return server.members.find { it.id == this.id } }
 	Member member(Server server){ return server.members.find { it.id == this.id } }
 
-	static class UserServer extends DiscordObject {
-		UserServer(Client client, Map object){ super(client, object) }
-
-		/**
-		 * @return the hash/ID of this server's icon.
-		 */
-		String getIconHash(){ return this.object["icon"] }
-		/**
-		 * @return the URL of the icon of this server as a string.
-		 */
-		String getIcon() {
-			if (this.iconHash != null){
-				return "https://cdn.discordapp.com/icons/${this.id}/${this.iconHash}.jpg"
-			}else{
-				return ""
-			}
-		}
-		boolean isOwner(){ return this.object["owner"] }
-	}
+	Message sendMessage(String message, boolean tts=false){ this.privateChannel.sendMessage(message, tts) }
+	Message sendFile(File file){ this.privateChannel.sendFile(file) }
+	Message sendFile(String filePath){ this.privateChannel.sendFile(filePath) }
 }

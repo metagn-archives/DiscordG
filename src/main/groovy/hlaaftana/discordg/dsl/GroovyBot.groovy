@@ -1,6 +1,6 @@
-package io.github.hlaaftana.discordg.dsl
+package hlaaftana.discordg.dsl
 
-import io.github.hlaaftana.discordg.objects.Client
+import hlaaftana.discordg.objects.Client
 
 class GroovyBot {
 	Client client

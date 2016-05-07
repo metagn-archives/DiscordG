@@ -1,4 +1,4 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
 class Region extends DiscordObject {
 	Region(Client client, Map object){ super(client, object) }

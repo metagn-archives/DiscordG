@@ -1,4 +1,4 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
 class Emoji extends DiscordObject {
 	Emoji(Client client, Map object){ super(client, object) }

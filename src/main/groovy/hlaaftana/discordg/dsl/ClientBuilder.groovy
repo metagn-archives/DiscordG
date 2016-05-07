@@ -1,7 +1,7 @@
-package io.github.hlaaftana.discordg.dsl
+package hlaaftana.discordg.dsl
 
-import io.github.hlaaftana.discordg.oauth.BotClient
-import io.github.hlaaftana.discordg.objects.*
+import hlaaftana.discordg.oauth.BotClient
+import hlaaftana.discordg.objects.*
 
 class ClientBuilder {
 	Map options

@@ -1,9 +1,8 @@
-import ml.hlaaftana.discordg.objects.API
-import ml.hlaaftana.discordg.objects.Event
-import ml.hlaaftana.discordg.APIBuilder
+import hlaaftana.discordg.objects.*
+import hlaaftana.discordg.DiscordG
 
 // This part should be easy to understand.
-API api = APIBuilder.build("example@example.com", "example123")
+BotClient client = DiscordG.withToken("token")
 /*
  * Here we add a closure to listen to the event "MESSAGE_CREATE".
  *
@@ -28,7 +27,7 @@ API api = APIBuilder.build("example@example.com", "example123")
  * "d" objects in each event here:
  * http://hornwitser.no/discord/analysis
  */
-api.addListener("message create") { Map d ->
+client.addListener(Events.MESSAGE) { Map d ->
 	// MESSAGE_CREATE's data is just one Message object called "message".
 	// We can get the content of that message with Message#getContent() which Groovy fills in.
 	if (d.message.content.startsWith("!ping")){

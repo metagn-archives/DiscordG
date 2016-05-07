@@ -1,4 +1,4 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
 /**
  * A basic object with map data.

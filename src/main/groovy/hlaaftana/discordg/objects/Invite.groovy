@@ -1,6 +1,6 @@
-package io.github.hlaaftana.discordg.objects
+package hlaaftana.discordg.objects
 
-import io.github.hlaaftana.discordg.util.*
+import hlaaftana.discordg.util.*
 
 /**
  * An invite to a Discord server.
