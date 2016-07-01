@@ -1,4 +1,6 @@
-package hlaaftana.discordg.objects
+package hlaaftana.discordg
+
+import groovy.transform.Memoized
 
 enum Events {
 	READY("READY"),
@@ -27,6 +29,7 @@ enum Events {
 	SERVER_CREATE("GUILD_CREATE"),
 	GUILD_CREATED("GUILD_CREATE"),
 	SERVER_CREATED("GUILD_CREATE"),
+	INITIAL_GUILD_CREATE("INITIAL_GUILD_CREATE"),
 	GUILD_UPDATED("GUILD_UPDATE"),
 	SERVER_UPDATED("GUILD_UPDATE"),
 	GUILD_UPDATE("GUILD_UPDATE"),
@@ -66,6 +69,7 @@ enum Events {
 	USER_UPDATE("USER_UPDATE"),
 	USER_GUILD_SETTINGS_UPDATE("USER_GUILD_SETTINGS_UPDATE"),
 	USER_SETTINGS_UPDATE("USER_SETTINGS_UPDATE"),
+	GUILD_MEMBERS_CHUNK("GUILD_MEMBERS_CHUNK"),
 	WEBSOCKET_CLOSE("CLOSE"),
 	CLOSE("CLOSE"),
 	UNRECOGNIZED("UNRECOGNIZED"),
@@ -82,9 +86,11 @@ enum Events {
 	 * @param str - the string.
 	 * @return the event name.
 	 */
+	@Memoized
 	static String parseEventType(String str){
 		return str.toUpperCase().replaceAll(/\s+/, '_').replace("CHANGE", "UPDATE").replaceAll(/^(?!VOICE_)SERVER/, "GUILD")
 	}
 
+	@Memoized
 	static Events get(type){ return (type instanceof Events) ? type : Events.class.enumConstants.find { it.type == this.parseEventType(type.toString()) } ?: Events.UNRECOGNIZED }
 }

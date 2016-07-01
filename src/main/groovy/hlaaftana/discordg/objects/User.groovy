@@ -1,9 +1,11 @@
 package hlaaftana.discordg.objects
 
-import java.io.File;
+import java.io.File
+import java.io.InputStream;
 import java.net.URL
-import java.util.List;
+import java.util.List
 
+import hlaaftana.discordg.Client;
 import hlaaftana.discordg.util.JSONUtil
 
 /**
@@ -13,63 +15,62 @@ import hlaaftana.discordg.util.JSONUtil
 class User extends DiscordObject{
 	static final MENTION_REGEX = { String id = /\d+/ -> /<@!?$id>/ }
 
-	User(Client client, Map object){
-		super(client, object)
+	User(Client client, Map object, String concatUrl = ""){
+		super(client, object, concatUrl)
 	}
 
-	List<Presence> getPresences(){ return this.sharedServers.collect { it.member(this).presence } - null }
-	String getStatus(){ return this.presences[0]?.status ?: "offline" }
-	Presence.Game getGame(){ return this.presences[0]?.game ?: "game" }
-	boolean isOnline(){ return this.status == "online" }
-	boolean isOffline(){ return this.status == "offline" }
-	boolean isIdle(){ return this.status == "idle" }
-	boolean isAway(){ return this.status == "idle" }
-	String getMentionRegex(){ return MENTION_REGEX(id) }
-	/**
-	 * @return the user's username.
-	 */
-	String getName(){ return this.username }
-	/**
-	 * @return the user's username.
-	 */
-	String getUsername() { return this.object["username"] }
-	/**
-	 * @return the user's avatar's hash/ID.
-	 */
-	String getAvatarHash(){ return this.object["avatar"] ?: DefaultAvatars.get(Integer.parseInt(this.discriminator) % 5).hash }
-	String getRawAvatarHash(){ return this.object["avatar"] }
-	/**
-	 * @return the user's avatar as a URL string.
-	 */
-	String getAvatar() { return (this.object["avatar"] != null) ? "https://cdn.discordapp.com/avatars/${this.id}/${this.avatarHash}.jpg"
-		: "https://discordapp.com/assets/${this.avatarHash}.png" }
-	/**
-	 * @return the user's avatar as a URL object.
-	 */
-	URL getAvatarURL(){ return new URL(this.avatar) }
-	URL getAvatarUrl(){ return new URL(this.avatar) }
-	InputStream downloadAvatar(){ return client.requester.headerUp(this.avatarUrl).inputStream }
-	String getDiscriminator(){ return this.object["discriminator"] }
-	String getDiscrim(){ return this.object["discriminator"] }
-	boolean isBot(){ return this.object["bot"] as boolean }
-	/**
-	 * @return a private channel for the user. If not created already, it'll create a new one.
-	 */
-	PrivateChannel getPrivateChannel(){
-		for (pc in client.privateChannels){
-			if (pc.user.id == this.id) return pc
+	List<Presence> getPresences(){ sharedServers.collect { it.member(this).presence } - null }
+	String getStatus(){ presences[0]?.status ?: "offline" }
+	Presence.Game getGame(){ presences[0]?.game }
+	boolean isOnline(){ status == "online" }
+	boolean isOffline(){ status == "offline" }
+	boolean isIdle(){ status == "idle" }
+	boolean isAway(){ status == "idle" }
+	String getMentionRegex(){ MENTION_REGEX(id) }
+	String getName(){ username }
+	String getUsername() { object["username"] }
+	String getAvatarHash(){ object["avatar"] ?: DefaultAvatars.get(Integer.parseInt(discriminator) % 5).hash }
+	String getRawAvatarHash(){ object["avatar"] }
+	String getAvatar() { (object["avatar"] != null) ? "https://cdn.discordapp.com/avatars/${id}/${avatarHash}.jpg"
+		: "https://discordapp.com/assets/${avatarHash}.png" }
+	InputStream getAvatarInputStream(){
+		avatar.toURL().newInputStream(requestProperties:
+			["User-Agent": client.fullUserAgent, Accept: "*/*"])
+	}
+	File downloadAvatar(File file){
+		file.withOutputStream { out ->
+			out << avatarInputStream
+			new File(file.path)
 		}
-		PrivateChannel pc = new PrivateChannel(client, JSONUtil.parse(client.requester.post("users/@me/channels", [recipient_id: this.id])))
-		return pc
+	}
+	String getDiscriminator(){ object["discriminator"] }
+	String getDiscrim(){ object["discriminator"] }
+	String getNameAndDiscrim(){ "$name#$discrim" }
+	boolean isBot(){ object["bot"] as boolean }
+	PrivateChannel getPrivateChannel(){
+		PrivateChannel ass = client.privateChannels.find { it.user.id == id }
+		ass ?: new PrivateChannel(client,
+			client.requester.jsonPost("users/@me/channels", [recipient_id: id]))
 	}
 
-	List<Server> getSharedServers(){ return client.servers.findAll { it.members*.id.contains(this.id) } }
-	/**
-	 * @return a mention string for the user.
-	 */
-	String getMention(){ return "<@${this.id}>" }
-	Member getMember(Server server){ return server.members.find { it.id == this.id } }
-	Member member(Server server){ return server.members.find { it.id == this.id } }
+	Permissions permissionsFor(Channel channel, Permissions initialPerms = Permissions.ALL_FALSE){
+		if (channel.private) return Permissions.PRIVATE_CHANNEL
+		Permissions doodle = initialPerms
+		List allOverwrites = channel.permissionOverwrites.findAll { it.involves(this) }.sort { it.role ? it.affected.position : channel.server.roles.size() + 1 }
+		for (Channel.PermissionOverwrite overwrite in allOverwrites){
+			if (doodle["administrator"]){
+				Permissions.CHANNEL_ALL_TRUE
+			}
+			doodle += overwrite.allowed
+			doodle -= overwrite.denied
+		}
+		doodle
+	}
+
+	List<Server> getSharedServers(){ client.servers.findAll { it.members*.id.contains(id) } }
+	String getMention(){ "<@${id}>" }
+	Member getMember(server){ get(this, server, Member) }
+	Member member(server){ get(this, server, Member) }
 
 	Message sendMessage(String message, boolean tts=false){ this.privateChannel.sendMessage(message, tts) }
 	Message sendFile(File file){ this.privateChannel.sendFile(file) }

@@ -1,13 +1,13 @@
 package hlaaftana.discordg.objects
 
+@groovy.transform.InheritConstructors
 class Emoji extends DiscordObject {
-	Emoji(Client client, Map object){ super(client, object) }
-
-	Server getServer(){ return client.getServerById(this.object["guild_id"]) }
-	List<Role> getRoles(){ return this.server.roles.findAll { it.id in this.object["roles"] } }
-	boolean requiresColons(){ return this.object["require_colons"] }
-	boolean requireColons(){ return this.object["require_colons"] }
-	boolean isRequiresColons(){ return this.object["require_colons"] }
-	boolean isRequireColons(){ return this.object["require_colons"] }
-	boolean isManaged(){ return this.object["managed"] }
+	Server getServer(){ client.server(object["guild_id"]) }
+	Server getParent(){ server }
+	List<Role> getRoles(){ server.roles.findAll { it.id in object["roles"] } }
+	boolean requiresColons(){ object["require_colons"] }
+	boolean requireColons(){ object["require_colons"] }
+	boolean isRequiresColons(){ object["require_colons"] }
+	boolean isRequireColons(){ object["require_colons"] }
+	boolean isManaged(){ object["managed"] }
 }

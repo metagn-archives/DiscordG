@@ -30,7 +30,6 @@ class AudioUtil {
 	static ShortBuffer decode(List<ByteBuffer> packets) {
 		IntBuffer error = IntBuffer.allocate(4)
 		PointerByReference opusDecoder = Opus.INSTANCE.opus_decoder_create(sampleRate, channels, error)
-
 		ShortBuffer shortBuffer = ShortBuffer.allocate(1024 * 1024)
 		for (dataBuffer in packets) {
 			byte[] transferedBytes = new byte[dataBuffer.remaining()]
@@ -40,9 +39,8 @@ class AudioUtil {
 			shortBuffer.position(shortBuffer.position() + decoded)
 		}
 		shortBuffer.flip()
-
 		Opus.INSTANCE.opus_decoder_destroy(opusDecoder)
-		return shortBuffer
+		shortBuffer
 	}
 
 	static List<ByteBuffer> encode(ShortBuffer shortBuffer) {
@@ -50,7 +48,7 @@ class AudioUtil {
 		PointerByReference opusEncoder = Opus.INSTANCE.opus_encoder_create(sampleRate, channels,
 				Opus.OPUS_APPLICATION_RESTRICTED_LOWDELAY, error)
 		int read = 0
-		List<ByteBuffer> list = new ArrayList<>()
+		List<ByteBuffer> list = []
 		while (shortBuffer.hasRemaining()) {
 			ByteBuffer dataBuffer = ByteBuffer.allocate(1024)
 			int toRead = Math.min(shortBuffer.remaining(), dataBuffer.remaining())
@@ -62,6 +60,6 @@ class AudioUtil {
 		}
 		Opus.INSTANCE.opus_encoder_destroy(opusEncoder)
 		shortBuffer.flip()
-		return list
+		list
 	}
 }

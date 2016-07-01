@@ -1,8 +1,11 @@
 package hlaaftana.discordg.objects
 
+import java.io.File;
+import java.io.InputStream;
 import java.util.List
 
-import hlaaftana.discordg.exceptions.MessageTooLongException
+import hlaaftana.discordg.Client;
+import hlaaftana.discordg.exceptions.MessageInvalidException
 import hlaaftana.discordg.util.*
 
 /**
@@ -10,120 +13,111 @@ import hlaaftana.discordg.util.*
  * @author Hlaaftana
  */
 class Message extends DiscordObject{
+	// this is discord's url pattern (with a little fiddling)
+	static String urlPattern = /https?:\/\/[^\s<]+[^<"{|^~`\[\s]/
+
 	Message(Client client, Map object){
-		super(client, object)
+		super(client, object, "channels/${object["channel_id"]}/messages/${object["id"]}")
 	}
 
-	/**
-	 * @return the content of this message.
-	 */
-	String getName(){ return this.getContent() }
-	/**
-	 * @return the content of this message.
-	 */
-	String getContent(){ return this.object["content"] }
-	/**
-	 * @return a raw timestamp string of when the message was edited.
-	 */
-	String getRawEditTime(){ return this.object["edited_timestamp"] }
-	/**
-	 * @return a Date of when the message was edited.
-	 */
-	Date getEditTime(){ return ConversionUtil.fromJsonDate(this.rawEditTime) }
-	/**
-	 * @return whether or not this message has text to speech.
-	 */
-	boolean isTts(){ return this.object["tts"] }
-	/**
-	 * @return whether or not the message mentions everyone. Yes, this method's name makes no sense, but Groovy inference is nice
-	 */
-	boolean isMentionsEveryone(){ return this.object["mention_everyone"] }
-	/**
-	 * @return a List of Attachments.
-	 */
-	List<Attachment> getAttachments(){ return this.object["attachments"].collect { new Attachment(client, it) } }
-	/**
-	 * @return a List of Maps containing the embeds. Might replace with Embed objects.
-	 */
-	List<Embed> getEmbeds() { return this.object["embeds"].collect { new Embed(client, it) } }
-	/**
-	 * @return the author of the message.
-	 */
-	User getAuthor() { return new User(client, this.object["author"]) }
-	/**
-	 * @return the author of the message.
-	 */
-	User getSender() { return this.getAuthor() }
-	/**
-	 * @return the server the message is in.
-	 */
-	Server getServer() { return this.textChannel.server }
-	/**
-	 * @return the channel the message is in.
-	 */
-	TextChannel getTextChannel() { return client.getTextChannelById(this.object["channel_id"]) }
-	/**
-	 * @return the channel the message is in.
-	 */
-	TextChannel getChannel() { return this.textChannel }
+	String getName(){ getContent() }
+	def getNonce(){ object["nonce"] }
+	String getContent(){ object["content"] }
+	String getRawEditTime(){ object["edited_timestamp"] }
+	Date getEditTime(){ ConversionUtil.fromJsonDate(rawEditTime) }
+	String getRawTimestamp(){ object["timestamp"] }
+	Date getTimestamp(){ ConversionUtil.fromJsonDate rawTimestamp }
+	boolean isTts(){ object["tts"] }
+	boolean isMentionsEveryone(){ object["mention_everyone"] }
+	boolean isPrivate(){ !server }
+	Attachment getAttachment(){ attachments[0] }
+	List<Attachment> getAttachments(){ object["attachments"].collect { new Attachment(client, it) } }
+	List<Embed> getEmbeds() { object["embeds"].collect { new Embed(client, it) } }
 
-	/**
-	 * @return a list of users who were mentioned in this message.
-	 */
-	List<User> getMentions(){ return this.object["mentions"].collect { new User(client, it) } }
-	List<Role> getMentionedRoles(){ return this.object["mention_roles"].collect { this.server.roleMap[it] } }
-	List<Role> getRoleMentions(){ return this.mentionedRoles }
-
-	boolean isMentioned(){
-		return client.user in this.mentions || this.server.me.roles.any { it in this.mentionedRoles }
+	List<String> getUrls(){
+		(content =~ urlPattern).collect()
 	}
 
-	/**
-	 * Edits the message.
-	 * @param newContent - the new content of the message.
-	 * @return the edited Message.
-	 */
+	List<URL> getUrlObjects(){ urls*.toURL() }
+	User getAuthor(boolean member = false) {
+		resolveMember(object["author"], member)
+	}
+	User author(boolean member = false){
+		getAuthor(member)
+	}
+	User getSender() { getAuthor() }
+	User resolveMember(User user, boolean member = true){
+		Member ass = server?.member(user)
+		if (ass && member) ass
+		else user
+	}
+	User resolveMember(Map object, boolean member = true){
+		Member ass = server?.member(object)
+		if (ass && member) ass
+		else new User(client, object)
+	}
+	Server getServer() { textChannel.server }
+	TextChannel getParent(){ channel }
+	TextChannel getTextChannel() { client.textChannel(object["channel_id"]) }
+	TextChannel getChannel() { textChannel }
+
+	List<User> getMentions(boolean member = false){ object["mentions"].collect { resolveMember(it, member) } }
+	List mentions(boolean member = false){ getMentions(member) }
+	List<Role> getMentionedRoles(){ object["mention_roles"].collect { server.roleMap[it] } }
+	List<Role> getRoleMentions(){ mentionedRoles }
+
+	boolean isMentioned(thing = client.user){
+		id(thing) in mentions.collect(this.&id) ||
+			server.member(user)?.roles?.any { it in mentionedRoles } ||
+			id(thing) in object.mention_roles
+	}
+
+	boolean isPinned(){ object["pinned"] }
+	def pin(){ channel.pin this }
+	def unpin(){ channel.unpin this }
+
 	Message edit(String newContent) {
-		return this.edit(content: newContent)
+		edit(content: newContent)
 	}
 
 	Message edit(Map data){
-		if (data["content"] && data["content"].size() > 2000) throw new MessageTooLongException()
-		return new Message(client, JSONUtil.parse(client.requester.patch("channels/${this.object["channel_id"]}/messages/${this.id}", data)))
+		channel.editMessage(this, data)
 	}
 
-	/**
-	 * Deletes the message.
-	 */
 	void delete() {
-		client.requester.delete("channels/${this.object["channel_id"]}/messages/${this.id}")
+		channel.deleteMessage(this)
 	}
 
-	void deleteAfter(long ms){ Thread.sleep(ms); this.delete() }
-	Message editAfter(String newContent, long ms){ Thread.sleep(ms); return this.edit(newContent) }
-	void deleteIf(Closure closure){ if (closure(this)){ this.delete() } }
-	Message editIf(String newContent, Closure closure){ if (closure(this)){ this.edit(newContent) } }
+	void deleteAfter(long ms){ Thread.sleep(ms); delete() }
+	Message editAfter(String newContent, long ms){ Thread.sleep(ms); edit(newContent) }
+	void deleteIf(Closure closure){ if (closure(this)){ delete() } }
+	Message editIf(String newContent, Closure closure){ if (closure(this)){ edit(newContent) } }
 
-	String toString(){ return this.author.name + ": " + this.content }
+	String toString(){ author.name + ": " + content }
 
 	static class Attachment extends DiscordObject {
 		Attachment(Client client, Map object){ super(client, object) }
 
-		String getName(){ return this.object["filename"] }
-		String getFilename(){ return this.object["filename"] }
-		String getFileName(){ return this.object["filename"] }
-		int getSize(){ return this.object["size"] }
-		boolean isImage(){ return this.object["width"] != null && this.object["height"] != null }
-		int getWidth(){ return this.object["width"] }
-		int getHeight(){ return this.object["height"] }
-		String getProxyUrl(){ return this.object["proxy_url"] }
-		String getUrl(){ return this.object["url"] }
-		URL getUrlObject(){ return new URL(this.url) }
-		URL getProxyUrlObject(){ return new URL(this.url) }
-		File download(File file){ return file.withOutputStream { out ->
-				out << client.requester.headerUp(this.urlObject, true)
-					.with { requestMethod = "GET"; delegate }.inputStream
+		String getName(){ object["filename"] }
+		String getFilename(){ object["filename"] }
+		String getFileName(){ object["filename"] }
+		int getSize(){ object["size"] }
+		boolean isImage(){ object["width"] && object["height"] }
+		int getWidth(){ object["width"] }
+		int getHeight(){ object["height"] }
+		String getProxyUrl(){ object["proxy_url"] }
+		String getUrl(){ object["url"] }
+		InputStream getInputStream(){
+			url.toURL().openConnection().with {
+				setRequestProperty("User-Agent", client.fullUserAgent)
+				setRequestProperty("Accept", "*/*")
 				delegate
+			}.inputStream
+		}
+		File download(File file){
+			file.withOutputStream { out ->
+				out << inputStream
+				new File(file.path)
 			}
 		}
 	}
@@ -131,31 +125,68 @@ class Message extends DiscordObject{
 	static class Embed extends DiscordObject {
 		Embed(Client client, Map object){ super(client, object) }
 
-		String getName(){ return this.object["title"] }
-		String getTitle(){ return this.object["title"] }
-		String getType(){ return this.object["type"] }
-		String getDescription(){ return this.object["description"] }
-		String getUrl(){ return this.object["url"] }
-		URL getUrlObject(){ return new URL(this.url) }
-		Thumbnail getThumbnail(){ return new Thumbnail(client, this.object["thumbnail"]) }
-		Provider getProvider(){ return new Provider(client, this.object["provider"]) }
+		String getName(){ object["title"] }
+		String getTitle(){ object["title"] }
+		String getType(){ object["type"] }
+		String getDescription(){ object["description"] }
+		String getUrl(){ object["url"] }
+		Thumbnail getThumbnail(){ new Thumbnail(client, object["thumbnail"]) }
+		boolean isImage(){ thumbnail.image }
+		Provider getProvider(){ new Provider(client, object["provider"]) }
+		InputStream getInputStream(){
+			url.toURL().openConnection().with {
+				setRequestProperty("User-Agent", client.fullUserAgent)
+				setRequestProperty("Accept", "*/*")
+				delegate
+			}.inputStream
+		}
+		File download(File file){
+			file.withOutputStream { out ->
+				out << inputStream
+				new File(file.path)
+			}
+		}
 
 		static class Thumbnail extends APIMapObject {
 			Thumbnail(Client client, Map object){ super(client, object) }
 
-			String getProxyUrl(){ return this.object["proxy_url"] }
-			String getUrl(){ return this.object["url"] }
-			URL getUrlObject(){ return new URL(this.url) }
-			URL getProxyUrlObject(){ return new URL(this.url) }
-			int getWidth(){ return this.object["width"] }
-			int getHeight(){ return this.object["height"] }
+			String getProxyUrl(){ object["proxy_url"] }
+			String getUrl(){ object["url"] }
+			boolean isImage(){ object["width"] && object["height"] }
+			int getWidth(){ object["width"] }
+			int getHeight(){ object["height"] }
+			InputStream getInputStream(){
+				url.toURL().openConnection().with {
+					setRequestProperty("User-Agent", client.fullUserAgent)
+					setRequestProperty("Accept", "*/*")
+					delegate
+				}.inputStream
+			}
+			File download(File file){
+				file.withOutputStream { out ->
+					out << inputStream
+					new File(file.path)
+				}
+			}
 		}
 
 		static class Provider extends APIMapObject {
 			Provider(Client client, Map object){ super(client, object) }
 
-			String getUrl(){ return this.object["url"] }
-			URL getUrlObject(){ return new URL(this.url) }
+			String getUrl(){ object["url"] }
+			InputStream getInputStream(){
+				url.toURL().openConnection().with {
+					setRequestProperty("User-Agent", client.fullUserAgent)
+					setRequestProperty("Accept", "*/*")
+					delegate
+				}.inputStream
+			}
+			File download(File file){
+				file.withOutputStream { out ->
+					out << inputStream
+					new File(file.path)
+				}
+			}
 		}
  	}
 }

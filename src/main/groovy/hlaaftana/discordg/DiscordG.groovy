@@ -1,12 +1,10 @@
 package hlaaftana.discordg
 
-import hlaaftana.discordg.oauth.BotClient
-import hlaaftana.discordg.objects.Client
 import hlaaftana.discordg.util.Log
 import hlaaftana.discordg.util.MiscUtil
 
 class DiscordG {
-	static final String VERSION = "3.1.0"
+	static final String VERSION = "4.0.0"
 	static final String GITHUB = "https://github.com/hlaaftana/DiscordG"
 	static final String USER_AGENT = "DiscordBot ($GITHUB, $VERSION)"
 
@@ -16,14 +14,14 @@ class DiscordG {
 		return client
 	}
 
-	static BotClient withToken(String token){
-		BotClient client = new BotClient()
-		client.login(token)
+	static Client withToken(String token, boolean bot = true){
+		Client client = new Client()
+		client.login(token, bot)
 		return client
 	}
 
-	static BotClient withToken(String botName, String token){
-		BotClient client = new BotClient()
+	static Client withToken(String botName, String token){
+		Client client = new Client()
 		client.login(botName){ token }
 		return client
 	}

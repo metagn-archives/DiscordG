@@ -1,9 +1,12 @@
 package hlaaftana.discordg.conn
 
 import java.nio.*
+import java.util.Map;
 
 import org.eclipse.jetty.websocket.api.Session
 
+import hlaaftana.discordg.Client;
+import hlaaftana.discordg.VoiceClient
 import hlaaftana.discordg.objects.*
 import hlaaftana.discordg.util.*
 
@@ -12,18 +15,17 @@ import org.eclipse.jetty.websocket.api.annotations.*
 
 @WebSocket
 class VoiceWSClient {
-	Client client
+	VoiceClient client
 	Session session
 	Thread keepAliveThread
-	VoiceChannel channel
-	int ssrc
-	String endpoint
-	long ping
 	boolean connected
 	boolean speaking
 	DatagramSocket udpSocket
 	Thread udpKeepAliveThread
-	VoiceWSClient(Client client){ this.client = client; this.channel = client.voiceData.channel; this.endpoint = client.voiceData.endpoint }
+
+	VoiceWSClient(VoiceClient client){
+		this.client = client
+	}
 
 	@OnWebSocketConnect
 	void onConnect(Session session){
@@ -32,27 +34,17 @@ class VoiceWSClient {
 		this.session.policy.maxTextMessageBufferSize = Integer.MAX_VALUE
 		this.session.policy.maxBinaryMessageSize = Integer.MAX_VALUE
 		this.session.policy.maxBinaryMessageBufferSize = Integer.MAX_VALUE
-		Map a = [
-			"op": 0,
-			"d": [
-				"token": client.token,
-				"server_id": channel.server.id,
-				"user_id": client.user.id,
-				"session_id": client.sessionId
-			],
-		]
-		this.send(a)
+		identify()
 	}
 
 	@OnWebSocketMessage
-	void onMessage(Session session, String message) throws IOException{
-		// jda
+	void onMessage(Session session, String message){
 		Map content = JSONUtil.parse(message)
 		def data = content["d"]
 		int op = content["op"]
 		def o = { it == op }
 		if (o(2)){
-			ssrc = data["ssrc"]
+			client.ssrc = data["ssrc"]
 			int port = data["port"]
 			long heartbeat = data["heartbeat_interval"]
 
@@ -148,31 +140,29 @@ class VoiceWSClient {
 		t.printStackTrace()
 	}
 
-	void send(Object message){
-		try{
-			if (message instanceof Map)
-				session.remote.sendString(JSONUtil.json(message))
-			else
-				session.remote.sendBytes(message)
-		}catch (e){
-			e.printStackTrace()
-		}
+	void identify(){
+		Map a = [
+			op: 0,
+			d: [
+				token: client.token,
+				server_id: channel.server.id,
+				user_id: client.user.id,
+				session_id: client.sessionId
+			],
+		]
+		send(a)
 	}
 
-	void close(boolean mute=false, boolean deaf=false){
-		if (keepAliveThread != null){ keepAliveThread.interrupt(); keepAliveThread = null }
+	void send(message){
+		String ass = message instanceof Map ? JSONUtil.json(message) : message.toString()
+		session.remote.sendString(ass)
+	}
 
-		client.wsClient.send([
-			"op": 4,
-			"d": [
-				"guild_id": null,
-				"channel_id": null,
-				"self_mute": mute,
-				"self_deaf": deaf,
-			]
-		])
-		connected = false
+	void send(Map ass, int op){
+		send op: op, d: ass
+	}
 
-		this.session.close()
+	void send(int op, Map ass){
+		send ass, op
 	}
 }

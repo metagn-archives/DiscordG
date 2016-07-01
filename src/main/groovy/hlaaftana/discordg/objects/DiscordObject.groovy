@@ -1,60 +1,104 @@
 package hlaaftana.discordg.objects
 
+import hlaaftana.discordg.Client;
+import hlaaftana.discordg.conn.Requester
+import hlaaftana.discordg.util.JSONable
 import java.util.Date;
 
 /**
  * A basic Discord object.
  * @author Hlaaftana
  */
-class DiscordObject extends APIMapObject {
-	/**
-	 * A Discord object with a map containing data and an API object to use.
-	 * @param client - the API object.
-	 * @param object - the map to use.
-	 */
-	DiscordObject(Client client, Map object){ super(client, object) }
-	/**
-	 * @return the ID of the object.
-	 */
-	String getId(){ return this.object["id"] }
-	/**
-	 * @return the     of the object.
-	 */
-	String getName(){ return this.object["name"] }
-	String toString(){ return this.name }
-	/**
-	 * @return when the thing was created. Deduces it from the ID of the thing.
-	 */
-	Date getCreateTime(){ return new Date(this.createTimeMillis) }
-	long getCreateTimeMillis(){ return ((Long.parseLong(this.id) >> 22) + (1420070400000 as long)) as long }
-	static forId(String id, Class<? extends DiscordObject> clazz= this.class){ return new DiscordObject(null, [id: id]) }
-	static findWithId(def withId, List coll){
-		return coll.find { it.id == withId }
+class DiscordObject extends APIMapObject implements Comparable {
+	String concatUrl = ""
+	Requester requester
+	DiscordObject(Client client, Map object, String concatUrl = ""){ super(client, object); this.concatUrl = concatUrl; setClient(client) }
+	void setClient(Client other){ super.setClient(other); if (client) requester = new Requester(client.requester, concatUrl) }
+	String getId(){ object["id"] }
+	String getName(){ object["name"] }
+	String toString(){ name }
+	String inspect(){ "'$name' ($id)" }
+	Date getCreateTime(){ new Date(createTimeMillis) }
+	long getCreateTimeMillis(){ ((Long.parseLong(id) >> 22) + (1420070400000 as long)) as long }
+
+	static forId(String id, Class<? extends DiscordObject> clazz = this.class){
+		new DiscordObject(null, [id: id])
 	}
-	static resolveId(def thing){
-		try {
-			return thing.id
-		}catch (ex){
-			return thing.toString()
+
+	static find(Collection ass, value){
+		String bong = id(value)
+		if (!bong) return null
+		if (bong.long){
+			findId(ass, bong)
+		}else{
+			findName(ass, bong)
 		}
 	}
-	def get(List collection, String propertyName, def value){
-		return collection.find { it.getProperty(propertyName) == value }
+
+	static find(Collection ass, Map idMap, value){
+		String bong = id(value)
+		if (!bong) return null
+		if (bong.long){
+			idMap[bong]
+		}else{
+			findName(ass, bong)
+		}
 	}
-	def get(String collPropName, String propName, def value){
-		return this.getProperty("collPropName").find { it.getProperty(propName) == value }
+
+	static String resolveId(thing){
+		try {
+			thing?.id
+		}catch (ex){
+			thing.toString()
+		}
 	}
+
+	static String id(thing){ resolveId(thing) }
+
+	static find(Collection ass, String propertyName, value){
+		ass.find { it.getProperty(propertyName) == value }
+	}
+
+	static findName(Collection ass, value){
+		ass.find { it.name == value }
+	}
+
+	static findId(Collection ass, value){
+		ass.find { it.id == value }
+	}
+
+	static get(Client client, thing, Class cast = DiscordObject){
+		if (thing in cast) thing
+		else client.everything.find { it.id == id(thing) && it in cast }
+	}
+
+	static get(Client client, thing, parent, Class cast = DiscordObject){
+		if (thing in cast) thing
+		else client.everything.find { it.id == id(thing) && it in cast && id(it?.parent) == id(parent) }
+	}
+
+	def get(thing, Class cast = DiscordObject){ get(client, thing, cast) }
+	def get(thing, parent, Class cast = DiscordObject){ get(client, thing, parent, cast) }
+
 	DiscordObject swapClient(Client newClient){
 		def oldNotClient = this
 		oldNotClient.client = newClient
-		return oldNotClient // this is the spiritually longest and guiltiest method i have written in the entire lib
+		oldNotClient // this is the spiritually longest and guiltiest method i have written in the entire lib
 	}
-	boolean isCase(def other){ return this.id.isCase(other) }
-	boolean equals(def other){ return this.id == other.id }
+
+	boolean isCase(other){ id.isCase(id(other)) }
+	boolean equals(other){ id == id(other) }
 	def asMap(){
-		def getters = this.metaClass.methods.findAll { it.name.startsWith("get") || it.name.startsWith("is") }.collect { this.&"$it.name" }
+		def getters = metaClass.methods.findAll { it.name.startsWith("get") || it.name.startsWith("is") }.collect { this.&"$it.name" }
 		Map map = [:]
 		getters.each { map[it.name.startsWith("get") ? it.name[3].toLowerCase() + it.name.substring(4) : it.name[2].toLowerCase() + it.name.substring(3)] = it() }
-		return map
+		map
+	}
+	int hashCode(){
+		id.hashCode()
+	}
+	/// compares creation dates
+	int compareTo(other){
+		id <=> id(other)
 	}
 }

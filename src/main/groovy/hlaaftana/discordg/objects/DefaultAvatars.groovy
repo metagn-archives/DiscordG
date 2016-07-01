@@ -1,15 +1,19 @@
 package hlaaftana.discordg.objects
 
+import groovy.transform.Memoized
+
 enum DefaultAvatars {
-	BLUE("b3afd12bc47a87507780ce5f53a9d6a1", 0),
-	GREY("0d1a93187d96a05e86444f2fc6210d95", 1),
-	GRAY("0d1a93187d96a05e86444f2fc6210d95", 1),
-	GREEN("a83f572c0b5c2d87f935ce6229be6358", 2),
-	YELLOW("907c319873ae4c1d56d0d0e8dce6b476", 3),
-	RED("8b3fac6205178732d218265987cdb0dc", 4)
+	BLUE("6debd47ed13483642cf09e832ed0bc1b", 0),
+	GREY("322c936a8c8be1b803cd94861bdfa868", 1),
+	GRAY("322c936a8c8be1b803cd94861bdfa868", 1),
+	GREEN("dd4dbc0016779df1378e7812eabaa04d", 2),
+	YELLOW("0e291f67c9274a1abdddeb3fd919cbaa", 3),
+	RED("1cbd08c76f8af6dddce02c5138971129", 4)
 
 	String hash
 	int order
 	DefaultAvatars(String hash, int order){ this.hash = hash; this.order = order }
-	static DefaultAvatars get(int order){ return DefaultAvatars.class.enumConstants.find { it.order == order } }
+
+	@Memoized
+	static DefaultAvatars get(int order){ DefaultAvatars.class.enumConstants.find { it.order == order } }
 }

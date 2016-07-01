@@ -1,32 +1,33 @@
 package hlaaftana.discordg.objects
 
+import hlaaftana.discordg.Client;
 import hlaaftana.discordg.util.ConversionUtil
 import hlaaftana.discordg.util.JSONUtil
 
 class Integration extends DiscordObject {
-	Integration(Client client, Map object){ super(client, object) }
+	Integration(Client client, Map object){ super(client, object, "guilds/${client.role(object["role_id"]).object["guild_id"]}/integrations/$object.id") }
 
-	int getSubscriberCount(){ return this.object["subscriber_count"] }
-	boolean isSyncing(){ return this.object["syncing"] }
-	boolean isEnableEmoticons(){ return this.object["enable_emoticons"] }
-	int getExpireBehaviour(){ return this.object["expire_behaviour"] }
-	int getExpireGracePeriod(){ return this.object["expire_grace_period"] }
-	User getUser(){ return new User(client, this.object["user"]) }
-	DiscordObject getAccount(){ return new DiscordObject(client, this.object["account"]) }
-	boolean isEnabled(){ return this.object["enabled"] }
-	Role getRole(){ return client.roles.find { this.object["role_id"] == it.id } }
-	Server getServer(){ return this.role.server }
-	String getRawSyncTime(){ return this.object["synced_at"] }
-	Date getSyncTime(){ return ConversionUtil.fromJsonDate(this.object["synced_at"]) }
-	String getType(){ return this.object["type"] }
+	int getSubscriberCount(){ object["subscriber_count"] }
+	boolean isSyncing(){ object["syncing"] }
+	boolean isEnableEmoticons(){ object["enable_emoticons"] }
+	int getExpireBehaviour(){ object["expire_behaviour"] }
+	int getExpireGracePeriod(){ object["expire_grace_period"] }
+	User getUser(){ new User(client, object["user"]) }
+	DiscordObject getAccount(){ new DiscordObject(client, object["account"]) }
+	boolean isEnabled(){ object["enabled"] }
+	Role getRole(){ client.roles.find { object["role_id"] == it.id } }
+	Server getServer(){ role.server }
+	String getRawSyncTime(){ object["synced_at"] }
+	Date getSyncTime(){ ConversionUtil.fromJsonDate(object["synced_at"]) }
+	String getType(){ object["type"] }
 	Integration edit(Map data){
-		return new Integration(JSONUtil.parse(client.requester.patch("guilds/${this.server.id}/integrations/${this.id}", data)))
+		new Integration(client, requester.jsonPatch("", data))
 	}
 	void delete(){
-		client.requester.delete("guilds/${this.server.id}/integrations/${this.id}")
+		requester.delete("")
 	}
 	void sync(){
-		client.requester.post("guilds/${this.server.id}/integrations/${this.id}/sync", [:])
+		requester.post("sync")
 	}
 }
 

@@ -3,46 +3,71 @@ package hlaaftana.discordg.objects
 import java.util.List
 import java.util.Map
 
+import hlaaftana.discordg.Client;
+import hlaaftana.discordg.util.Cache;
+import hlaaftana.discordg.util.DynamicList
+
 class DiscordListCache extends Cache { // DO stands for DiscordObject
-	boolean map
 	Class<? extends DiscordObject> class_
 	Client client
 	DiscordListCache(List list, Client client, Class<? extends DiscordObject> class_ = DiscordObject){
-		super(list.collect { it instanceof DiscordObject ? [(it.id): it.object] : [(it.id): it] }.sum(), client)
+		super(list.collectEntries { it instanceof DiscordObject ? [(it.id): it.object] : [(it.id): it] }, client)
 		this.client = client
-		this.map = list[0] instanceof Map
 		this.class_ = class_
 	}
 
 	Map getMap(){
 		Map map = [:]
-		this.list.each {
+		list.each {
 			map[it.id] = it instanceof Map ? class_.newInstance(client, it) : it
 		}
-		return map
+		map
 	}
 
 	List getList(){
-		return this.store.values().collect().collect { class_.newInstance(client, it) }
+		store.values().collect().collect { class_.newInstance(client, it) }
 	}
 
 	List getMapList(){
-		return this.store.values().collect()
+		store.values().collect()
+	}
+
+	DynamicList getModifiableList(){
+		DynamicList ass = mapList
+		ass.on("set"){ element, index ->
+			store[element.id] = element
+		}
+		ass.on("add"){ element, index ->
+			add(element)
+		}
+		ass.on("remove"){ uhh ->
+			if (uhh instanceof Integer) remove(ass[uhh])
+			else remove(uhh)
+		}
+		ass
 	}
 
 	List setRawList(List newList){
-		return newList.each { store[it.id] = it instanceof DiscordObject ? it.object : it }
+		newList.each { store[it.id] = it instanceof DiscordObject ? it.object : it }
 	}
 
 	List getRawList(){
-		return this.store.values().collect()
+		store.values().collect()
+	}
+
+	def get(key){
+		store[DiscordObject.id(key)]
 	}
 
 	def add(Map object){
-		this.store[object.id] = object
+		store[object.id] = object
 	}
 
-	def remove(String id){
-		this.store.remove(id)
+	def add(DiscordObject uh){
+		store[uh.id] = uh.object
+	}
+
+	def remove(key){
+		store.remove(DiscordObject.id(key))
 	}
 }

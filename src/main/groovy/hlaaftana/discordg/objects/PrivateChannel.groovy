@@ -6,16 +6,11 @@ import java.util.Map
  * A private channel. Extends TextChannel, however some getters always return null.
  * @author Hlaaftana
  */
+@groovy.transform.InheritConstructors
 class PrivateChannel extends TextChannel {
-	PrivateChannel(Client client, Map object){
-		super(client, object)
-	}
-	/**
-	 * @return the user the conversation is with.
-	 */
-	User getUser(){ return new User(client, this.object["recipient"] )}
-	Server getServer(){ return null }
-	String getTopic(){ return null }
-	int getPosition(){ return null }
-	String getType(){ return "text" }
+	User getUser(){ new User(client, object["recipient"] )}
+	Server getServer(){ null }
+	String getTopic(){ null }
+	int getPosition(){ null }
+	String getType(){ "text" }
 }

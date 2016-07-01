@@ -1,70 +1,99 @@
 package hlaaftana.discordg.util
 
 import java.time.*
-import java.util.logging.Level
-
-import hlaaftana.discordg.objects.Client
 
 /**
- * Adds methods to provide ease for logging.
+ * A groovy way to log messages.
  * @author Hlaaftana
  */
 class Log {
-	static boolean enableInfo = true
-	static boolean enableError = true
-	static boolean enableWarn = true
-	static boolean enableDebug = false
-	static boolean enableTrace = false
-	static boolean enableListenerCrashes = true
-	static boolean enableEventRegisteringCrashes = false
+	static class Level {
+		String name
+		boolean enabled = true
 
-	/**
-	 * Prints out a log entry.
-	 * @param str - Your message.
-	 * @param level - The level of the entry. String.
-	 * @param by - What the name of the logger will be. "DiscordG" by default.
-	 */
-	static log(String str, String level, String by="DiscordG"){
-		println String.format("<%s|%s> [%s] [%s]: %s", LocalDate.now(), LocalTime.now(), level.toUpperCase(), by, str)
+		Level enable(){ enabled = true; this }
+		Level disable(){ enabled = false; this }
 	}
 
-	/**
-	 * Prints out a log entry with the level "info". Toggle with the static boolean "Log.info".
-	 * @param str - Your message.
-	 * @param by - What the name of the logger will be. "DiscordG" by default.
-	 */
-	static info(String str, String by="DiscordG"){
-		if (enableInfo) log(str, "info", by)
+	static class Message {
+		String sender
+		Level level
+		String content
+		LocalDateTime time = LocalDateTime.now()
+		Map info = [:]
+
+		String toString(){ toString(Log.defaultFormatter) }
+		String toString(Log log){ toString(log.formatter) }
+		String toString(Closure formatter){ formatter(this) }
 	}
 
-	/**
-	 * Prints out a log entry with the level "debug". Toggle with the static boolean "Log.debug".
-	 * @param str - Your message.
-	 * @param by - What the name of the logger will be. "DiscordG" by default.
-	 */
-	static debug(String str, String by="DiscordG"){
-		if (enableDebug) log(str, "debug", by)
+	static DynamicList defaultLevels = [
+		new Level(name: "info"),
+		new Level(name: "error"),
+		new Level(name: "warn"),
+		new Level(name: "debug").disable(),
+		new Level(name: "trace").disable()
+	]
+
+	static Closure defaultFormatter = { Message message ->
+		String.format("<%s|%s> [%s] [%s]: %s",
+			message.time.toLocalDate(),
+			message.time.toLocalTime(),
+			MiscUtil.constantize(message.level.name),
+			message.sender, message.content)
 	}
 
-	/**
-	 * Prints out a log entry with the level "error". Toggle with the static boolean "Log.error".
-	 * @param str - Your message.
-	 * @param by - What the name of the logger will be. "DiscordG" by default.
-	 */
-	static error(String str, String by="DiscordG"){
-		if (enableError) log(str, "error", by)
+	Closure formatter = defaultFormatter
+
+	DynamicList levels = defaultLevels
+
+	DynamicList messages = []
+
+	DynamicList listeners = [{ if (it.level.enabled) println formatter(it) }]
+
+	String name
+	Log(String name){ this.name = name }
+
+	Log(Log parent){
+		formatter = parent.formatter
+		name = parent.name
 	}
 
-	/**
-	 * Prints out a log entry with the level "warn". Toggle with the static boolean "Log.warn".
-	 * @param str - Your message.
-	 * @param by - What the name of the logger will be. "DiscordG" by default.
-	 */
-	static warn(String str, String by="DiscordG"){
-		if (enableWarn) log(str, "warn", by)
+	def listen(Closure ass){
+		listeners.add ass
 	}
 
-	static trace(String str, String by="DiscordG"){
-		if (enableTrace) log(str, "trace", by)
+	def call(Message message){
+		listeners.each { it message }
+	}
+
+	def propertyMissing(String name){
+		Level ass = levels.find("name", name)
+		if (!ass){
+			ass = new Level(name: name)
+			levels.add ass
+		}
+		ass
+	}
+
+	def methodMissing(String name, args){
+		Level level = propertyMissing(name)
+		boolean argsIsMultiple = args instanceof Collection || args.class.array
+		if (args instanceof Message || (argsIsMultiple && args[0] instanceof Message)){
+			log(args)
+		}else{
+			List ahh = [level] + (argsIsMultiple ? args as List : args)
+			log(ahh)
+		}
+	}
+
+	def log(Level level, content, String sender = name){
+		Message ass = new Message(level: level, content: content.toString(), sender: sender)
+		log(ass)
+	}
+
+	def log(Message message){
+		messages += message
+		call(message)
 	}
 }

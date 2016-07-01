@@ -1,10 +1,13 @@
 package hlaaftana.discordg.conn
 
-import groovy.transform.Memoized
+import java.util.regex.Pattern
 
+import groovy.transform.Memoized
+import hlaaftana.discordg.Client;
 import hlaaftana.discordg.exceptions.*
-import hlaaftana.discordg.objects.Client
 import hlaaftana.discordg.objects.RateLimit
+import hlaaftana.discordg.objects.TextChannel
+import hlaaftana.discordg.util.MiscUtil
 import hlaaftana.discordg.util.JSONUtil
 import hlaaftana.discordg.util.Log
 
@@ -17,7 +20,7 @@ import com.mashape.unirest.http.HttpMethod
  * Provides ways to use the REST API for Discord.
  * @author Hlaaftana
  */
-class Requester{
+class Requester {
 	static String discordApi = "https://discordapp.com/api/"
 	static String canaryApi = "https://canary.discordapp.com/api/"
 	static String ptbApi = "https://ptb.discordapp.com/api/"
@@ -25,48 +28,59 @@ class Requester{
 	Map<String, RateLimit> ratelimits = [:]
 
 	Client client
-	Requester(Client client){ this.client = client }
+	Requester(Client client, String concatUrl = ""){
+		this.client = client
+		baseUrl = concatUrlPaths(baseUrl, concatUrl)
+	}
+	Requester(Requester requester, String concatUrl = ""){
+		client = requester.client
+		baseUrl = requester.baseUrl
+		baseUrl = concatUrlPaths(baseUrl, concatUrl)
+	}
 
 	def normal(){ baseUrl = discordApi }
 	def normalDiscord(){ baseUrl = discordApi }
 	def canary(){ baseUrl = canaryApi }
-	def ptb(){ baseUrl = canaryApi }
+	def ptb(){ baseUrl = ptbApi }
 
 	def parse(String request){
 		def a = request.split(/\s+/, 3)
-		return methodMissing(unmethodize(a[0]), a.size() == 2 ? a[1] : [a[1], a[2]])
+		methodMissing(MiscUtil.unconstantize(a[0]), a.size() == 2 ? a[1] : [a[1], a[2]])
 	}
 
 	def methodMissing(String methodName, args){
 		List argl = args.class in [List, Object[]] ? args.collect() : [args]
-		String url = methodName.startsWith("global") ? argl[0] : baseUrl + argl[0]
-		String method = methodName.startsWith("global") ? methodName.substring(6)[0].toLowerCase() + methodName.substring(7) : methodName
+		String url
+		List methodParams = MiscUtil.constantize(methodName).split("_") as List
+		boolean global = "GLOBAL" in methodParams
+		if (global) methodParams -= "GLOBAL"
+		boolean json = "JSON" in methodParams
+		if (json) methodParams -= "JSON"
+		if (global) url = argl[0]
+		else url = concatUrlPaths(baseUrl, argl[0])
+		String method = MiscUtil.unconstantize(methodParams[0])
 		def aa = headerUp(Unirest."$method"(url))
-		if (argl.size() == 1){
-			return request(aa).body
-		}else{
-			return request(aa.body(argl[1] instanceof CharSequence ? argl[1].toString() : JSONUtil.json(argl[1]))).body
+		if (argl.size() > 1){
+			def data = argl[1] instanceof CharSequence ? argl[1].toString() : JSONUtil.json(argl[1])
+			aa = aa.body(data)
 		}
+		def bbdbfdffdbfdpbodf = request(aa).body
+		json ? JSONUtil.parse(bbdbfdffdbfdpbodf) : bbdbfdffdbfdpbodf
 	}
 
-	/**
-	 * Provides required headers to the request.
-	 * @param request - the request object. Can be one of the HTTP methods in this class.
-	 * @return the request with headers.
-	 */
 	def headerUp(def request){
 		def req = request
 		if (req instanceof HttpURLConnection){
 			if (client.token != null) req.setRequestProperty("Authorization", client.token)
 			if (!(req.requestMethod == "GET")) req.setRequestProperty("Content-Type", "application/json")
 			req.setRequestProperty("User-Agent", client.fullUserAgent)
-			return req
+			req
 		}else if (req instanceof URL){
-			return this.headerUp(req.openConnection())
+			headerUp(req.openConnection())
 		}else if (req instanceof BaseRequest){
 			if (client.token != null) req = req.header("Authorization", client.token)
 			if (!(req.httpRequest.httpMethod == HttpMethod.GET)) req = req.header("Content-Type", "application/json")
-			return req.header("User-Agent", client.fullUserAgent)
+			req.header("User-Agent", client.fullUserAgent)
 		}else{
 			throw new IllegalArgumentException("tried to add headers to a ${request.class}")
 		}
@@ -74,30 +88,32 @@ class Requester{
 
 	def request(BaseRequest req){
 		HttpRequest fuck = req.httpRequest
-		if (ratelimits[simplifyUrl(fuck.url)]){
-			Log.trace "Awaiting ratelimit for $fuck.url"
-			while (ratelimits[simplifyUrl(fuck.url)]){}
+		String rlUrl = fuck.url.replaceFirst(Pattern.quote(client.requester.baseUrl), "")
+		if (ratelimits[simplifyUrl(rlUrl)]){
+			client.log.trace "Awaiting ratelimit for $rlUrl"
+			while (ratelimits[simplifyUrl(rlUrl)]){}
 		}
 		def returned = fuck.asString()
 		int status = returned.status
-		Log.trace "HTTP REQUEST: $fuck.httpMethod $fuck.url $status"
+		client.log.trace "HTTP REQUEST: $fuck.httpMethod $fuck.url $status", client.log.name + "HTTP"
 		if (status == 429){
-			Log.debug "Ratelimited when trying to $fuck.httpMethod to $fuck.url"
-			RateLimit rl = new RateLimit(JSONUtil.parse(returned.body))
-			ratelimits[simplifyUrl(fuck.url)] = rl
+			client.log.debug "Ratelimited when trying to $fuck.httpMethod to $fuck.url", client.log.name + "HTTP"
+			RateLimit rl = new RateLimit(client, JSONUtil.parse(returned.body))
+			println rl.bucket
+			ratelimits[simplifyUrl(rlUrl)] = rl
 			Thread.sleep(rl.retryTime)
-			ratelimits.remove(simplifyUrl(fuck.url))
+			ratelimits.remove(simplifyUrl(rlUrl))
 			return request(req)
 		}else if (status == 400){
-			throw new BadRequestException(fuck.url)
+			throw new BadRequestException(fuck.url, JSONUtil.parse(returned.body)["message"])
 		}else if (status == 401){
-			throw new InvalidTokenException()
+			throw new InvalidTokenException(client.token)
 		}else if (status == 403){
-			throw new NoPermissionException(fuck.url)
+			throw new NoPermissionException(fuck.url, JSONUtil.parse(returned.body)["message"])
 		}else if (status == 404){
-			Log.warn "URL not found: $fuck.url. Report to hlaaf"
+			client.log.warn "URL not found: $fuck.url. Report to hlaaf", client.log.name + "HTTP"
 		}else if (status == 405){
-			Log.warn "$fuck.httpMethod not allowed for $fuck.url. Report to hlaaf"
+			client.log.warn "$fuck.httpMethod not allowed for $fuck.url. Report to hlaaf", client.log.name + "HTTP"
 		}else if (status == 502){
 			if (client.retryOn502){
 				return request(req)
@@ -107,9 +123,9 @@ class Requester{
 		}else if (status.intdiv(100) == 5){
 			throw new HTTP5xxException(status, fuck.url)
 		}else if (status.intdiv(100) >= 3){
-			Log.warn "Got status code $status while ${fuck.httpMethod}ing to $fuck.url, this isn't an error but just a warning."
+			client.log.warn "Got status code $status while ${fuck.httpMethod}ing to $fuck.url, this isn't an error but just a warning.", client.log.name + "HTTP"
 		}
-		return returned
+		returned
 	}
 
 	@Memoized
@@ -117,17 +133,25 @@ class Requester{
 		if (url.indexOf("?") > 0){
 			url = url.substring(url.indexOf("?"))
 		}
-		return url.replaceAll(/\d+/, /numbers/)
+		int i = 0
+		url.replaceAll(/\d+/){ "@id${++i}:$it" }
 	}
 
 	@Memoized
-	static String methodize(String method){
-		return method.replaceAll(/[A-Z]/){ method.startsWith(it) ? it : "_$it" }.toUpperCase()
-	}
-
-	@Memoized
-	static String unmethodize(String method){
-		return method.toLowerCase().replaceAll(/_([a-z])/){ full, ch -> ch.toUpperCase() }
+	static String concatUrlPaths(String...yeah){
+		String ass = yeah[0]
+		List whoop = (yeah as List)[1..-1]
+		whoop.each { String a ->
+			if (a.empty) return
+			if (ass.toList().last() == "/"){
+				if (a.toList().first() == "/") ass += a.substring(1)
+				else ass += a
+			}else{
+				if (a.toList().first() == "/") ass += a
+				else ass += "/$a"
+			}
+		}
+		ass
 	}
 }
 
