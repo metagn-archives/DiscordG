@@ -1,13 +1,17 @@
 package hlaaftana.discordg.util.bot
 
 import static hlaaftana.discordg.util.MiscUtil.dump
+
+import groovy.transform.*
+
+import hlaaftana.discordg.Client
+import hlaaftana.discordg.EventData;
 import hlaaftana.discordg.DiscordG
-import hlaaftana.discordg.dsl.DelegatableEvent
-import hlaaftana.discordg.oauth.BotClient
-import hlaaftana.discordg.objects.Client
+import hlaaftana.discordg.Events
+import hlaaftana.discordg.objects.Member
 import hlaaftana.discordg.objects.Message
-import hlaaftana.discordg.objects.Events
 import hlaaftana.discordg.objects.DiscordObject
+import hlaaftana.discordg.util.ClosureString
 import hlaaftana.discordg.util.Log
 
 import java.util.regex.Pattern
@@ -18,11 +22,13 @@ import java.util.regex.Pattern
  */
 class CommandBot implements Triggerable {
 	String logName = "DiscordG|CommandBot"
+	Log log
 	BotType type = BotType.PREFIX
 	Client client
 	List commands = []
 	boolean acceptOwnCommands = false
 	boolean loggedIn = false
+	Closure commandListener
 
 	/**
 	 * @param client - The API object this bot should use.
@@ -35,23 +41,8 @@ class CommandBot implements Triggerable {
 			else
 				this[k] = v
 		}
-		if (client == null) client = new BotClient()
-	}
-
-	static def create(Map config = [:], String botName, Closure tokenGetter){
-		return new CommandBot(config).with { login(botName, tokenGetter); delegate }
-	}
-
-	static def create(Map config = [:], String botName, String token){
-		return new CommandBot(config).with { login(botName, token); delegate }
-	}
-
-	static def create(Map config = [:], String token){
-		return new CommandBot(config).with { login(token); delegate }
-	}
-
-	static def create(Map config = [:]){
-		return new CommandBot(config)
+		if (!log) log = new Log(logName)
+		if (!client) client = new Client()
 	}
 
 	/**
@@ -71,20 +62,30 @@ class CommandBot implements Triggerable {
 	}
 
 	DSLCommand command(Map info, alias, trigger = [], Closure closure){
-		DSLCommand hey = new DSLCommand(info, closure, this, alias, trigger)
+		DSLCommand hey = DSLCommand.new(info, this, alias, trigger, closure)
 		this.commands.add(hey)
-		return hey
+		hey
 	}
 
 	DSLCommand command(alias, trigger = [], Closure closure){
-		DSLCommand hey = new DSLCommand([:], closure, this, alias, trigger)
-		this.commands.add(hey)
-		return hey
+		command([:], alias, trigger, closure)
 	}
 
-	def login(String token){
+	Command command(Class<? extends Command> commandClass, ...args){
+		commandClass.&newInstance([this] + (args as List))
+	}
+
+	Command command(Class<? extends Command> commandClass, List args){
+		commandClass.&newInstance([this] + args)
+	}
+
+	Closure commandBuilder(Class<? extends Command> commandClass){
+		this.&command.curry(commandClass)
+	}
+
+	def login(String token, boolean bot = true){
 		loggedIn = true
-		client.login(token)
+		client.login(token, bot)
 	}
 
 	def login(String botName, String token){
@@ -103,16 +104,15 @@ class CommandBot implements Triggerable {
 	 * @param password - the password to log in with.
 	 */
 	def initialize(){
-		client.addListener(Events.MESSAGE) { Map d ->
+		commandListener = client.listener(Events.MESSAGE) {
 			for (Command c in commands){
-				if (c.match(d.message)){
+				if ((acceptOwnCommands || author != client) && c.match(message)){
 					try{
-						if (acceptOwnCommands || !(d.author == client.user)){
-							c.run(d)
-						}
+						c.run(it)
+						c.run(message)
 					}catch (ex){
 						ex.printStackTrace()
-						Log.error "Command threw exception", this.logName
+						log.error "Command threw exception"
 					}
 				}
 			}
@@ -133,23 +133,39 @@ class CommandBot implements Triggerable {
 		initialize()
 		login(botName, tokenGetter)
 	}
+
+	def uninitialize(){
+		client.removeListener("MESSAGE_CREATE", commandListener)
+	}
 }
 
-enum BotType {
+class BotType {
+	private static quote(aot){
+		def g = aot.toString().toLowerCase()
+		aot.regex ? g : Pattern.quote(g)
+	}
 	// These have IDs for convenience sake
-	PREFIX(0, { Trigger trigger, Alias alias ->
-		Pattern.quote(trigger.toString()) + Pattern.quote(alias.toString()) + /\s?((?:.|\n)*)/
-	}),
-	SUFFIX(1, { Trigger trigger, Alias alias ->
-		Pattern.quote(alias.toString()) + Pattern.quote(trigger.toString()) + /\s?((?:.|\n)*)/
-	}),
-	REGEX(2, { Trigger trigger, Alias alias ->
-		trigger.toString() + alias.toString() + /\s?((?:.|\n)*)/
-	})
+	static final BotType PREFIX = BotType.new(0, false){ Trigger trigger, Alias alias ->
+		/(?i)/ + quote(trigger) + quote(alias) + /(?:\s+((?:.|\n)*))?/
+	}
+	static final BotType SUFFIX = BotType.new(1, false){ Trigger trigger, Alias alias ->
+		/(?i)/ + quote(alias) + quote(trigger) + /(?:\s+((?:.|\n)*))?/
+	}
+	static final BotType REGEX = BotType.new(2){ Trigger trigger, Alias alias ->
+		trigger.toString() + alias.toString() + /(?:\s+((?:.|\n)*))?/
+	}
+	static final BotType REGEX_SUFFIX = BotType.new(3){ Trigger trigger, Alias alias ->
+		alias.toString() + trigger.toString() + /(?:\s+((?:.|\n)*))?/
+	}
 
 	Closure commandMatcher
 	int id
-	BotType(int id, Closure commandMatcher){ this.id = id; this.commandMatcher = commandMatcher }
+	boolean caseSensitive
+	BotType(int id, Closure commandMatcher, boolean caseSensitive = true){ this.id = id; this.commandMatcher = commandMatcher; this.caseSensitive = caseSensitive }
+
+	static BotType "new"(int id, boolean caseSensitive = true, Closure commandMatcher){
+		new BotType(id, commandMatcher, caseSensitive)
+	}
 }
 
 trait Restricted {
@@ -170,14 +186,14 @@ trait Restricted {
 	def allow(thing){
 		if (thing instanceof Collection || thing.class.array)
 			thing.each { allow(it) }
-		if (white)
-			if (thing instanceof Closure)
-				whitelist += thing
+		if (white){
+			if (thing instanceof Closure) whitelist += thing
 			else whitelist += DiscordObject.resolveId(thing)
-		if (black)
-			if (thing instanceof Closure)
-				blacklist -= thing
+		}
+		if (black){
+			if (thing instanceof Closure) blacklist -= thing
 			else blacklist -= DiscordObject.resolveId(thing)
+		}
 		this
 	}
 
@@ -186,14 +202,14 @@ trait Restricted {
 	def disallow(thing){
 		if (thing instanceof Collection || thing.class.array)
 			thing.each { disallow(it) }
-		if (white)
-			if (thing instanceof Closure)
-				whitelist -= thing
+		if (white){
+			if (thing instanceof Closure) whitelist -= thing
 			else whitelist -= DiscordObject.resolveId(thing)
-		if (black)
-			if (thing instanceof Closure)
-				blacklist += thing
+		}
+		if (black){
+			if (thing instanceof Closure) blacklist += thing
 			else blacklist += DiscordObject.resolveId(thing)
+		}
 		this
 	}
 
@@ -204,16 +220,18 @@ trait Restricted {
 	}
 
 	boolean allows(Message msg){
-		return (black ? !associatedIds(msg).any { inList(blacklist, it) } : true) && (white ? associatedIds(msg).any { inList(whitelist, it) } : true)
+		(black ? !associatedIds(msg).any { inList(blacklist, it) } : true) && (white ? associatedIds(msg).any { inList(whitelist, it) } : true)
 	}
 
 	static List associatedIds(Message msg){
 		// i have no idea why i'm including the message id
-		return [msg?.id, msg?.channel?.id, msg?.author?.id, msg?.server?.id] - null
+		List a = [msg?.id, msg?.channel?.id, msg?.author?.id, msg?.server?.id]
+		if (msg?.author(true) instanceof Member) a += msg?.author(true)?.roles?.id
+		(a - null).unique()
 	}
 
 	static boolean inList(list, thing){
-		return DiscordObject.resolveId(thing) in list.collect { it instanceof Closure ? DiscordObject.resolveId(it(thing)) : it }
+		DiscordObject.resolveId(thing) in list.collect { it instanceof Closure ? DiscordObject.resolveId(it(thing)) : it }
 	}
 }
 
@@ -224,10 +242,14 @@ trait Triggerable {
 		triggers = dump(triggers, trigger instanceof Triggerable ? trigger.triggers : trigger){ new Trigger(it) }
 	}
 
+	Trigger getTrigger(){
+		triggers[0]
+	}
+
 	def addTriggers(trigger){ addTrigger(trigger) }
 
 	def convertTriggers(List old){
-		return old.collect { new Trigger(it) }
+		old.collect { new Trigger(it) }
 	}
 }
 
@@ -240,102 +262,58 @@ trait Aliasable {
 
 	def addAliases(alias){ addAlias(alias) }
 
+	Alias getAlias(){
+		aliases[0]
+	}
+
 	def convertAliases(List old){
-		return old.collect { new Alias(it) }
+		old.collect { new Alias(it) }
 	}
 }
 
-class Alias implements Restricted {
-	def closure
+@InheritConstructors
+class Alias extends ClosureString implements Restricted {}
+@InheritConstructors
+class Trigger extends ClosureString implements Restricted {}
 
-	Alias(Closure closure){
-		this.closure = closure
-	}
-
-	Alias(notClosure){
-		this.closure = { "$notClosure" }
-	}
-
-	Alias(Alias otherTrigger){
-		this.closure = otherTrigger.closure
-	}
-
-	def plus(smh){
-		return "${closure()}$smh"
-	}
-
-	def plus(Trigger trigger){
-		return new Trigger({ "$this$trigger" })
-	}
-
-	boolean equals(other){
-		return this.is(other) || this.closure.is(other.closure) || this.toString() == other.toString()
-	}
-
-	String toString(){
-		return "${closure()}"
-	}
-}
-
-class Trigger implements Restricted {
-	def closure
-
-	Trigger(Closure closure){
-		this.closure = closure
-	}
-
-	Trigger(notClosure){
-		this.closure = { "$notClosure" }
-	}
-
-	Trigger(Trigger otherTrigger){
-		this.closure = otherTrigger.closure
-	}
-
-	def plus(smh){
-		return "${closure()}$smh"
-	}
-
-	def plus(Trigger trigger){
-		return new Trigger({ "$this$trigger" })
-	}
-
-	boolean equals(other){
-		return this.is(other) || this.closure.is(other.closure) || this.toString() == other.toString()
-	}
-
-	String toString(){
-		return "${closure()}"
-	}
-}
-
-
-/**
- * A command.
- * @author Hlaaftana
- */
-abstract class Command implements Triggerable, Aliasable, Restricted {
+class Command implements Triggerable, Aliasable, Restricted {
 	static BotType defaultBotType = BotType.PREFIX
 	BotType type = defaultBotType
 
 	Command(Triggerable parentT, alias, trigger = []){
-		this.addAlias(alias)
-		this.addTrigger(trigger)
-		this.addTrigger(parentT)
-		if (parentT instanceof CommandBot) this.type = parentT.type
+		addAlias alias
+		addTrigger trigger
+		addTrigger parentT
+		if (parentT instanceof CommandBot) type = parentT.type
+	}
+
+	static Command "new"(Triggerable parentT, alias, trigger = []){
+		new Command(parentT, alias, trigger)
 	}
 
 	/// null if no match
 	List match(Message msg){
-		if (!this.allows(msg)) return null
-		return [triggers, aliases].combinations().find { Trigger trigger, Alias alias ->
-			trigger.allows(msg) && alias.allows(msg) && msg.content ==~ (trigger.toString() + alias.toString() + /(?:.|\n)*/)
+		if (!allows(msg)) return null
+		[triggers, aliases].combinations().find { Trigger trigger, Alias alias ->
+			trigger.allows(msg) && alias.allows(msg) && msg.content ==~ type.commandMatcher(trigger, alias)
 		}
 	}
 
+	Alias usedAlias(Message msg){
+		(match(msg) ?: [])[1]
+	}
+
+	Trigger usedTrigger(Message msg){
+		(match(msg) ?: [])[0]
+	}
+
+	boolean hasAlias(ahh){ aliases.any { it.toString() == ahh.toString() } }
+	boolean hasTrigger(ahh){ triggers.any { it.toString() == ahh.toString() } }
+
 	def matcher(Message msg){
 		List pair = this.match(msg)
-		return msg.content =~ type.commandMatcher(pair)
+		if (!pair) return null
+		msg.content =~ type.commandMatcher(pair)
 	}
 
 	/**
@@ -343,43 +321,55 @@ abstract class Command implements Triggerable, Aliasable, Restricted {
 	 * @param d - the event data.
 	 * @return the arguments as a string.
 	 */
-	def args(Map d){
-		return this.allCaptures(d).size() > 1 ? this.allCaptures(d).last() : ""
+	def args(Message msg){
+		this.allCaptures(msg).size() > 1 ? this.allCaptures(msg).last() ?: "" : ""
 	}
 
 	// only for regex
-	List captures(Map d){
-		return this.allCaptures(d).drop(1)
+	List captures(Message msg){
+		this.allCaptures(msg).drop(1)
 	}
 
 	// only for regex
-	List allCaptures(Map d){
-		def aa = this.matcher(d.message).collect()
-		return aa instanceof String ? [aa] : aa[0]
+	List allCaptures(Message msg){
+		def aa = this.matcher(msg).collect()
+		aa instanceof String ? [aa] : aa[0] != null ? aa[0] : []
 	}
 
 	/**
 	 * Runs the command.
 	 * @param d - the event data.
 	 */
-	abstract def run(Map d)
+	def run(Map d){}
+	def run(Message msg){}
+
+	def call(Map d){ run(d); run(d.message) }
+	def call(Message msg){ run(msg) }
+
+	int hashCode(){
+		aliases.hashCode() ^ triggers.hashCode()
+	}
 }
 
 /**
  * An implementation of Command with a string response.
  * @author Hlaaftana
  */
-class ResponseCommand extends Command{
+class ResponseCommand extends Command {
 	Closure response
 
 	/**
 	 * @param response - a string to respond with to this command. <br>
 	 * The rest of the parameters are Command's parameters.
 	 */
-	ResponseCommand(response, Triggerable parentT, alias, trigger = []){
+	ResponseCommand(Triggerable parentT, alias, trigger = [], response){
 		super(parentT, alias, trigger)
 		this.response = (response instanceof Closure) ? response : { Map d -> "$response" }
 		this.response.delegate = this
+	}
+
+	static ResponseCommand "new"(Triggerable parentT, alias, trigger = [], response){
+		new ResponseCommand(parentT, alias, trigger, response)
 	}
 
 	def run(Map d){
@@ -397,10 +387,14 @@ class ClosureCommand extends Command {
 	/**
 	 * @param response - a closure to respond with to this command. Can take one parameter, which is the data of the event.
 	 */
-	ClosureCommand(Closure response, Triggerable parentT, alias, trigger = []){
+	ClosureCommand(Triggerable parentT, alias, trigger = [], Closure response){
 		super(parentT, alias, trigger)
 		response.delegate = this
 		this.response = response
+	}
+
+	static ClosureCommand "new"(Triggerable parentT, alias, trigger = [], Closure response){
+		new ResponseCommand(parentT, alias, trigger, response)
 	}
 
 	def run(Map d){
@@ -415,20 +409,36 @@ class DSLCommand extends Command {
 	DSLCommand(Map info = [:], Closure response, Triggerable parentT, alias, trigger = []){
 		super(parentT, alias, trigger)
 		this.response = response
-		this.info << info
+		info.each(this.&putAt)
+	}
+
+	static DSLCommand "new"(Map info = [:], Triggerable parentT, alias, trigger = [], Closure response){
+		new DSLCommand(info, response, parentT, alias, trigger)
+	}
+
+	def propertyMissing(String name){
+		if (info.containsKey(name)) info[name]
+		else throw new MissingPropertyException(name, this.class)
+	}
+
+	def propertyMissing(String name, value){
+		info[name] = value
 	}
 
 	def run(Map d){
-		DelegatableEvent aa = new DelegatableEvent("MESSAGE_CREATE", d)
-		aa.data["args"] = args(d)
-		aa.data["captures"] = captures(d)
-		aa.data["allCaptures"] = allCaptures(d)
-		aa.data["match"] = match(d.message)
-		aa.data["matcher"] = matcher(d.message)
-		aa.data << this.properties
-		Closure copy = response
+		EventData aa = d
+		aa["args"] = args(d.message)
+		aa["captures"] = captures(d.message)
+		aa["allCaptures"] = allCaptures(d.message)
+		aa["match"] = match(d.message)
+		aa["matcher"] = matcher(d.message)
+		aa["usedAlias"] = usedAlias(d.message)
+		aa["usedTrigger"] = usedTrigger(d.message)
+		aa["command"] = this
+		aa << this.properties
+		Closure copy = response.clone()
 		copy.delegate = aa
 		copy.resolveStrategy = Closure.DELEGATE_FIRST
-		copy(d)
+		copy(aa)
 	}
 }

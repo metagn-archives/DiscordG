@@ -1,10 +1,9 @@
 package hlaaftana.discordg.objects
 
+@groovy.transform.InheritConstructors
 class Region extends DiscordObject {
-	Region(Client client, Map object){ super(client, object) }
-
-	String getSampleHostname(){ return this.object["sample_hostname"] }
-	int getSamplePort(){ return this.object["sample_port"] }
-	boolean isVip(){ return this.object["vip"] }
-	boolean isOptimal(){ return this.object["optimal"] }
+	String getSampleHostname(){ object["sample_hostname"] }
+	int getSamplePort(){ object["sample_port"] }
+	boolean isVip(){ object["vip"] }
+	boolean isOptimal(){ object["optimal"] }
 }

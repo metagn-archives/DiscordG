@@ -1,7 +1,10 @@
 package hlaaftana.discordg.objects
 
+import hlaaftana.discordg.Client
+import hlaaftana.discordg.VoiceClient;
 import hlaaftana.discordg.conn.VoiceWSClient
-import hlaaftana.discordg.objects.VoiceClient
+import hlaaftana.discordg.exceptions.NoPermissionException
+
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest
 import org.eclipse.jetty.websocket.client.WebSocketClient
@@ -10,36 +13,36 @@ import org.eclipse.jetty.websocket.client.WebSocketClient
  * A voice channel. Extends Channel.
  * @author Hlaaftana
  */
-class VoiceChannel extends Channel{
-	VoiceChannel(Client client, Map object){ super(client, object) }
+@groovy.transform.InheritConstructors
+class VoiceChannel extends Channel {
+	List<Server.VoiceState> getVoiceStates(){ server.voiceStates.findAll { it.channel == this } }
+	List<Member> getMembers(){ voiceStates*.member }
 
-	List<Server.VoiceState> getVoiceStates(){ return this.server.voiceStates.findAll { it.channel == this } }
-	List<Member> getMembers(){ return this.voiceStates*.member }
+	Server.VoiceState voiceState(thing){ find(voiceStates, thing) }
+	Member member(thing){ find(members, thing) }
 
-	int getBitrate(){ return this.object["bitrate"] }
+	int getBitrate(){ object["bitrate"] }
+	int getUserLimit(){ object["user_limit"] }
 
-	void moveMember(Member member){
-		client.requester.patch("guilds/${member.server.id}/members/{member.id}", ["channel_id": this.id])
+	boolean isFull(){
+		members.size() == userLimit
 	}
 
-	VoiceClient join(Map muteDeaf=[:]){
-		client.wsClient.send([
-			"op": 4,
-			"d": [
-				"guild_id": this.server.id,
-				"channel_id": this.id,
-				"self_mute": muteDeaf["mute"] as boolean,
-				"self_deaf": muteDeaf["deaf"] as boolean,
-			]
-		])
-		while (client.voiceData == [:]){}
-		client.voiceData << [
-			channel: this,
-			guild: this.server
-		]
-		Map temp = client.voiceData
-		client.voiceData = temp.findAll { k, v -> k != "guild_id" }
-		client.voiceClient = new VoiceClient(client)
+	boolean canJoin(){
+		Permissions ass = server.me.fullPermissionsFor(this)
+		ass["connect"] && (userLimit ? full : true || ass["moveMembers"])
+	}
+
+	void move(member){
+		find(server.members, member)?.moveTo(this)
+	}
+
+	VoiceClient join(Map opts = [:]){
+		if (!canJoin()) throw new NoPermissionException(full ? "Channel is full" : "Insufficient permissions to join voice channel ${inspect()}")
+		VoiceClient vc = new VoiceClient(client, this, opts)
+		client.voiceClients[server] = vc
+		vc.connect()
+
 		/*Thread.start {
 			while (client.voiceData["endpoint"] == null){}
 			SslContextFactory sslFactory = new SslContextFactory()
@@ -49,7 +52,7 @@ class VoiceChannel extends Channel{
 			ClientUpgradeRequest upgreq = new ClientUpgradeRequest()
 			client.connect(socket, new URI("wss://" + client.voiceData["endpoint"].replace(":80", "")), upgreq)
 			client.voiceWsClient = socket
-		}*/
-		return client.voiceClient
+		}*
+		client.voiceClient*/
 	}
 }

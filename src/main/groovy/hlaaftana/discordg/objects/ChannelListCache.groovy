@@ -1,5 +1,7 @@
 package hlaaftana.discordg.objects
 
+import hlaaftana.discordg.Client;
+
 class ChannelListCache extends DiscordListCache {
 	ChannelListCache(List list, Client client){
 		super(list, client, Channel)
@@ -7,13 +9,13 @@ class ChannelListCache extends DiscordListCache {
 
 	Map getMap(){
 		Map map = [:]
-		this.list.each {
+		list.each {
 			map[it.id] = Channel.typed(it)
 		}
-		return map
+		map
 	}
 
 	List getList(){
-		return super.list.collect { Channel.typed(it) }
+		super.list.collect { Channel.typed(it) }
 	}
 }

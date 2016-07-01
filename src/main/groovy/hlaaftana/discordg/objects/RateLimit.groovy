@@ -1,9 +1,10 @@
 package hlaaftana.discordg.objects
 
-class RateLimit extends MapObject {
-	RateLimit(Map object){ super(object) }
+import hlaaftana.discordg.Client;
 
-	String getBucket(){ return this.object["bucket"] }
-	String getMessage(){ return this.object["message"] }
-	long getRetryTime(){ return this.object["retry_after"] }
+@groovy.transform.InheritConstructors
+class RateLimit extends APIMapObject {
+	String getBucket(){ object["bucket"] }
+	String getMessage(){ object["message"] }
+	long getRetryTime(){ object["retry_after"] }
 }

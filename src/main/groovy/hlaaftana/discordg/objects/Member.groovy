@@ -5,173 +5,106 @@ import java.util.List
 import java.awt.Color
 import java.net.URL
 
+import hlaaftana.discordg.Client;
 import hlaaftana.discordg.util.*
 
 /**
  * A member of a server. Extends the User object.
  * @author Hlaaftana
  */
-class Member extends User{
+class Member extends User {
 	Member(Client client, Map object){
-		super(client, object + object["user"])
+		super(client, object + object["user"], "/guilds/${object["guild_id"]}/members/${object == client ? "@me" : object["id"]}")
 	}
 
-	/**
-	 * @return the User which this Member is.
-	 */
-	User getUser(){ return new User(client, this.object["user"]) }
-	String getNick(){ return this.object["nick"] ?: this.name }
-	String getRawNick(){ return this.object["nick"] }
-	/**
-	 * @return the server the member comes from.
-	 */
-	Server getServer(){ return client.getServerById(this.object["guild_id"]) }
-	/**
-	 * @return a timestamp of when the member joined the server.
-	 */
-	String getRawJoinDate(){ return this.object["joined_at"] }
-	/**
-	 * @return a Date object of when the member joined the server.
-	 */
-	Date getJoinDate(){ return ConversionUtil.fromJsonDate(this.rawJoinDate) }
-	/**
-	 * @return the roles this member has.
-	 */
+	User getUser(){ new User(client, object["user"]) }
+	String getNick(){ object["nick"] ?: name }
+	String getRawNick(){ object["nick"] }
+	Server getServer(){ client.server(object["guild_id"]) }
+	Server getParent(){ server }
+	String getRawJoinDate(){ object["joined_at"] }
+	Date getJoinDate(){ ConversionUtil.fromJsonDate(rawJoinDate) }
 	List<Role> getRoles(){
-		List array = this.object["roles"]
-		List<Role> roles = new ArrayList<Role>()
-		for (o in array){
-			for (r in this.server.roles){
-				if (o == r.id) roles.add(r)
-			}
-		}
-		return roles
+		object["roles"].collect { server.role(it) }
 	}
 
-	/**
-	 * @return the current game the member is playing. Can be null.
-	 */
+	Role role(ass){ find(roles, ass) }
+
 	Presence.Game getGame(){
-		return this.presence?.game ?: null
+		presence?.game ?: null
 	}
 
 	Presence getPresence(){
-		return this.server.presenceMap[this.id]
+		server.presenceMap[id]
 	}
 
-	/**
-	 * Mutes or deafens the user.
-	 * @param data - the map. <br>
-	 * [mute: true, deaf: false]
-	 */
 	void edit(Map data){
-		client.requester.patch("guilds/${this.server.id}/members/${this.id}", data)
+		client.askPool("editMembers", server.id){
+			requester.patch("", data)
+		}
 	}
 
-	String changeNick(String newNick){ edit(nick: newNick) }
-	String nick(String newNick){ return changeNick(newNick) }
-	String editNick(String newNick){ return changeNick(newNick) }
-	String resetNick(){ return changeNick("") }
+	void changeNick(String newNick){ this == client ? client.requester.patch("guilds/${server.id}/members/@me", [nick: newNick]) : edit(nick: newNick) }
+	void nick(String newNick){ changeNick(newNick) }
+	void editNick(String newNick){ changeNick(newNick) }
+	void resetNick(){ changeNick("") }
 
-	void mute(){ this.edit(mute: true) }
-	void unmute(){ this.edit(mute: false) }
-	void deafen(){ this.edit(deaf: true) }
-	void undeafen(){ this.edit(deaf: false) }
-	void ban(){ this.server.ban(this) }
-	void unban(){ this.server.unban(this) }
-	boolean isMute(){ return this.object["mute"] }
-	boolean isDeaf(){ return this.object["deaf"] }
-	boolean isDeafened(){ return this.object["deaf"] }
+	void mute(){ edit(mute: true) }
+	void unmute(){ edit(mute: false) }
+	void deafen(){ edit(deaf: true) }
+	void undeafen(){ edit(deaf: false) }
+	void ban(int days = 0){ server.ban this, days }
+	void unban(){ server.unban this }
+	boolean isMute(){ object["mute"] }
+	boolean isDeaf(){ object["deaf"] }
+	boolean isDeafened(){ object["deaf"] }
 
-	/**
-	 * @return the status of the user. e.g. "online", "offline", "idle"...
-	 */
 	String getStatus(){
-		return this.presence?.status ?: "offline"
+		presence?.status ?: "offline"
 	}
 
-	Role getPrimaryRole(){ return this.roles.max { it.position } }
-	int getColorValue(){ return this.roles.findAll { it.colorValue != 0 }.max { it.position }.colorValue }
-	Color getColor(){ return new Color(this.colorValue) }
+	Role getPrimaryRole(){ roles.max { it.position } }
+	int getColorValue(){ roles.findAll { it.colorValue != 0 }.max { it.position }?.colorValue ?: 0 }
+	Color getColor(){ new Color(colorValue) }
 	Permissions getPermissions(Permissions initialPerms = Permissions.ALL_FALSE){
-		Permissions full = initialPerms
-		for (Permissions perms in this.roles*.permissions){
-			if (perms["manageRoles"]){
+		Permissions full = initialPerms + server.defaultRole.permissions
+		for (Permissions perms in roles*.permissions){
+			if (perms["administrator"]){
 				full += Permissions.ALL_TRUE
 				break
 			}else{
 				full += perms
 			}
 		}
-		return full
+		full
 	}
-	Permissions permissionsFor(Channel channel, Permissions initialPerms = Permissions.ALL_FALSE){
-		Permissions doodle = initialPerms
-		Permissions handicaps = Permissions.ALL_FALSE
-		boolean doneWithHandicaps = false
-		List allOverwrites = channel.permissionOverwrites.findAll { it.involves(this) }.sort { it.role ? it.position : server.roles.size() + 1 }
-		for (Channel.PermissionOverwrite overwrite in allOverwrites){
-			if (doodle["administrator"]){
-				if (!doneWithHandicaps){
-					handicaps = Permissions.CHANNEL_ALL_TRUE - overwrite.allowed
-					if (overwrite.denied["managePermissions"]){
-						doodle -= handicaps
-						doneWithHandicaps = true
-					}else{
-						doodle += Permissions.CHANNEL_ALL_TRUE
-					}
-				}else{
-					doodle += overwrite.allowed
-					if (!overwrite.role || (overwrite.name == "@everyone" && overwrite.role)) doodle -= overwrite.denied
-				}
-				continue
-			}
-			if (overwrite.allowed["managePermissions"]){
-				doodle += Permissions.CHANNEL_ALL_TRUE
-				break
-			}else{
-				doodle += overwrite.allowed
-				if (!overwrite.role || (overwrite.name == "@everyone" && overwrite.role)) doodle -= overwrite.denied
-			}
-		}
-		return doodle
-	}
+
 	Permissions fullPermissionsFor(Channel channel){
-		return permissionsFor(channel, this.permissions)
+		permissionsFor(channel, permissions)
 	}
 
-	/**
-	 * Overrides the roles for this member.
-	 * @param roles - a list of roles to add.
-	 */
 	void editRoles(List<Role> roles) {
-		this.server.editRoles(this, roles)
+		server.editRoles(this, roles)
 	}
 
-	/**
-	 * Adds roles to this member.
-	 * @param roles - the roles to add.
-	 */
 	void addRoles(List<Role> roles) {
-		this.server.addRoles(this, roles)
+		server.addRoles(this, roles)
 	}
 
-	void addRole(Role role){ this.addRoles([role]) }
+	void addRole(Role role){ addRoles([role]) }
 
-	/**
-	 * Kicks the member from its server.
-	 */
 	void kick() {
-		this.server.kick(this)
+		server.kick(this)
 	}
 
-	void moveTo(VoiceChannel channel){
-		client.requester.patch("guilds/${this.server.id}/members/{this.id}", ["channel_id": channel.id])
+	void moveTo(channel){
+		requester.patch("", ["channel_id": id(channel)])
 	}
 
-	User toUser(){ return new User(client, this.object["user"]) }
+	User toUser(){ new User(client, object["user"]) }
 	def asType(Class target){
-		if (target == User) return this.toUser()
-		else return super.asType(target)
+		if (target == User) toUser()
+		else super.asType(target)
 	}
+	String toString(){ nick }
 }

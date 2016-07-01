@@ -2,10 +2,13 @@ package hlaaftana.discordg.objects
 
 import java.awt.Color
 
+import hlaaftana.discordg.Client;
+
 /**
  * A Discord server role.
  * @author Hlaaftana
  */
+@groovy.transform.InheritConstructors
 class Role extends DiscordObject{
 	static final Color DEFAULT = new Color(0)
 	static final Color AQUA = new Color(0x1ABC9C)
@@ -34,45 +37,28 @@ class Role extends DiscordObject{
 	static final Color BLUE_GREY = new Color(0x546E7A)
 	static final MENTION_REGEX = { String id = /\d+/ -> /<@&$id>/ }
 
-	Role(Client client, Map object){
-		super(client, object)
+	int getColorValue(){ object["color"] }
+	Color getColor(){ new Color(object["color"]) }
+	boolean isLocked(){ isLockedFor(server.me) }
+	boolean isLockedFor(user){
+		position >= server.member(user).primaryRole.position
 	}
+	boolean isHoist(){ object["hoist"] }
+	boolean isManaged(){ object["managed"] }
+	boolean isMentionable(){ object["mentionable"] }
+	Permissions getPermissions(){ new Permissions(object["permissions"]) }
+	int getPermissionValue(){ object["permissions"] }
+	int getPosition(){ object["position"] }
 
-	/**
-	 * @return the color for the role as an int.
-	 */
-	int getColorValue(){ return this.object["color"] }
-	Color getColor(){ return new Color(this.object["color"]) }
-	boolean isLocked(){
-		return this.position >= this.server.me.primaryRole.position
-	}
-	/**
-	 * @return whether the role is hoist or not.
-	 */
-	boolean isHoist(){ return this.object["hoist"] }
-	/**
-	 * @return whether the role is managed or not. I have no idea what this means.
-	 */
-	boolean isManaged(){ return this.object["managed"] }
-	boolean isMentionable(){ return this.object["mentionable"] }
-	/**
-	 * @return the permission bits for this role as an int. I will replace this with a Permissions object later
-	 */
-	Permissions getPermissions(){ return new Permissions(this.object["permissions"]) }
-	int getPermissionValue(){ return this.object["permissions"] }
-	/**
-	 * @return the position index for the role.
-	 */
-	int getPosition(){ return this.object["position"] }
+	Server getServer(){ client.server(object["guild_id"]) }
+	Server getParent(){ server }
 
-	Server getServer(){ return client.server(this.object["guild_id"]) }
+	String getMention(){ "<@&${id}>" }
+	String getMentionRegex(){ MENTION_REGEX(id) }
 
-	String getMention(){ return "<@&${this.id}>" }
-	String getMentionRegex(){ return MENTION_REGEX(id) }
-
-	List<Member> getMembers(){ return this.server.members.findAll { this in it.roles } }
-	Role edit(Map data){ return this.server.editRole(this, data) }
-	void delete(){ this.server.deleteRole(this) }
-	void addTo(Member user){ this.server.addRole(user, this) }
-	void addTo(List<Member> users){ users.each { this.server.addRole(it, this) } }
+	List<Member> getMembers(){ server.members.findAll { this in it.roles } }
+	Role edit(Map data){ server.editRole(this, data) }
+	void delete(){ server.deleteRole(this) }
+	void addTo(Member user){ server.addRole(user, this) }
+	void addTo(List<Member> users){ users.each { server.addRole(it, this) } }
 }

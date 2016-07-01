@@ -1,5 +1,7 @@
 package hlaaftana.discordg.util
 
+import java.util.Iterator;
+
 import groovy.json.*
 
 /**
@@ -16,7 +18,7 @@ class JSONUtil {
 		return new JsonSlurper().parseText(string)
 	}
 
-	static parse(File file){ return parse(file.text) }
+	static parse(File file, charset = "UTF-8"){ return parse(file.getText(charset)) }
 
 	/**
 	 * Converts an object to JSON. Can be a Map, List, or anything JsonOutput.toJson can convert.
@@ -24,14 +26,14 @@ class JSONUtil {
 	 * @return a JSON string.
 	 */
 	static String json(thing){
-		return JsonOutput.toJson(thing)
+		return JsonOutput.toJson(thing instanceof JSONable ? thing.json() : thing)
 	}
 
-	static File dump(String filename, thing){ return dump(new File(filename), thing) }
+	static File dump(String filename, thing, charset = "UTF-8"){ return dump(new File(filename), thing, charset) }
 
-	static File dump(File file, thing){
+	static File dump(File file, thing, charset = "UTF-8"){
 		if (!file.exists()) file.createNewFile()
-		file.write(JsonOutput.prettyPrint(json(thing)))
+		file.write(JsonOutput.prettyPrint(json(thing)), charset)
 		return file
 	}
 
@@ -50,5 +52,86 @@ class JSONUtil {
 			}
 		}
 		return dump(file, oldData)
+	}
+}
+
+class JSONPath {
+	List<Expression> parsedExpressions = [new Expression("", Expression.AccessType.OBJECT)]
+
+	JSONPath(String aaa){
+		aaa.toList().each {
+			if (parsedExpressions.last().lastChar() == "\\"){
+				parsedExpressions.last().removeLastChar()
+				parsedExpressions.last() << it
+			}else if (it == "."){
+				parsedExpressions +=
+					Expression.AccessType.OBJECT.express("")
+			}else if (it == "["){
+				parsedExpressions +=
+					Expression.AccessType.ARRAY.express("")
+			}else if (it != "]"){
+				parsedExpressions.last() << it
+			}
+		}
+	}
+
+	static JSONPath parse(String aaa){ new JSONPath(aaa) }
+
+	def parseAndApply(json){
+		apply(JSONUtil.parse(json))
+	}
+
+	def apply(thing){
+		def newValue = thing
+		parsedExpressions.each { Expression it ->
+			newValue = it.act(newValue)
+		}
+		newValue
+	}
+
+	static class Expression {
+		String raw
+		AccessType type
+		Expression(String ahh, AccessType typ){ raw = ahh; type = typ }
+
+		Expression leftShift(other){
+			raw += other
+			this
+		}
+
+		Expression plus(other){
+			new Expression(raw, type) << other
+		}
+
+		Expression removeLastChar(){
+			raw = raw[0..(raw.size() - 1)]
+			this
+		}
+
+		String lastChar(){
+			raw.toList() ? raw.toList().last() : ""
+		}
+
+		Closure getAction(){
+			{ thing -> raw == "" ? thing.flatten() : raw == "*" ? thing.collect() : thing[raw.asType(type.accessor)] }
+		}
+
+		def act(thing){
+			action.call(thing)
+		}
+
+		String toString(){ raw }
+
+		static enum AccessType {
+			OBJECT(String),
+			ARRAY(int)
+
+			Class accessor
+			AccessType(Class ass){ accessor = ass }
+
+			Expression express(ahde){
+				new Expression(ahde.toString(), this)
+			}
+		}
 	}
 }
