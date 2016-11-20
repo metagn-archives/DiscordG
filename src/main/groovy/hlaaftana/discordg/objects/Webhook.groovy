@@ -20,11 +20,11 @@ class Webhook extends DiscordObject {
 	String getToken(){ object.token }
 
 	Webhook edit(Map data){
-		new Webhook(client, requester.jsonPatch("", ConversionUtil.fixImages(data)))
+		new Webhook(client, http.jsonPatch("", ConversionUtil.fixImages(data)))
 	}
 
 	void delete(){
-		requester.delete("")
+		http.delete("")
 	}
 
 	Message sendMessage(Map data){
@@ -33,7 +33,7 @@ class Webhook extends DiscordObject {
 			if (!data.content || data.content.size() > 2000)
 				throw new MessageInvalidException(data.content)
 		}
-		new Message(client, requester.jsonPost(token, data))
+		new Message(client, http.jsonPost(token, data))
 	}
 
 	Message sendMessage(content, boolean tts = false){
@@ -55,7 +55,7 @@ class Webhook extends DiscordObject {
 			if (!data["filename"]) throw new IllegalArgumentException("Tried to send non-file class ${file.class} and gave no filename")
 			fileArgs += data["filename"]
 		}
-		def aa = Unirest.post("$requester.baseUrl/messages")
+		def aa = Unirest.post("$http.baseUrl/messages")
 			.header("Authorization", client.token)
 			.header("User-Agent", client.fullUserAgent)
 			.field("content", data["content"] == null ? "" : data["content"].toString())

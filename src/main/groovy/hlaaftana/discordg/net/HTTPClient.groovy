@@ -19,7 +19,7 @@ import com.mashape.unirest.http.HttpMethod
  * Provides ways to use the REST API for Discord.
  * @author Hlaaftana
  */
-class Requester {
+class HTTPClient {
 	static String discordApi = "https://discordapp.com/api/"
 	static String canaryApi = "https://canary.discordapp.com/api/"
 	static String ptbApi = "https://ptb.discordapp.com/api/"
@@ -63,13 +63,13 @@ class Requester {
 	Map<String, RateLimit> ratelimits = [:]
 
 	Client client
-	Requester(Client client, String concatUrl = ""){
+	HTTPClient(Client client, String concatUrl = ""){
 		this.client = client
 		baseUrl = concatUrlPaths(baseUrl, concatUrl)
 	}
-	Requester(Requester requester, String concatUrl = ""){
-		client = requester.client
-		baseUrl = requester.baseUrl
+	HTTPClient(HTTPClient http, String concatUrl = ""){
+		client = http.client
+		baseUrl = http.baseUrl
 		baseUrl = concatUrlPaths(baseUrl, concatUrl)
 	}
 
@@ -130,7 +130,7 @@ class Requester {
 
 	def request(BaseRequest req){
 		HttpRequest fuck = req.httpRequest
-		String rlUrl = fuck.url.replaceFirst(Pattern.quote(client.requester.baseUrl), "")
+		String rlUrl = fuck.url.replaceFirst(Pattern.quote(client.http.baseUrl), "")
 		if (ratelimits[simplifyUrl(rlUrl)]){
 			client.log.trace "Awaiting ratelimit for $rlUrl"
 			while (ratelimits[simplifyUrl(rlUrl)]){}

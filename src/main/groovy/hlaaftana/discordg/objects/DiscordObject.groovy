@@ -1,7 +1,7 @@
 package hlaaftana.discordg.objects
 
 import hlaaftana.discordg.Client;
-import hlaaftana.discordg.net.Requester
+import hlaaftana.discordg.net.HTTPClient
 import hlaaftana.discordg.util.JSONable
 import java.util.Date;
 
@@ -13,7 +13,7 @@ class DiscordObject implements Comparable {
 	Client client
 	Map object
 	String concatUrl = ""
-	Requester requester
+	HTTPClient http
 	DiscordObject(Client c, Map o, String cu = ""){
 		concatUrl = cu
 		object = o
@@ -22,7 +22,7 @@ class DiscordObject implements Comparable {
 
 	void setClient(Client c){
 		this.client = c
-		if (client) requester = new Requester(client.requester, concatUrl)
+		if (client) http = new HTTPClient(client.http, concatUrl)
 	}
 
 	Map getRawObject(){

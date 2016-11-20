@@ -86,7 +86,7 @@ class Client extends User {
 	Map<String, Object> fields = [:]
 	@Delegate(excludes = ["parseEvent", "listenerError", "toString"])
 	ParentListenerSystem listenerSystem = new ParentListenerSystem(this)
-	Requester requester
+	HTTPClient http
 	WSClient ws
 	DynamicMap voiceClients = {
 		DynamicMap map = new DynamicMap()
@@ -101,7 +101,7 @@ class Client extends User {
 
 	Client(Map config = [:]){
 		super(null, [:])
-		requester = new Requester(this)
+		http = new HTTPClient(this)
 		client = this
 
 		config.each { k, v ->
@@ -157,7 +157,7 @@ class Client extends User {
 		Client newApi = new Client()
 		def (sProps, tProps) = [this, newApi]*.properties*.keySet()
 		def commonProps = sProps.intersect(tProps) - ["class", "metaClass"]
-		commonProps.each { newApi[it] = !(it in ["requester", "ws", "client", "cache", "voiceData", "loaded"]) ? this[it] : null }
+		commonProps.each { newApi[it] = !(it in ["http", "ws", "client", "cache", "voiceData", "loaded"]) ? this[it] : null }
 		newApi
 	}
 
@@ -234,7 +234,7 @@ class Client extends User {
 		Closure a = {
 			if (requestGateway){
 				log.info "Requesting gateway..."
-				gateway = requester.jsonGet("gateway")["url"]
+				gateway = http.jsonGet("gateway")["url"]
 				if (!gateway.endsWith("/")){ gateway += "/" }
 				gateway += "?encoding=json&v=$gatewayVersion"
 			}
@@ -252,7 +252,7 @@ class Client extends User {
 	}
 
 	void logout(boolean exit = false){
-		if (!bot) requester.post("auth/logout", ["token": token])
+		if (!bot) http.post("auth/logout", ["token": token])
 		closeGateway(false)
 		ws = null
 		if (exit) System.exit(0)
@@ -310,7 +310,7 @@ class Client extends User {
 
 	String requestToken(String email, String password){
 		askPool("login"){
-			requester.jsonPost("auth/login",
+			http.jsonPost("auth/login",
 				["email": email, "password": password])["token"]
 		}
 	}
@@ -375,7 +375,7 @@ class Client extends User {
 	String getSessionId(){ cache["session_id"] }
 
 	Server createServer(Map data) {
-		new Server(this, requester.jsonPost("guilds", [name: data.name.toString(),
+		new Server(this, http.jsonPost("guilds", [name: data.name.toString(),
 			region: (data.region ?: optimalRegion).toString()]))
 	}
 
@@ -383,7 +383,7 @@ class Client extends User {
 	Map<String, Server> getServerMap(){ cache["guilds"]?.map ?: [:] }
 
 	List<Server> requestServers(boolean checkCache = true){
-		requester.jsonGet("users/@me/guilds").collect {
+		http.jsonGet("users/@me/guilds").collect {
 			Map object = it
 			if (checkCache && !it.unavailable){
 				def cached = cache["guilds"][it.id]
@@ -400,7 +400,7 @@ class Client extends User {
 	}
 
 	List<Channel> requestPrivateChannels(){
-		requester.jsonGet("users/@me/channels").collect { new Channel(this, it) }
+		http.jsonGet("users/@me/channels").collect { new Channel(this, it) }
 	}
 
 	List<User> getAllUsers() {
@@ -499,25 +499,25 @@ class Client extends User {
 	}
 
 	Invite acceptInvite(id){
-		new Invite(this, requester.jsonPost("invite/${Invite.parseId(id)}", [:]))
+		new Invite(this, http.jsonPost("invite/${Invite.parseId(id)}", [:]))
 	}
 
 	Invite requestInvite(id){
-		new Invite(this, requester.jsonGet("invite/${Invite.parseId(id)}"))
+		new Invite(this, http.jsonGet("invite/${Invite.parseId(id)}"))
 	}
 
 	Invite createInvite(Map data = [:], dest){
-		new Invite(this, requester.jsonPost("channels/${id(dest)}/invites", data))
+		new Invite(this, http.jsonPost("channels/${id(dest)}/invites", data))
 	}
 
 	List<Connection> requestConnections(){
-		requester.jsonGet("users/@me/connections").collect { new Connection(this, it) }
+		http.jsonGet("users/@me/connections").collect { new Connection(this, it) }
 	}
 
 	User editProfile(Map data){
 		Map map = [avatar: user.avatarHash, email: this?.email,
 			password: this?.password, username: user.username]
-		Map response = requester.jsonPatch("users/@me", map <<
+		Map response = http.jsonPatch("users/@me", map <<
 			ConversionUtil.fixImages(data))
 		email = response.email
 		password = (data["new_password"] != null && data["new_password"] instanceof String) ? data["new_password"] : password
@@ -530,11 +530,11 @@ class Client extends User {
 	}
 
 	Application requestApplication(){
-		new Application(this, requester.jsonGet("oauth2/applications/@me"))
+		new Application(this, http.jsonGet("oauth2/applications/@me"))
 	}
 
 	List<Application> requestApplications(){
-		requester.jsonGet("oauth2/applications").collect { new Application(this, it) }
+		http.jsonGet("oauth2/applications").collect { new Application(this, it) }
 	}
 
 	Map<String, Application> getApplicationMap(){
@@ -542,7 +542,7 @@ class Client extends User {
 	}
 
 	Application requestApplication(id){
-		new Application(this, requester.jsonGet("oauth2/applications/${this.id(id)}"))
+		new Application(this, http.jsonGet("oauth2/applications/${this.id(id)}"))
 	}
 
 	Application editApplication(Application application, Map data){
@@ -555,7 +555,7 @@ class Client extends User {
 
 	Application createApplication(Map data){
 		Map map = [icon: null, description: "", redirect_uris: [], name: ""]
-		new Application(this, requester.jsonPost("oauth2/applications", map <<
+		new Application(this, http.jsonPost("oauth2/applications", map <<
 			ConversionUtil.fixImages(data)))
 	}
 
@@ -564,20 +564,20 @@ class Client extends User {
 	}
 
 	List<Region> getRegions(){
-		requester.jsonGet("voice/regions").collect { new Region(this, it) }
+		http.jsonGet("voice/regions").collect { new Region(this, it) }
 	}
 
 	Region getOptimalRegion(){
 		regions.find { it.optimal }
 	}
 
-	List<User> queueUsers(String query, int limit=25){ requester.jsonGet("users?q=${URLEncoder.encode(query)}&limit=$limit").collect { new User(this, it) } }
-	User requestUser(i){ new User(this, requester.jsonGet("users/${id(i)}")) }
+	List<User> queueUsers(String query, int limit=25){ http.jsonGet("users?q=${URLEncoder.encode(query)}&limit=$limit").collect { new User(this, it) } }
+	User requestUser(i){ new User(this, http.jsonGet("users/${id(i)}")) }
 	Server requestServer(i){
-		new Server(this, requester.jsonGet("guilds/${id(i)}"))
+		new Server(this, http.jsonGet("guilds/${id(i)}"))
 	}
 	Channel requestChannel(i){
-		new Channel(this, requester.jsonGet("channels/${id(i)}"))
+		new Channel(this, http.jsonGet("channels/${id(i)}"))
 	}
 
 	List<Channel> getPrivateChannels(){

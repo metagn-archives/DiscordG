@@ -76,7 +76,7 @@ class Channel extends DiscordObject {
 	}
 
 	List<Invite> getInvites(){
-		requester.jsonGet("invites").collect { new Invite(client, it) }
+		http.jsonGet("invites").collect { new Invite(client, it) }
 	}
 
 	Invite createInvite(Map data = [:]){
@@ -84,15 +84,15 @@ class Channel extends DiscordObject {
 	}
 
 	void startTyping() {
-		requester.post("typing", [:])
+		http.post("typing", [:])
 	}
 
 	void delete() {
-		requester.delete("")
+		http.delete("")
 	}
 
 	Channel edit(Map data = [:]) {
-		new Channel(client, requester.jsonPatch("", patchableObject <<
+		new Channel(client, http.jsonPatch("", patchableObject <<
 			ConversionUtil.fixImages(data)))
 	}
 
@@ -101,7 +101,7 @@ class Channel extends DiscordObject {
 		String type = get(target, Role) ? "role" : "member"
 		int allowBytes = allow.toInteger()
 		int denyBytes = deny.toInteger()
-		requester.put("permissions/${id}", [allow: allowBytes, deny: denyBytes, id: id, type: type])
+		http.put("permissions/${id}", [allow: allowBytes, deny: denyBytes, id: id, type: type])
 	}
 
 	void addPermissions(target, allow, deny){
@@ -113,15 +113,15 @@ class Channel extends DiscordObject {
 	}
 
 	void deletePermissions(target){
-		requester.delete("permissions/${id(target)}")
+		http.delete("permissions/${id(target)}")
 	}
 
 	Webhook createWebhook(Map data = [:]){
-		new Webhook(client, requester.jsonPost("webhooks", ConversionUtil.fixImages(data)))
+		new Webhook(client, http.jsonPost("webhooks", ConversionUtil.fixImages(data)))
 	}
 
 	List<Webhook> requestWebhooks(){
-		requester.jsonGet("webhooks").collect { new Webhook(client, it) }
+		http.jsonGet("webhooks").collect { new Webhook(client, it) }
 	}
 
 	String getQueueName(){ server ? server.id : "dm" }
@@ -137,7 +137,7 @@ class Channel extends DiscordObject {
 				throw new MessageInvalidException(data.content)
 		}
 		client.askPool("sendMessages", queueName){
-			new Message(client, requester.jsonPost("messages", [channel_id: id] << data))
+			new Message(client, http.jsonPost("messages", [channel_id: id] << data))
 		}
 	}
 
@@ -159,13 +159,13 @@ class Channel extends DiscordObject {
 				throw new MessageInvalidException(data.content)
 		}
 		client.askPool("sendMessages", queueName){ // that's right, they're in the same bucket
-			new Message(client, requester.jsonPatch("messages/${id(message)}", data))
+			new Message(client, http.jsonPatch("messages/${id(message)}", data))
 		}
 	}
 
 	void deleteMessage(message){
 		client.askPool("deleteMessages",
-			queueName){ requester.delete("messages/${id(message)}") }
+			queueName){ http.delete("messages/${id(message)}") }
 	}
 
 	def sendFileRaw(Map data = [:], file){
@@ -180,7 +180,7 @@ class Channel extends DiscordObject {
 			if (!data["filename"]) throw new IllegalArgumentException("Tried to send non-file class ${file.class} and gave no filename")
 			fileArgs += data["filename"]
 		}
-		def aa = Unirest.post("$requester.baseUrl/messages")
+		def aa = Unirest.post("$http.baseUrl/messages")
 			.header("Authorization", client.token)
 			.header("User-Agent", client.fullUserAgent)
 			.field("content", data["content"] == null ? "" : data["content"].toString())
@@ -208,7 +208,7 @@ class Channel extends DiscordObject {
 
 	Message requestMessage(message, boolean atc = true){
 		def m = new Message(client,
-			requester.jsonGet("messages/${id(message)}"))
+			http.jsonGet("messages/${id(message)}"))
 		if (atc){
 			if (client.messages[this]) client.messages[this].add(m)
 			else {
@@ -228,33 +228,33 @@ class Channel extends DiscordObject {
 	Message message(message, boolean aa = true){ getMessage message, aa }
 
 	def pinMessage(message){
-		requester.put("pins/${id(message)}")
+		http.put("pins/${id(message)}")
 	}
 	def pin(message){ pinMessage message }
 
 	def unpinMessage(message){
-		requester.delete("pins/${id(message)}")
+		http.delete("pins/${id(message)}")
 	}
 	def unpin(message){ unpinMessage message }
 
 	Collection<Message> requestPinnedMessages(){
-		requester.jsonGet("pins").collect { new Message(client, it) }
+		http.jsonGet("pins").collect { new Message(client, it) }
 	}
 
 	Collection<Message> requestPins(){ requestPinnedMessages() }
 
 	void react(message, emoji){
-		requester.put("messages/${id(message)}/reactions/${translateEmoji(emoji)}/@me")
+		http.put("messages/${id(message)}/reactions/${translateEmoji(emoji)}/@me")
 	}
 
 	void unreact(message, emoji, user = "@me"){
-		requester.delete("messages/${id(message)}/reactions/${translateEmoji(emoji)}/${id(user)}")
+		http.delete("messages/${id(message)}/reactions/${translateEmoji(emoji)}/${id(user)}")
 	}
 
 	List<Reaction> requestReactions(message){ requestMessage(message).reactions }
 
 	List<User> requestReactors(message, emoji, int limit = 100){
-		requester.getJson("messages/${id(message)}/reactions/${translateEmoji(emoji)}?limit=$limit")
+		http.getJson("messages/${id(message)}/reactions/${translateEmoji(emoji)}?limit=$limit")
 	}
 
 	String translateEmoji(emoji){
@@ -315,7 +315,7 @@ class Channel extends DiscordObject {
 		String parameters = data ? "?" + data.collect { k, v ->
 			URLEncoder.encode(k.toString()) + "=" + URLEncoder.encode(v.toString())
 		}.join("&") : ""
-		requester.jsonGet("messages$parameters")
+		http.jsonGet("messages$parameters")
 	}
 
 	List<Message> getCachedLogs(){
@@ -336,7 +336,7 @@ class Channel extends DiscordObject {
 
 	def clear(List ids){
 		client.askPool("bulkDeleteMessages"){
-			requester.post("messages/bulk-delete", [messages: ids.collect { id(it) }])
+			http.post("messages/bulk-delete", [messages: ids.collect { id(it) }])
 		}
 	}
 

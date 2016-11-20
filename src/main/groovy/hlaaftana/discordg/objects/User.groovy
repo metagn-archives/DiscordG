@@ -53,7 +53,7 @@ class User extends DiscordObject{
 	Channel getPrivateChannel(){
 		Channel ass = client.privateChannels.find { it.dm && it.user.id == id }
 		ass ?: new Channel(client,
-			client.requester.jsonPost("users/@me/channels", [recipient_id: id]))
+			client.http.jsonPost("users/@me/channels", [recipient_id: id]))
 	}
 
 	Permissions permissionsFor(Channel channel, Permissions initialPerms = Permissions.ALL_FALSE){
@@ -113,15 +113,15 @@ class Application extends DiscordObject {
 				data["icon"] = ConversionUtil.encodeImage(data["icon"])
 			}
 		}
-		new Application(this, requester.jsonPut("", map << data))
+		new Application(this, http.jsonPut("", map << data))
 	}
 
 	void delete(){
-		requester.delete("")
+		http.delete("")
 	}
 
 	BotAccount createBot(String oldAccountToken = null){
-		new BotAccount(client, requester.jsonPost("bot",
+		new BotAccount(client, http.jsonPost("bot",
 			(oldAccountToken == null) ? [:] : [token: oldAccountToken]))
 	}
 
