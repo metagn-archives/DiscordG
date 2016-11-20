@@ -1,11 +1,8 @@
-package hlaaftana.discordg.objects
+package hlaaftana.discordg.collections
 
-import java.util.List
-import java.util.Map
-
-import hlaaftana.discordg.Client;
-import hlaaftana.discordg.util.Cache;
-import hlaaftana.discordg.util.DynamicList
+import hlaaftana.discordg.Client
+import hlaaftana.discordg.objects.DiscordObject
+import hlaaftana.discordg.objects.Member
 
 class DiscordListCache extends Cache { // DO stands for DiscordObject
 	Class<? extends DiscordObject> class_

@@ -14,6 +14,8 @@ import java.util.Map
 import hlaaftana.discordg.util.*
 import static hlaaftana.discordg.util.WhatIs.whatis
 import hlaaftana.discordg.*
+import hlaaftana.discordg.collections.DiscordListCache;
+import hlaaftana.discordg.logic.EventData
 import hlaaftana.discordg.objects.*
 
 /**

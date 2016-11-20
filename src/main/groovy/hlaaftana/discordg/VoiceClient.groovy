@@ -1,6 +1,7 @@
 package hlaaftana.discordg
 
-import groovy.lang.Closure;
+import groovy.lang.Closure
+import hlaaftana.discordg.logic.ParentListenerSystem;
 import hlaaftana.discordg.net.VoiceWSClient
 import hlaaftana.discordg.objects.*
 //import hlaaftana.discordg.util.AudioUtil
