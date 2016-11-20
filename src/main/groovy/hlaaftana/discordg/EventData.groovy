@@ -7,8 +7,8 @@ class EventData extends LazyClosureMap {
 	Events type
 	EventData(type, Map data){ super(data); this.type = Events.get(type) }
 
-	static EventData create(type, args = null, Closure ass){
-		new EventData(type, LazyClosureMap.create(args, ass))
+	static EventData create(type, Map initial = [:], Closure ass){
+		new EventData(type, LazyClosureMap.create(initial, ass))
 	}
 
 	EventData clone(){

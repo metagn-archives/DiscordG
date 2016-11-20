@@ -8,5 +8,5 @@ import org.codehaus.groovy.transform.GroovyASTTransformationClass
 	ElementType.TYPE, ElementType.LOCAL_VARIABLE])
 @GroovyASTTransformationClass(["hlaaftana.discordg.util.AliasTransformation"])
 @interface Aliased {
-	String[] value()
+	String value()
 }

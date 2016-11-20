@@ -4,22 +4,24 @@ import java.awt.*
 import java.util.List
 import java.awt.datatransfer.*
 import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 import groovy.transform.Memoized
+import groovy.transform.InheritConstructors
 import hlaaftana.discordg.objects.DiscordObject
 import hlaaftana.discordg.Client;
-import hlaaftana.discordg.conn.JSONRequester
+import hlaaftana.discordg.net.JSONRequester
 
 /**
  * Utilities unrelated to the actual API itself. In fact, most are not even used.
  * @author Hlaaftana
  */
 class MiscUtil {
+	@InheritConstructors
 	static class Game extends DiscordObject {
-		Game(Client client, Map object){ super(client, object) }
-
-		Map<String, List<String>> getExecutables(){ return this.object["executables"] }
-		String getCommandLineOptions(){ return this.object["cmdline"] ?: "" }
+		Map<String, List<String>> getExecutables(){ object["executables"] }
+		String getCommandLineOptions(){ object["cmdline"] ?: "" }
 	}
 
 	static Map namedColors = [
@@ -83,40 +85,45 @@ class MiscUtil {
 		clipboard.getContents(null).getTransferData(DataFlavor.stringFlavor)
 	}
 
+	static LocalDateTime dateToLDT(Date date = new Date(),
+		ZoneId tz = ZoneId.systemDefault()){
+		LocalDateTime.ofInstant(date.toInstant(), tz)
+	}
+
 	static List requestEmojis(){
-		return JSONRequester.get("https://abal.moe/Discord/JSON/emojis.json")
+		JSONRequester.get("https://abal.moe/Discord/JSON/emojis.json")
 	}
 
 	static List requestEmojiShortcuts(){
-		return JSONRequester.get("https://abal.moe/Discord/JSON/emoji-shortcuts.json")
+		JSONRequester.get("https://abal.moe/Discord/JSON/emoji-shortcuts.json")
 	}
 
 	static List<Game> requestGames(){
-		return JSONRequester.get("https://abal.moe/Discord/JSON/games.json").collect { new Game(null, it) }
+		JSONRequester.get("https://abal.moe/Discord/JSON/games.json").collect { new Game(null, it) }
 	}
 
 	static dump(list, newItem, Closure doto = Closure.IDENTITY){
 		List mock = []
 		mock += newItem
 		mock = mock.collect { doto(it) }
-		return mock
+		mock
 	}
 
 	static undump(list, newItem, Closure doto = Closure.IDENTITY){
 		List mock = list
 		mock -= newItem
 		mock = mock.collect { doto(it) }
-		return mock
+		mock
 	}
 
 	@Memoized
 	static String constantize(String method){
-		return method.replaceAll(/[A-Z]/){ method.startsWith(it) ? it : "_$it" }.toUpperCase()
+		method.replaceAll(/[A-Z]/){ method.startsWith(it) ? it : "_$it" }.toUpperCase()
 	}
 
 	@Memoized
 	static String unconstantize(String method){
-		return method.toLowerCase().replaceAll(/_([a-z])/){ full, ch -> ch.toUpperCase() }
+		method.toLowerCase().replaceAll(/_([a-z])/){ full, ch -> ch.toUpperCase() }
 	}
 
 	/**
@@ -124,8 +131,9 @@ class MiscUtil {
 	 */
 	static registerStringMethods(){
 		String.metaClass.removeFormatting = {
-			return delegate.replace("~", "\\~").replace("_", "\\_").replace("*", "\\*").replace("```", "\u200b`\u200b`\u200b`")
-				.replace("`", "\\`").replace(":", "\\:").replace("`", "\\`").replace("/", "\\/")
+			delegate.replace("~", "\\~").replace("_", "\\_").replace("*", "\\*")
+				.replace("```", "\u200b`\u200b`\u200b`").replace("`", "\\`")
+				.replace(":", "\\:").replace("`", "\\`").replace("/", "\\/")
 				.replace("@", "\\@").replace("<", "\\<").replace(">", "\\>")
 		}
 		String.metaClass.surround = { String sur -> "$sur$delegate$sur" }
@@ -137,21 +145,18 @@ class MiscUtil {
 		String.metaClass.code = { surround "`" }
 		String.metaClass.block = { String language="" -> "```$language\n$delegate```" }
 		String.metaClass.strikethrough = { surround "~~" }
-		String.metaClass.isNumeric = {
-			return delegate.toLowerCase() ==~ /[abcdef012346789]+/
+		String.metaClass.isHexadecimal = {
+			delegate.toLowerCase() ==~ /[abcdef012346789]+/
 		}
 	}
 
 	static registerListMethods(){
 		AbstractList.metaClass.allAreEqual = {
-			boolean areEqual = true
-			for (e in delegate){
-				areEqual &= e == delegate[0]
-			}
-			return areEqual
+			def a = delegate[0]
+			delegate.every(a.&equals)
 		}
 		AbstractList.metaClass.randomItem = { Random random = listRandom ->
-			return delegate[random.nextInt(delegate.size())]
+			delegate[random.nextInt(delegate.size())]
 		}
 	}
 }

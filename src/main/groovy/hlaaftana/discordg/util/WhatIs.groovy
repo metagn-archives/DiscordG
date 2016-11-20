@@ -1,6 +1,7 @@
 package hlaaftana.discordg.util
 
 class WhatIs {
+	boolean guessed
 	def value
 	def returnedValue
 
@@ -16,7 +17,8 @@ class WhatIs {
 	}
 
 	def when(match, Closure d){
-		if (value.isCase(match) || value in match){
+		if (match.isCase(value)){
+			guessed = true
 			Closure wt = d.clone()
 			wt.delegate = this
 			wt.resolveStrategy = Closure.DELEGATE_FIRST
@@ -25,7 +27,8 @@ class WhatIs {
 	}
 
 	def when(match, val){
-		if (value.isCase(match) || value in match){
+		if (match.isCase(value)){
+			guessed = true
 			returnedValue = val
 		}
 	}
@@ -34,5 +37,18 @@ class WhatIs {
 		a.each { k, v ->
 			when(k, v)
 		}
+	}
+
+	def otherwise(Closure c){
+		if (!guessed){
+			Closure a = c.clone()
+			a.delegate = this
+			a.resolveStrategy = Closure.DELEGATE_FIRST
+			returnedValue = a()
+		}
+	}
+
+	def otherwise(val){
+		if (!guessed) returnedValue = val
 	}
 }

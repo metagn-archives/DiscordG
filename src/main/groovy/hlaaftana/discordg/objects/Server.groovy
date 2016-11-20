@@ -1,12 +1,14 @@
 package hlaaftana.discordg.objects
 
-import hlaaftana.discordg.Client;
+import hlaaftana.discordg.Client
 import hlaaftana.discordg.util.*
 import java.awt.Color
+import java.util.List;
 import java.util.concurrent.Callable
 
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import groovy.transform.Memoized
+import groovy.transform.InheritConstructors
 
 /**
  * A Discord server/guild.
@@ -51,15 +53,16 @@ class Server extends DiscordObject {
 	String editNick(String newNick){ changeNick(newNick) }
 	String resetNick(){ changeNick("") }
 
-	TextChannel getDefaultChannel(){ textChannels.find { it.id == id } }
-	VoiceChannel getAfkChannel(){ voiceChannels.find { it.id == object["afk_channel_id"] } }
-	int getAfkTimeout(){ object["afk_timeout"] }
-	Channel getWidgetChannel(){ channels.find { it.id == object["embed_channel_id"] } }
-	boolean isWidgetEnabled(){ object["embed_enabled"] }
-	boolean isLarge(){ object["large"] as boolean }
-	boolean isUnavailable(){ object["unavailable"] as boolean }
-	VerificationLevels getVerificationLevel(){ VerificationLevels.get(object["verification_level"]) }
-	int getRawVerificationLevel(){ object["verification_level"] }
+	Channel getDefaultChannel(){ channel(id) }
+	Channel getAfkChannel(){ channel(object.afk_channel_id) }
+	int getAfkTimeout(){ object.afk_timeout }
+	Channel getWidgetChannel(){ channel(object.embed_channel_id) }
+	boolean isWidgetEnabled(){ object.embed_enabled }
+	boolean isLarge(){ object.large }
+	boolean isUnavailable(){ object.unavailable }
+	int getVerificationLevel(){ object.verification_level }
+	int getMfaLevel(){ object.mfa_level }
+	boolean isMfaRequiredForStaff(){ mfaLevel == MFALevelTypes.ELEVATED }
 
 	Role getDefaultRole(){ roles.find { it.id == id } }
 
@@ -76,7 +79,7 @@ class Server extends DiscordObject {
 			}
 		}
 		copyOfData = copyOfCopyOfData
-		new Server(client, object << requester.jsonPatch("guilds/${id}", copyOfData))
+		new Server(client, object << requester.jsonPatch("", copyOfData))
 	}
 
 	void leave() {
@@ -87,60 +90,39 @@ class Server extends DiscordObject {
 		requester.delete("")
 	}
 
-	TextChannel createTextChannel(String name) {
-		new TextChannel(client, requester.jsonPost("channels", ["name": name, "type": "text"]))
+	Channel createTextChannel(String name) {
+		new Channel(client, requester.jsonPost("channels", [name: name, type: 0]))
 	}
 
-	VoiceChannel createVoiceChannel(String name) {
-		new VoiceChannel(client, requester.jsonPost("channels", ["name": name, "type": "voice"]))
+	Channel createVoiceChannel(String name) {
+		new Channel(client, requester.jsonPost("channels", [name: name, type: 2]))
 	}
 
-	List<TextChannel> requestTextChannels(){
-		List array = requester.jsonGet("channels")
-		List<TextChannel> channels = []
-		for (o in array){
-			if (o["type"] == "text") channels.add(new TextChannel(client, o))
-		}
-		channels
+	List<Channel> requestTextChannels(){
+		requestChannels().findAll { it.text }
 	}
 
-	List<VoiceChannel> requestVoiceChannels(){
-		List array = requester.jsonGet("channels")
-		List<VoiceChannel> channels = []
-		for (o in array){
-			if (o["type"] == "voice") channels.add(new VoiceChannel(client, o))
-		}
-		channels
+	List<Channel> requestVoiceChannels(){
+		requestChannels().findAll { it.voice }
 	}
 
-	TextChannel requestTextChannelById(id){
-		new TextChannel(client, requester.jsonGet("channels/${DiscordObject.id(id)}"))
-	}
-
-	VoiceChannel requestVoiceChannelById(id){
-		new VoiceChannel(client, requester.jsonGet("channels/${DiscordObject.id(id)}"))
+	Channel requestChannel(id){
+		new Channel(client, requester.jsonGet("channels/${this.id(id)}"))
 	}
 
 	List<Channel> requestChannels(){
-		List array = requester.jsonGet("channels")
-		List<Channel> channels = []
-		for (o in array){
-			channels.add(new Channel(client, o))
-		}
-		channels
+		requester.jsonGet("channels").collect { new Channel(client, it) }
 	}
 
-	List<TextChannel> getTextChannels(){ channels.findAll { it.type == "text" }
-	}
-	Map<String, TextChannel> getTextChannelMap(){ channelMap.findAll { k, v -> v.type == "text" } }
+	List<Channel> getTextChannels(){ channels.findAll { it.text } }
+	Map<String, Channel> getTextChannelMap(){ channelMap.findAll { k, v -> v.text } }
 
-	List<VoiceChannel> getVoiceChannels(){ channels.findAll { it.type == "voice" }
-	}
-	Map<String, VoiceChannel> getVoiceChannelMap(){ channelMap.findAll { k, v -> v.type == "voice" } }
+	List<Channel> getVoiceChannels(){ channels.findAll { it.voice } }
+	Map<String, Channel> getVoiceChannelMap(){ channelMap.findAll { k, v -> v.voice } }
 
-	TextChannel textChannel(id){ find(textChannels, id) }
+	Channel textChannel(id){ find(textChannels, id) }
 
-	VoiceChannel voiceChannel(id){ find(voiceChannels, id) }
+	Channel voiceChannel(id){ find(voiceChannels, id) }
 
 	Channel channel(id){ find(channels, id) }
 
@@ -158,8 +140,7 @@ class Server extends DiscordObject {
 	Map<String, Member> getMemberMap(){ object["members"].map }
 
 	List<Presence> getPresences(){ object["presences"].list }
-	Map<String, Presence> getPresenceMap(){ object["presences"].map
-	}
+	Map<String, Presence> getPresenceMap(){ object["presences"].map }
 
 	Presence presence(ass){ find(presences, ass) }
 
@@ -260,6 +241,10 @@ class Server extends DiscordObject {
 		requester.jsonPatch("roles", hah).collect { new Role(client, it + [guild_id: id]) }
 	}
 
+	List<Webhook> requestWebhooks(){
+		requester.jsonGet("webhooks").collect { new Webhook(client, it) }
+	}
+
 	void batchModifyChannels(Closure closure){
 		closure.delegate = this
 		Thread ass = new Thread({
@@ -311,57 +296,266 @@ class Server extends DiscordObject {
 		g["presences"] = new DiscordListCache(g.presences.collect { it << [guild_id: g["id"]] << it["user"] }, client, Presence)
 		g["emojis"] = new DiscordListCache(g.emojis.collect { it << [guild_id: g["id"]] }, client, Emoji)
 		g["roles"] = new DiscordListCache(g.roles.collect { it << [guild_id: g["id"]] }, client, Role)
-		g["channels"] = new ChannelListCache(g.channels.collect { Channel.construct(client, it, g["id"]) }, client)
+		g["channels"] = new DiscordListCache(g.channels.collect { Channel.construct(client, it, g["id"]) }, client, Channel)
 		g["voice_states"] = new DiscordListCache(g.voice_states.collect { it << [guild_id: g["id"], id: it["user_id"]] }, client, VoiceState)
 		g
 	}
 
-	static class Embed extends APIMapObject {
+	static class Embed extends DiscordObject {
 		Embed(Client client, Map object){ super(client, object) }
 
+		String getId(){ object["channel_id"] }
+		String getName(){ channel.name }
 		boolean isEnabled(){ object["enabled"] }
-		Channel getChannel(){ client.channels.find { it.id == object["channel_id"] } }
+		Channel getChannel(){ client.channel(object["channel_id"]) }
 		Server getServer(){ channel.server }
 		Embed edit(Map data){
-			Map fullData = [channel_id: (data["channel"] instanceof Channel) ? data["channel"].id : data["channel"].toString() ?: channel.id, enabled: data["enabled"] ?: enabled]
-			new Embed(client, requester.jsonPatch("embed", fullData))
+			Map json = [channel_id: (data["channel"] instanceof Channel) ? data["channel"].id : data["channel"].toString() ?: channel.id, enabled: data["enabled"] ?: enabled]
+			new Embed(client, requester.jsonPatch("embed", json))
+		}
+	}
+}
+
+class VoiceState extends DiscordObject {
+	VoiceState(Client client, Map object){ super(client, object) }
+
+	Channel getChannel(){ client.channel(object["channel_id"]) }
+	Channel getVoiceChannel(){ client.channel(object["channel_id"]) }
+	User getUser(){ client.user(object["user_id"]) }
+	Server getServer(){ object["guild_id"] ? client.server(object["guild_id"]) : channel.server }
+	Channel getParent(){ channel }
+	Member getMember(){ server.member(user) }
+	boolean isDeaf(){ object["deaf"] }
+	boolean isMute(){ object["mute"] }
+	boolean isDeafened(){ object["deaf"] }
+	boolean isMuted(){ object["mute"] }
+	boolean isSelfDeaf(){ object["self_deaf"] }
+	boolean isSelfMute(){ object["self_mute"] }
+	boolean isSelfDeafened(){ object["self_deaf"] }
+	boolean isSelfMuted(){ object["self_mute"] }
+	boolean isSuppress(){ object["suppress"] }
+	String getToken(){ object["token"] }
+	String getSessionId(){ object["session_id"] }
+	String getName(){ user.name }
+}
+
+class Integration extends DiscordObject {
+	Integration(Client client, Map object){ super(client, object, "guilds/${client.role(object["role_id"]).object["guild_id"]}/integrations/$object.id") }
+
+	int getSubscriberCount(){ object["subscriber_count"] }
+	boolean isSyncing(){ object["syncing"] }
+	boolean isEnableEmoticons(){ object["enable_emoticons"] }
+	int getExpireBehaviour(){ object["expire_behaviour"] }
+	int getExpireGracePeriod(){ object["expire_grace_period"] }
+	User getUser(){ new User(client, object["user"]) }
+	DiscordObject getAccount(){ new DiscordObject(client, object["account"]) }
+	boolean isEnabled(){ object["enabled"] }
+	Role getRole(){ client.role(object["role_id"]) }
+	Server getServer(){ role.server }
+	String getRawSyncTime(){ object["synced_at"] }
+	Date getSyncTime(){ ConversionUtil.fromJsonDate(object["synced_at"]) }
+	String getType(){ object["type"] }
+	Integration edit(Map data){
+		new Integration(client, requester.jsonPatch("", data))
+	}
+	void delete(){
+		requester.delete("")
+	}
+	void sync(){
+		requester.post("sync")
+	}
+}
+
+@InheritConstructors
+class Emoji extends DiscordObject {
+	Server getServer(){ client.server(object["guild_id"]) }
+	Server getParent(){ server }
+	List<Role> getRoles(){ server.roles.findAll { it.id in object["roles"] } }
+	boolean requiresColons(){ object["require_colons"] }
+	boolean requireColons(){ object["require_colons"] }
+	boolean isRequiresColons(){ object["require_colons"] }
+	boolean isRequireColons(){ object["require_colons"] }
+	boolean isManaged(){ object["managed"] }
+	String getUrl(){ "https://cdn.discordapp.com/emojis/${id}.png" }
+}
+
+@InheritConstructors
+class Role extends DiscordObject{
+	static final Color DEFAULT = new Color(0)
+	static final Color AQUA = new Color(0x1ABC9C)
+	static final Color DARK_AQUA = new Color(0x11806a)
+	static final Color GREEN = new Color(0x2ECC71)
+	static final Color DARK_GREEN = new Color(0x1F8B4C)
+	static final Color BLUE = new Color(0x3498DB)
+	static final Color DARK_BLUE = new Color(0x206694)
+	static final Color PURPLE = new Color(0x9B59B6)
+	static final Color DARK_PURPLE = new Color(0x71368A)
+	static final Color MAGENTA = new Color(0xE91E63)
+	static final Color DARK_MAGENTA = new Color(0xAD1457)
+	static final Color GOLD = new Color(0xF1C40F)
+	static final Color DARK_GOLD = new Color(0xC27C0E)
+	static final Color ORANGE = new Color(0xE67E22)
+	static final Color DARK_ORANGE = new Color(0xA84300)
+	static final Color RED = new Color(0xE74C3C)
+	static final Color DARK_RED = new Color(0x992D22)
+	static final Color LIGHT_GRAY = new Color(0x95A5A6)
+	static final Color GRAY = new Color(0x607D8B)
+	static final Color LIGHT_BLUE_GRAY = new Color(0x979C9F)
+	static final Color BLUE_GRAY = new Color(0x546E7A)
+	static final Color LIGHT_GREY = new Color(0x95A5A6)
+	static final Color GREY = new Color(0x607D8B)
+	static final Color LIGHT_BLUE_GREY = new Color(0x979C9F)
+	static final Color BLUE_GREY = new Color(0x546E7A)
+	static final MENTION_REGEX = { String id = /\d+/ -> /<@&$id>/ }
+
+	int getColorValue(){ object["color"] }
+	Color getColor(){ new Color(object["color"]) }
+	boolean isLocked(){ isLockedFor(server.me) }
+	boolean isLockedFor(user){
+		position >= server.member(user).primaryRole.position
+	}
+	boolean isHoist(){ object["hoist"] }
+	boolean isManaged(){ object["managed"] }
+	boolean isMentionable(){ object["mentionable"] }
+	Permissions getPermissions(){ new Permissions(object["permissions"]) }
+	int getPermissionValue(){ object["permissions"] }
+	int getPosition(){ object["position"] }
+
+	Server getServer(){ client.server(object["guild_id"]) }
+	Server getParent(){ server }
+
+	String getMention(){ "<@&${id}>" }
+	String getMentionRegex(){ MENTION_REGEX(id) }
+
+	List<Member> getMembers(){ server.members.findAll { id in it.object.roles } }
+	boolean isUsed(){ server.members*.object*.roles.flatten().contains(id) }
+	Role edit(Map data){ server.editRole(this, data) }
+	void delete(){ server.deleteRole(this) }
+	void addTo(Member user){ server.addRole(user, this) }
+	void addTo(List<Member> users){ users.each { server.addRole(it, this) } }
+}
+
+class Member extends User {
+	Member(Client client, Map object){
+		super(client, object + object["user"], "/guilds/${object["guild_id"]}/members/${object == client ? "@me" : object["id"]}")
+	}
+
+	User getUser(){ new User(client, object["user"]) }
+	String getNick(){ object["nick"] ?: name }
+	String getRawNick(){ object["nick"] }
+	Server getServer(){ client.server(object["guild_id"]) }
+	Server getParent(){ server }
+	String getRawJoinDate(){ object["joined_at"] }
+	Date getJoinDate(){ ConversionUtil.fromJsonDate(rawJoinDate) }
+	List<Role> getRoles(){
+		object["roles"].collect { server.role(it) }
+	}
+
+	Role role(ass){ find(roles, ass) }
+
+	Game getGame(){
+		presence?.game ?: null
+	}
+
+	Presence getPresence(){
+		server.presenceMap[id]
+	}
+
+	void edit(Map data){
+		client.askPool("editMembers", server.id){
+			requester.patch("", data)
 		}
 	}
 
-	static class VoiceState extends DiscordObject {
-		VoiceState(Client client, Map object){ super(client, object) }
+	void changeNick(String newNick){
+		id == client.cache["user"]["id"] ? server.nick(newNick) : edit(nick: newNick)
+	}
+	void nick(String newNick){ changeNick(newNick) }
+	void editNick(String newNick){ changeNick(newNick) }
+	void resetNick(){ changeNick("") }
 
-		VoiceChannel getChannel(){ client.voiceChannel(object["channel_id"]) }
-		VoiceChannel getVoiceChannel(){ client.voiceChannel(object["channel_id"]) }
-		User getUser(){ client.user(object["user_id"]) }
-		Server getServer(){ object["guild_id"] ? client.server(object["guild_id"]) : channel.server }
-		VoiceChannel getParent(){ channel }
-		Member getMember(){ server.member(user) }
-		boolean isDeaf(){ object["deaf"] }
-		boolean isMute(){ object["mute"] }
-		boolean isDeafened(){ object["deaf"] }
-		boolean isMuted(){ object["mute"] }
-		boolean isSelfDeaf(){ object["self_deaf"] }
-		boolean isSelfMute(){ object["self_mute"] }
-		boolean isSelfDeafened(){ object["self_deaf"] }
-		boolean isSelfMuted(){ object["self_mute"] }
-		boolean isSuppress(){ object["suppress"] }
-		String getToken(){ object["token"] }
-		String getSessionId(){ object["session_id"] }
-		String getName(){ user.name }
+	void mute(){ edit(mute: true) }
+	void unmute(){ edit(mute: false) }
+	void deafen(){ edit(deaf: true) }
+	void undeafen(){ edit(deaf: false) }
+	void ban(int days = 0){ server.ban this, days }
+	void unban(){ server.unban this }
+	boolean isMute(){ object["mute"] }
+	boolean isDeaf(){ object["deaf"] }
+	boolean isDeafened(){ object["deaf"] }
+
+	String getStatus(){
+		presence?.status ?: "offline"
 	}
 
-	static enum VerificationLevels {
-		NONE(0),
-		LOW(1),
-		MEDIUM(2),
-		HIGH(3),
-		TABLEFLIP(3),
-
-		int level
-		VerificationLevels(int level){ this.level = level }
-
-		@Memoized
-		static VerificationLevels get(int level){ VerificationLevels.class.enumConstants.find { it.level == level } }
+	Role getPrimaryRole(){ roles.max { it.position } }
+	int getColorValue(){ roles.findAll { it.colorValue != 0 }.max { it.position }?.colorValue ?: 0 }
+	Color getColor(){ new Color(colorValue) }
+	Permissions getPermissions(Permissions initialPerms = Permissions.ALL_FALSE){
+		Permissions full = initialPerms + server.defaultRole.permissions
+		for (Permissions perms in roles*.permissions){
+			if (perms["administrator"]){
+				full += Permissions.ALL_TRUE
+				break
+			}else{
+				full += perms
+			}
+		}
+		full
 	}
+
+	Permissions fullPermissionsFor(Channel channel){
+		permissionsFor(channel, permissions)
+	}
+
+	void editRoles(List<Role> roles) {
+		server.editRoles(this, roles)
+	}
+
+	void addRoles(List<Role> roles) {
+		server.addRoles(this, roles)
+	}
+
+	void addRole(Role role){ addRoles([role]) }
+
+	void kick() {
+		server.kick(this)
+	}
+
+	void moveTo(channel){
+		requester.patch("", [channel_id: id(channel)])
+	}
+
+	User toUser(){ new User(client, object["user"]) }
+	def asType(Class target){
+		if (target == User) toUser()
+		else super.asType(target)
+	}
+	String toString(){ nick }
+}
+
+@InheritConstructors
+class Region extends DiscordObject {
+	String getSampleHostname(){ object["sample_hostname"] }
+	int getSamplePort(){ object["sample_port"] }
+	boolean isVip(){ object["vip"] }
+	boolean isOptimal(){ object["optimal"] }
+}
+
+@InheritConstructors
+class Presence extends DiscordObject {
+	Game getGame(){ object["game"] ? new Game(client, object["game"]) : null }
+	String getStatus(){ object["status"] }
+	Server getServer(){ client.serverMap[object["guild_id"]] }
+	Server getParent(){ server }
+	Member getMember(){ server ? server.memberMap[id] : client.members(id)[0] }
+	String getName(){ member.name }
+}
+
+@InheritConstructors
+class Game extends DiscordObject {
+	String getId(){ object["type"].toString() ?: "0" }
+	int getType(){ object["type"] ?: 0 }
+	String getUrl(){ object["url"] }
+	String toString(){ type == 0 ? name : "$name ($url)" }
 }

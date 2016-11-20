@@ -13,6 +13,7 @@ class Log {
 
 		Level enable(){ enabled = true; this }
 		Level disable(){ enabled = false; this }
+		boolean equals(Level other){ name == other.name }
 	}
 
 	static class Message {
@@ -67,13 +68,25 @@ class Log {
 		listeners.each { it message }
 	}
 
-	def propertyMissing(String name){
+	def level(String name){
 		Level ass = levels.find("name", name)
 		if (!ass){
 			ass = new Level(name: name)
 			levels.add ass
 		}
 		ass
+	}
+
+	def level(Level level){
+		if (level in levels) level
+		else {
+			levels.add level
+			level
+		}
+	}
+
+	def propertyMissing(String name){
+		level(name)
 	}
 
 	def methodMissing(String name, args){

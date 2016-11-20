@@ -13,7 +13,7 @@ class Invite extends DiscordObject {
 	String getId(){ object["code"] }
 	String getUrl(){ "https://discord.gg/${id}" }
 	Server getServer(){
-		client.getServerById(object["guild"]["id"])
+		client.server(object["guild"]["id"])
 	}
 	DiscordObject getBaseServer(){ new DiscordObject(client, object["guild"]) }
 	boolean isRevoked(){ object["revoked"] }
@@ -28,6 +28,7 @@ class Invite extends DiscordObject {
 	String toString(){ url }
 
 	static String parseId(String url){
-		url.replaceFirst("https://", "").replaceFirst("http://", "").replaceFirst("discord.gg/", "").replaceFirst("discordapp.com/invite/", "")
+		url.startsWith("http:") || url.startsWith("https:") ?
+			new URL(url).file.replaceAll(/\/(?:.+?\/)*/, '') : url
 	}
 }

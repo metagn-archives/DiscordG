@@ -1,35 +1,49 @@
 package hlaaftana.discordg
 
 import groovy.lang.Closure;
-import hlaaftana.discordg.conn.VoiceWSClient
+import hlaaftana.discordg.net.VoiceWSClient
 import hlaaftana.discordg.objects.*
-import hlaaftana.discordg.util.AudioUtil
+//import hlaaftana.discordg.util.AudioUtil
 import hlaaftana.discordg.util.Log
 
 class VoiceClient extends DiscordObject {
 	String endpoint
 	String getEndpoint(){ fixEndpoint(this.@endpoint) }
-	Log log
+	int port
+	long heartbeatInterval
 	int ssrc
+	List<Long> pingIntervals = []
 	boolean voiceStateUpdated
 	boolean voiceServerUpdated
-	VoiceWSClient wsClient
+	VoiceWSClient ws
+	String encryptionMode = "xsalsa20_poly1305"
+	@Delegate(excludes = ["parseEvent", "listenerError"])
 	ParentListenerSystem listenerSystem = new ParentListenerSystem(this)
 
-	VoiceClient(Map opts = [:], Client client, VoiceChannel channel){
+	String logName = client.logName + "Voice($id)"
+	Log log
+
+	VoiceClient(Map opts = [:], Client client, Channel channel){
 		super(client, [
-			id: channel.server.id,
-			name: channel.server.name,
-			guild_id: channel.server.id,
+			id: channel.server?.id ?: channel.id,
+			name: channel.server?.name ?: channel.name,
+			guild_id: channel.server?.id,
 			channel_id: channel.id,
 			self_mute: opts.mute as boolean,
 			self_deaf: opts.deaf as boolean
 		])
-		log = new Log(client.log)
-		log.name += "Voice-Server($id)"
+		opts.each { k, v ->
+			try {
+				this[k] = v
+			}catch (MissingPropertyException ex){}
+		}
+		if (!log){
+			log = new Log(client.log)
+			log.name = logName
+		}
 	}
 
-	VoiceClient(Client client, VoiceChannel channel, Map opts){
+	VoiceClient(Client client, Channel channel, Map opts){
 		this(opts, client, channel)
 	}
 
@@ -41,7 +55,7 @@ class VoiceClient extends DiscordObject {
 	}
 
 	Server getServer(){ client.server(object["guild_id"]) }
-	VoiceChannel getChannel(){ client.voiceChannel(object["channel_id"]) }
+	Channel getChannel(){ client.channel(object["channel_id"]) }
 
 	boolean isMuted(){
 		object["self_mute"] as boolean
@@ -66,12 +80,21 @@ class VoiceClient extends DiscordObject {
 	}
 
 	VoiceClient connect(){
-		client.wsClient.send op: 4, d: object
+		client.ws.send op: 4, d: object
 		this
 	}
 
+	VoiceClient move(channel){
+		object.channel_id = id(channel)
+		update()
+	}
+
+	VoiceClient disconnect(){
+		move(null)
+	}
+
 	VoiceClient update(){
-		if (wsClient?.session) client.wsClient.send op: 4, d: object
+		if (ws?.session) client.ws.send op: 4, d: object
 		this
 	}
 
@@ -115,38 +138,27 @@ class VoiceClient extends DiscordObject {
 		ex.printStackTrace()
 		log.info "Ignoring exception from event $event"
 	}
-
-	def addListener(event, boolean temporary = false, Closure closure) {
-		listenerSystem.addListener(event, temporary, closure)
-	}
-
-	def removeListener(event, Closure closure) {
-		listenerSystem.removeListener(event, closure)
-	}
-
-	def removeListenersFor(event){
-		listenerSystem.removeListenersFor(event)
-	}
-
-	def removeAllListeners(){
-		listenerSystem.removeAllListeners()
-	}
-
-	def dispatchEvent(type, data){
-		listenerSystem.dispatchEvent(type, data)
-	}
 }
 
 enum VoiceEvents {
 	READY(2),
 	PING(3),
 	CONNECT(4),
-	SPEAKING(5)
+	SPEAKING(5),
+	CLOSE(-1),
+	UNKNOWN(-100)
 
 	int op
 	VoiceEvents(int op){ this.op = op }
 
-	static VoiceEvents get(op){ op instanceof VoiceEvents ? op :
-		op instanceof String ? VoiceEvents.values().find { it.name() == op.trim().toUpperCase() }
-		: VoiceEvents.values().find { it.op == op } }
+	static VoiceEvents get(op){
+		{ ->
+			if (op instanceof VoiceEvents) op
+			else if (op instanceof String){
+				op = op.trim()
+				if (op ==~ /\d+/) VoiceEvents.values().find { it.op == op.toInteger() }
+				else VoiceEvents.values().find { it.name() == op }
+			}else VoiceEvents.values().find { it.op == op.toInteger() }
+		}() ?: UNKNOWN
+	}
 }

@@ -1,10 +1,9 @@
 package hlaaftana.discordg.objects
 
-import java.io.File;
-import java.io.InputStream;
-import java.util.List
+import java.util.List;
 
-import hlaaftana.discordg.Client;
+import groovy.transform.InheritConstructors
+import hlaaftana.discordg.Client
 import hlaaftana.discordg.exceptions.MessageInvalidException
 import hlaaftana.discordg.util.*
 
@@ -12,15 +11,15 @@ import hlaaftana.discordg.util.*
  * A Discord message.
  * @author Hlaaftana
  */
-class Message extends DiscordObject{
+class Message extends DiscordObject {
 	// this is discord's url pattern (with a little fiddling)
 	static String urlPattern = /https?:\/\/[^\s<]+[^<"{|^~`\[\s]/
 
 	Message(Client client, Map object){
-		super(client, object, "channels/${object["channel_id"]}/messages/${object["id"]}")
+		super(client, object, "channels/${object["channel_id"]}/messages/$object.id")
 	}
 
-	String getName(){ getContent() }
+	String getName(){ content }
 	def getNonce(){ object["nonce"] }
 	String getContent(){ object["content"] }
 	String getRawEditTime(){ object["edited_timestamp"] }
@@ -28,11 +27,19 @@ class Message extends DiscordObject{
 	String getRawTimestamp(){ object["timestamp"] }
 	Date getTimestamp(){ ConversionUtil.fromJsonDate rawTimestamp }
 	boolean isTts(){ object["tts"] }
+	int getType(){ object["type"] }
 	boolean isMentionsEveryone(){ object["mention_everyone"] }
-	boolean isPrivate(){ !server }
+	boolean isPrivate(){ client.cache["private_channels"][object["channel_id"]] }
+	boolean isDm(){ channel.dm }
+	boolean isGroup(){ channel.group }
+
 	Attachment getAttachment(){ attachments[0] }
-	List<Attachment> getAttachments(){ object["attachments"].collect { new Attachment(client, it) } }
-	List<Embed> getEmbeds() { object["embeds"].collect { new Embed(client, it) } }
+	List<Attachment> getAttachments(){
+		object["attachments"].collect { new Attachment(client, it + [message_id: id]) }
+	}
+	List<Embed> getEmbeds(){
+		object["embeds"].collect { new Embed(client, it + [message_id: id]) }
+	}
 
 	List<String> getUrls(){
 		(content =~ urlPattern).collect()
@@ -56,15 +63,26 @@ class Message extends DiscordObject{
 		if (ass && member) ass
 		else new User(client, object)
 	}
-	Server getServer() { textChannel.server }
-	TextChannel getParent(){ channel }
-	TextChannel getTextChannel() { client.textChannel(object["channel_id"]) }
-	TextChannel getChannel() { textChannel }
+	Server getServer() { channel?.server }
+	Channel getParent(){ channel }
+	Channel getChannel() { client.channel(object.channel_id) }
 
 	List<User> getMentions(boolean member = false){ object["mentions"].collect { resolveMember(it, member) } }
 	List mentions(boolean member = false){ getMentions(member) }
 	List<Role> getMentionedRoles(){ object["mention_roles"].collect { server.roleMap[it] } }
 	List<Role> getRoleMentions(){ mentionedRoles }
+
+	List<String> getMentionedChannelIds(){ channelIdMentions }
+	List<String> getChannelMentionIds(){ channelIdMentions }
+	List<String> getChannelIdMentions(){
+		(content =~ /<#(\d+)>/).collect { full, id -> id }
+	}
+
+	List<Channel> getMentionedChannels(){ channelMentions }
+	List<Channel> getChannelMentions(){
+		def s = server
+		channelIdMentions.collect { s.channel(it) } - null
+	}
 
 	boolean isMentioned(thing = client.user){
 		id(thing) in mentions.collect(this.&id) ||
@@ -75,6 +93,22 @@ class Message extends DiscordObject{
 	boolean isPinned(){ object["pinned"] }
 	def pin(){ channel.pin this }
 	def unpin(){ channel.unpin this }
+
+	List<Reaction> getReactions(){ object.reactions.collect { new Reaction(client, it) } }
+
+	void react(emoji){
+		channel.react(this, emoji)
+	}
+
+	void unreact(emoji, user = "@me"){
+		channel.unreact(this, emoji, user)
+	}
+
+	List<Reaction> requestReactions(){ channel.requestMessage(this).reactions }
+
+	List<User> requestReactors(emoji, int limit = 100){
+		channel.requestReactors(this, emoji, limit)
+	}
 
 	Message edit(String newContent) {
 		edit(content: newContent)
@@ -93,20 +127,79 @@ class Message extends DiscordObject{
 	void deleteIf(Closure closure){ if (closure(this)){ delete() } }
 	Message editIf(String newContent, Closure closure){ if (closure(this)){ edit(newContent) } }
 
-	String toString(){ author.name + ": " + content }
+	String toString(){ "$author.name: $content" }
+}
 
-	static class Attachment extends DiscordObject {
-		Attachment(Client client, Map object){ super(client, object) }
+@InheritConstructors
+class Attachment extends DiscordObject {
+	String getMessageId(){ object["message_id"] }
+	String getName(){ object["filename"] }
+	String getFilename(){ object["filename"] }
+	String getFileName(){ object["filename"] }
+	int getSize(){ object["size"] }
+	boolean isImage(){ object["width"] && object["height"] }
+	int getWidth(){ object["width"] }
+	int getHeight(){ object["height"] }
+	String getProxyUrl(){ object["proxy_url"] }
+	String getUrl(){ object["url"] }
+	InputStream getInputStream(){
+		url.toURL().openConnection().with {
+			setRequestProperty("User-Agent", client.fullUserAgent)
+			setRequestProperty("Accept", "*/*")
+			delegate
+		}.inputStream
+	}
+	File download(File file){
+		file.withOutputStream { out ->
+			out << inputStream
+			new File(file.path)
+		}
+	}
+}
 
-		String getName(){ object["filename"] }
-		String getFilename(){ object["filename"] }
-		String getFileName(){ object["filename"] }
-		int getSize(){ object["size"] }
-		boolean isImage(){ object["width"] && object["height"] }
-		int getWidth(){ object["width"] }
-		int getHeight(){ object["height"] }
+@InheritConstructors
+class Embed extends DiscordObject {
+	String getMessageId(){ object["message_id"] }
+	String getId(){ messageId }
+	String getName(){ object["title"] }
+	String getTitle(){ object["title"] }
+	String getType(){ object["type"] }
+	String getDescription(){ object["description"] }
+	String getUrl(){ object["url"] }
+	int getColor(){ object["color"] }
+	String getTimestamp(){ object["timestamp"] }
+
+	Image getThumbnail(){ object.thumbnail ? new Image(client, object.thumbnail) : null }
+	Provider getProvider(){ object.provider ? new Provider(client, object.provider) : null }
+	Video getVideo(){ object.video ? new Video(client, object.video) : null }
+	Image getImage(){ object.image ? new Image(client, object.image) : null }
+	Footer getFooter(){ object.footer ? new Footer(client, object.footer) : null }
+	Author getAuthor(){ object.author ? new Author(client, object.author) : null }
+	List<Field> getFields(){ object.fields ? object.fields.collect { new Field(client, it) } : null }
+
+	InputStream getInputStream(){
+		url.toURL().openConnection().with {
+			setRequestProperty("User-Agent", client.fullUserAgent)
+			setRequestProperty("Accept", "*/*")
+			delegate
+		}.inputStream
+	}
+
+	File download(File file){
+		file.withOutputStream { out ->
+			out << inputStream
+			new File(file.path)
+		}
+	}
+
+	@InheritConstructors
+	static class Image extends DiscordObject {
+		String getName(){ url }
 		String getProxyUrl(){ object["proxy_url"] }
 		String getUrl(){ object["url"] }
+		int getWidth(){ object["width"] }
+		int getHeight(){ object["height"] }
+
 		InputStream getInputStream(){
 			url.toURL().openConnection().with {
 				setRequestProperty("User-Agent", client.fullUserAgent)
@@ -114,6 +207,7 @@ class Message extends DiscordObject{
 				delegate
 			}.inputStream
 		}
+
 		File download(File file){
 			file.withOutputStream { out ->
 				out << inputStream
@@ -122,17 +216,11 @@ class Message extends DiscordObject{
 		}
 	}
 
-	static class Embed extends DiscordObject {
-		Embed(Client client, Map object){ super(client, object) }
-
-		String getName(){ object["title"] }
-		String getTitle(){ object["title"] }
-		String getType(){ object["type"] }
-		String getDescription(){ object["description"] }
+	@InheritConstructors
+	static class Provider extends DiscordObject {
+		String getName(){ url }
 		String getUrl(){ object["url"] }
-		Thumbnail getThumbnail(){ new Thumbnail(client, object["thumbnail"]) }
-		boolean isImage(){ thumbnail.image }
-		Provider getProvider(){ new Provider(client, object["provider"]) }
+
 		InputStream getInputStream(){
 			url.toURL().openConnection().with {
 				setRequestProperty("User-Agent", client.fullUserAgent)
@@ -140,53 +228,97 @@ class Message extends DiscordObject{
 				delegate
 			}.inputStream
 		}
+
 		File download(File file){
 			file.withOutputStream { out ->
 				out << inputStream
 				new File(file.path)
 			}
 		}
+	}
 
-		static class Thumbnail extends APIMapObject {
-			Thumbnail(Client client, Map object){ super(client, object) }
+	@InheritConstructors
+	static class Video extends DiscordObject {
+		String getName(){ url }
+		String getUrl(){ object["url"] }
+		int getWidth(){ object["width"] }
+		int getHeight(){ object["height"] }
 
-			String getProxyUrl(){ object["proxy_url"] }
-			String getUrl(){ object["url"] }
-			boolean isImage(){ object["width"] && object["height"] }
-			int getWidth(){ object["width"] }
-			int getHeight(){ object["height"] }
-			InputStream getInputStream(){
-				url.toURL().openConnection().with {
-					setRequestProperty("User-Agent", client.fullUserAgent)
-					setRequestProperty("Accept", "*/*")
-					delegate
-				}.inputStream
-			}
-			File download(File file){
-				file.withOutputStream { out ->
-					out << inputStream
-					new File(file.path)
-				}
-			}
+		InputStream getInputStream(){
+			url.toURL().openConnection().with {
+				setRequestProperty("User-Agent", client.fullUserAgent)
+				setRequestProperty("Accept", "*/*")
+				delegate
+			}.inputStream
 		}
 
-		static class Provider extends APIMapObject {
-			Provider(Client client, Map object){ super(client, object) }
-
-			String getUrl(){ object["url"] }
-			InputStream getInputStream(){
-				url.toURL().openConnection().with {
-					setRequestProperty("User-Agent", client.fullUserAgent)
-					setRequestProperty("Accept", "*/*")
-					delegate
-				}.inputStream
-			}
-			File download(File file){
-				file.withOutputStream { out ->
-					out << inputStream
-					new File(file.path)
-				}
+		File download(File file){
+			file.withOutputStream { out ->
+				out << inputStream
+				new File(file.path)
 			}
 		}
- 	}
+	}
+
+	@InheritConstructors
+	static class Author extends DiscordObject {
+		String getName(){ object["name"] }
+		String getIconUrl(){ object["icon_url"] }
+		String getProxyIconUrl(){ object["proxy_icon_url"] }
+
+		InputStream getInputStream(){
+			iconUrl.toURL().openConnection().with {
+				setRequestProperty("User-Agent", client.fullUserAgent)
+				setRequestProperty("Accept", "*/*")
+				delegate
+			}.inputStream
+		}
+
+		File download(File file){
+			file.withOutputStream { out ->
+				out << inputStream
+				new File(file.path)
+			}
+		}
+	}
+
+	@InheritConstructors
+	static class Footer extends DiscordObject {
+		String getName(){ text }
+		String getText(){ object["text"] }
+		String getIconUrl(){ object["icon_url"] }
+		String getProxyIconUrl(){ object["proxy_icon_url"] }
+
+		InputStream getInputStream(){
+			iconUrl.toURL().openConnection().with {
+				setRequestProperty("User-Agent", client.fullUserAgent)
+				setRequestProperty("Accept", "*/*")
+				delegate
+			}.inputStream
+		}
+
+		File download(File file){
+			file.withOutputStream { out ->
+				out << inputStream
+				new File(file.path)
+			}
+		}
+	}
+
+	@InheritConstructors
+	static class Field extends DiscordObject {
+		String getName(){ object.name }
+		String getValue(){ object.value }
+		boolean isInline(){ object.inline }
+	}
+ }
+
+@InheritConstructors
+class Reaction extends DiscordObject {
+	String getId(){ object.emoji.id }
+	String getName(){ object.emoji.name }
+	int getCount(){ object.count }
+	String getUrl(){ "https://cdn.discordapp.com/emojis/${id}.png" }
+	boolean isCustom(){ name ==~ /\w+/ }
+	boolean isByMe(){ object.me }
 }

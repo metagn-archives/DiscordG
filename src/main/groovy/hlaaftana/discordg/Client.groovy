@@ -5,9 +5,10 @@ import com.mashape.unirest.http.*
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.lang.Closure
-import hlaaftana.discordg.conn.*
+import hlaaftana.discordg.net.*
 import hlaaftana.discordg.util.*
 import hlaaftana.discordg.objects.*
+import java.util.regex.Pattern
 
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest
@@ -25,12 +26,6 @@ class Client extends User {
 
 	String tokenPrefix
 	public String token
-	String getToken(){
-		tokenPrefix ? "$tokenPrefix ${this.@token}" : this.@token
-	}
-	void setToken(String newToken){
-		this.@token = newToken
-	}
 	String email
 	String getEmail(){
 		cache["user"]?.getOrDefault("email", this.@email)
@@ -48,31 +43,35 @@ class Client extends User {
 		else tokenPrefix = ""
 		ass
 	}
+
+	Map messageFilters = [
+		"@everyone": "@\u200beveryone",
+		"@here": "@\u200bhere"
+	] // if the key is a string, it calls .replace. if the key is a pattern, it calls .replaceAll
+	List<String> mutedChannels = []
 	String logName = "DiscordG"
 	Log log
-	// if you want to use global variables through the API object. mostly for utility
-	Map<String, Object> fields = [:]
-	ParentListenerSystem listenerSystem = new ParentListenerSystem(this)
-	int gatewayVersion = 5 // changing this is not recommended
+	int gatewayVersion = 6 // changing this is not recommended
 	boolean cacheTokens = true
 	String tokenCachePath = "token.json"
 	int eventThreadCount = 3 // if your bot is on tons of big servers, this might help however take up some CPU
 	int largeThreshold = 250 // if your bot is on tons of big servers, setting this to lower numbers might help your memory
 	boolean requestMembersOnReady = true
-	boolean copyReady = true // adds fullData to ready to archive the initial ready
+	boolean copyReady = true // adds json to ready to archive the initial ready
 	boolean retryOn502 = true // retries your request if you get a 5xx status code, lke the red messages you get in the regular client
 	boolean allowMemberRequesting = false // requests new member info on PRESENCE_UPDATE if it sees a new member. Turn this on if you don't have issues with dog
 	boolean enableListenerCrashes = true
 	def enableListenerCrashes(){ enableListenerCrashes = true }
 	def disableListenerCrashes(){ enableListenerCrashes = false }
-	boolean enableEventRegisteringCrashes = false
+	boolean enableEventRegisteringCrashes = true
 	def enableEventRegisteringCrashes(){ enableEventRegisteringCrashes = true }
 	def disableEventRegisteringCrashes(){ enableEventRegisteringCrashes = false }
 	long serverTimeout = 30_000
 	List includedEvents = []
 	List excludedEvents = [Events.TYPING]
 	Tuple2 shardTuple // tuple of shard id and shard count.
-	Map pools = [
+
+	Map<String, ActionPool> pools = [
 		sendMessages: newPool(5, 5_000),
 		deleteMessages: newPool(5, 1_000),
 		bulkDeleteMessages: newPool(1, 1_000),
@@ -83,9 +82,12 @@ class Client extends User {
 		login: newPool(1, 60_000),
 		connect: newPool(1, 30_000)
 	]
-
+	// if you want to use global variables through the API object. mostly for utility
+	Map<String, Object> fields = [:]
+	@Delegate(excludes = ["parseEvent", "listenerError", "toString"])
+	ParentListenerSystem listenerSystem = new ParentListenerSystem(this)
 	Requester requester
-	WSClient wsClient
+	WSClient ws
 	DynamicMap voiceClients = {
 		DynamicMap map = new DynamicMap()
 		map.keyConverter = DiscordObject.&id
@@ -135,17 +137,27 @@ class Client extends User {
 		addGuildEmojisUpdateListener()
 		addUserUpdateListener()
 		addGuildMemberChunkListener()
+		addGuildSyncListener()
 
 		if (requestMembersOnReady) requestMembersOnReady()
 	}
 
-	WSClient getWebSocketClient(){ wsClient }
+
+	String getToken(){
+		tokenPrefix ? "$tokenPrefix ${this.@token}" : this.@token
+	}
+
+	void setToken(String newToken){
+		this.@token = newToken
+	}
+
+	WSClient getWebSocketClient(){ ws }
 
 	Client startAnew(){
 		Client newApi = new Client()
 		def (sProps, tProps) = [this, newApi]*.properties*.keySet()
 		def commonProps = sProps.intersect(tProps) - ["class", "metaClass"]
-		commonProps.each { newApi[it] = !(it in ["requester", "wsClient", "client", "cache", "voiceData", "loaded"]) ? this[it] : null }
+		commonProps.each { newApi[it] = !(it in ["requester", "ws", "client", "cache", "voiceData", "loaded"]) ? this[it] : null }
 		newApi
 	}
 
@@ -162,7 +174,7 @@ class Client extends User {
 					token = JSONUtil.parse(tokenCache)[(email)]["token"]
 				}catch (ex){
 					JSONUtil.modify(tokenCache,
-						[(email): requestToken(email, password)])
+						[(email): [token: requestToken(email, password)]])
 					token = JSONUtil.parse(tokenCache)[(email)]["token"]
 				}
 			}
@@ -170,7 +182,7 @@ class Client extends User {
 			login(token, false, false)
 		}
 		if (threaded) Thread.start(a)
-		else  a()
+		else a()
 	}
 
 	void login(String token, boolean bot = true, boolean threaded=true){
@@ -192,30 +204,30 @@ class Client extends User {
 			}
 			Map original = JSONUtil.parse(tokenFile)
 			String originalToken
-			try{
-				originalToken = original["bots"][customBotName]["token"]
-			}catch (ex){
-				original["bots"] = [:]
-			}
-			if (originalToken == null){
-				String newToken = requestToken()
-				original["bots"][customBotName] = [token: newToken]
-				JSONUtil.dump(tokenFile, original)
-				token = newToken
-			}else{
+			if (!original.bots) original.bots = [:]
+			if (!original.bots[customBotName]) original.bots[customBotName] = [:]
+			if (original.bots[customBotName].token){
 				try{
-					token = originalToken
+					token = original.bots[customBotName].token
 				}catch (ex){
 					String newToken = requestToken()
-					original["bots"][customBotName] = [token: newToken]
 					JSONUtil.dump(tokenFile, original)
 					token = newToken
 				}
+			}else{
+				String newToken = requestToken()
+				original.bots[customBotName].token = newToken
+				JSONUtil.dump(tokenFile, original)
+				token = newToken
 			}
 			connectGateway(true, false)
 		}
 		if (threaded) Thread.start(a)
 		else a()
+	}
+
+	void login(boolean threaded = true){
+
 	}
 
 	void connectGateway(boolean requestGateway = true, boolean threaded = true){
@@ -227,11 +239,11 @@ class Client extends User {
 				gateway += "?encoding=json&v=$gatewayVersion"
 			}
 			WebSocketClient client = new WebSocketClient(new SslContextFactory())
-			if (!wsClient) wsClient = new WSClient(this)
+			if (!ws) ws = new WSClient(this)
 			log.info "Starting websocket connection..."
 			gatewayClosed = false
 			client.start()
-			client.connect(wsClient, new URI(gateway), new ClientUpgradeRequest())
+			client.connect(ws, new URI(gateway), new ClientUpgradeRequest())
 		}
 		askPool("connect"){
 			if (threaded) Thread.start(a)
@@ -242,18 +254,16 @@ class Client extends User {
 	void logout(boolean exit = false){
 		if (!bot) requester.post("auth/logout", ["token": token])
 		closeGateway(false)
-		wsClient = null
-		token = null
-		requester = null
+		ws = null
 		if (exit) System.exit(0)
 	}
 
 	void closeGateway(boolean threaded = true){
 		Closure a = {
 			gatewayClosed = true
-			if (wsClient){
-				wsClient.keepAliveThread?.interrupt()
-				wsClient.session?.close(1000, "Close")
+			if (ws){
+				ws.keepAliveThread?.interrupt()
+				ws.session?.close(1000, "Close")
 			}
 		}
 		if (threaded){ Thread.start(a) }
@@ -265,26 +275,6 @@ class Client extends User {
 	def listenerError(String event, Throwable ex, Closure closure, data){
 		if (enableListenerCrashes) ex.printStackTrace()
 		log.info "Ignoring exception from event $event"
-	}
-
-	def addListener(event, boolean temporary = false, Closure closure) {
-		listenerSystem.addListener(event, temporary, closure)
-	}
-
-	def removeListener(event, Closure closure) {
-		listenerSystem.removeListener(event, closure)
-	}
-
-	def removeListenersFor(event){
-		listenerSystem.removeListenersFor(event)
-	}
-
-	def removeAllListeners(){
-		listenerSystem.removeAllListeners()
-	}
-
-	def dispatchEvent(type, data){
-		listenerSystem.dispatchEvent(type, data)
 	}
 
 	Closure listener(event, boolean temporary = false, Closure closure){
@@ -299,18 +289,20 @@ class Client extends User {
 		addListener(event, temporary, ass)
 	}
 
-	def addField(String key, value){ fields[key] = value }
+	def propertyMissing(String name){
+		if (fields.containsKey(name)) fields[name]
+		else throw new MissingPropertyException(name, Client)
+	}
 
-	def setField(String key, value){ fields[key] = value }
-
-	def field(String key){ fields[key] }
-
-	def getField(String key){ fields[key] }
+	def propertyMissing(String name, value){
+		if (fields.containsKey(name)) fields[name] = value
+		else throw new MissingPropertyException(name, Client)
+	}
 
 	boolean isLoaded(){
 		this.@token &&
-			wsClient &&
-			wsClient.loaded &&
+			ws &&
+			ws.loaded &&
 			!cache.empty &&
 			(!client.bot || !servers.any { it.unavailable })
 	}
@@ -338,7 +330,7 @@ class Client extends User {
 			servers.collect(DiscordObject.&id).collate(25) :
 			[[id(servers)]]
 		guilds.each {
-			wsClient.send op: 12, d: it
+			ws.send op: 12, d: it
 			Thread.sleep 1000
 		}
 	}
@@ -348,7 +340,7 @@ class Client extends User {
 			servers.collect(DiscordObject.&id).collate(25) :
 			[id(servers)]
 		guilds.each {
-			wsClient.send op: 8, d: [
+			ws.send op: 8, d: [
 				guild_id: it,
 				query: query,
 				limit: limit
@@ -361,78 +353,54 @@ class Client extends User {
 		chunkMembersFor(servers, query, limit)
 	}
 
+	String filterMessage(cnt){
+		String a = cnt.toString()
+		messageFilters.each { k, v ->
+			if (k instanceof Pattern)
+				a = a.replaceAll(k.pattern(), v)
+			// above is for groovy closure support
+			else
+				a = a.replace(k.toString(), v)
+		}
+		a
+	}
+
+	String mute(t){
+		def d = t.class.array || t instanceof Collection ? t.collect { id(it) } : id(t)
+		mutedChannels += d
+	}
+
+	String mute(...t){ mute(t as List) }
+
 	String getSessionId(){ cache["session_id"] }
 
-	TextChannel createTextChannel(Server server, String name) {
-		server.createTextChannel(name)
-	}
-
-	VoiceChannel createVoiceChannel(Server server, String name) {
-		server.createVoiceChannel(name)
-	}
-
-	Channel editChannel(Channel channel, Map<String, Object> data) {
-		channel.edit(data)
-	}
-
-	void deleteChannel(Channel channel) {
-		channel.delete()
-	}
-
 	Server createServer(Map data) {
-		new Server(this, requester.jsonPost("guilds", ["name": data.name.toString(), "region": (data.region ?: optimalRegion).toString()]))
+		new Server(this, requester.jsonPost("guilds", [name: data.name.toString(),
+			region: (data.region ?: optimalRegion).toString()]))
 	}
 
-	Server editServer(Server server, Map data) {
-		server.edit(data)
-	}
+	List<Server> getServers() { cache["guilds"]?.list ?: [] }
+	Map<String, Server> getServerMap(){ cache["guilds"]?.map ?: [:] }
 
-	void leaveServer(Server server) {
-		server.leave()
-	}
-
-	Message sendMessage(TextChannel channel, String content, boolean tts=false) {
-		channel.sendMessage(content, tts)
-	}
-
-	Message editMessage(Message message, String newContent) {
-		message.edit(newContent)
-	}
-
-	void deleteMessage(Message message) {
-		message.delete()
-	}
-
-	// removed ack method because of discord dev request
-
-	List<Server> getServers() {
-		cache["guilds"]?.list ?: []
-	}
-
-	Map<String, Server> getServerMap(){
-		cache["guilds"]?.map ?: [:]
-	}
-
-	List<Server> requestServers(){
-		List array = requester.jsonGet("users/@me/guilds")
-		List<Server> servers = []
-		for (s in array){
-			def serverInReady = cache["guilds"][s.id]
-			servers.add(new Server(this, s << ["channels": serverInReady["channels"], "members": serverInReady["members"], "presences": serverInReady["presences"], "voice_states": serverInReady["voice_states"], "large": serverInReady["large"]]))
+	List<Server> requestServers(boolean checkCache = true){
+		requester.jsonGet("users/@me/guilds").collect {
+			Map object = it
+			if (checkCache && !it.unavailable){
+				def cached = cache["guilds"][it.id]
+				object.members = cached.members
+				object.channels = cached.channels
+				object.presences = cached.presences
+				object.voice_states = cached.voice_states
+				object.roles = cached.roles
+				object.emojis = cached.emojis
+				object.large = cached.large
+			}
+			new Server(this, object)
 		}
-		servers
 	}
 
-	List<PrivateChannel> requestPrivateChannels(){
-		requester.jsonGet("users/@me/channels").collect { new PrivateChannel(this, it + ["cached_messages": []]) }
-	}
-
-	List<TextChannel> getTextChannelsForServer(Server server) {
-		server.textChannels
-	}
-
-	List<VoiceChannel> getVoiceChannelsForServer(Server server) {
-		server.voiceChannels
+	List<Channel> requestPrivateChannels(){
+		requester.jsonGet("users/@me/channels").collect { new Channel(this, it) }
 	}
 
 	List<User> getAllUsers() {
@@ -440,18 +408,14 @@ class Client extends User {
 		(members + privateChannels*.user).groupBy { it.id }
 			.values()*.first()
 	}
-
-	List<Member> getAllMembers() {
-		servers*.members.sum()
-	}
-
-	List<Role> getAllRoles(){
-		servers*.roles.sum()
-	}
+	List<Member> getAllMembers(){ servers*.members.flatten() }
+	List<Role> getAllRoles(){ servers*.roles.flatten() }
+	List<Emoji> getAllEmojis(){ servers*.emojis.flatten() }
 
 	List<User> getUsers(){ allUsers }
 	List<Member> getMembers(){ allMembers }
 	List<Role> getRoles(){ allRoles }
+	List<Emoji> getEmojis(){ allEmojis }
 
 	Map<String, User> getUserMap(){
 		servers*.memberMap.sum()
@@ -504,33 +468,27 @@ class Client extends User {
 	}
 
 	void changeStatus(Map<String, Object> data) {
+		def oldPresence = presences.find { it.id == id }
+		def payload = [
+			status: data.status ?: oldPresence?.status ?: "online",
+			game: data.game != null ?
+				data.game instanceof String ? [name: data.game, type: 0] :
+				data.game instanceof DiscordObject ? data.game.object :
+				data.game instanceof Map ? data.game :
+				[name: data.game.toString()] :
+				oldPresence?.game?.object ?: null,
+			since: data.since ?: 0,
+			afk: data.afk ?: false,
+		]
 		askPool("changePresence"){
-			wsClient.send([
-				op: 3,
-				d: [
-					idle_since: (data["idle"] != null) ? System.currentTimeMillis() : null,
-					game: data["game"] != null ?
-						data["game"] instanceof String ? [name: data["game"]] :
-						data["game"] instanceof DiscordObject ? data["game"].object :
-						data["game"] instanceof Map ? data["game"] :
-						[name: data["game"].toString()] :
-						game.object
-				]
-			])
+			ws.send(3, payload)
 		}
 		for (s in servers){
-			dispatchEvent("PRESENCE_UPDATE", [
-				"fullData": [
-					"game": (data["game"] != null) ? ["name": data["game"]] : null,
-					"status": (data["idle"] != null) ? "online" : "idle",
-					"guild_id": s.id, "user": user.object
-					],
-				"server": s,
-				"guild": s,
-				"member": s.members.find { it.id == user.id },
-				"game": (data["game"] != null) ? data["game"] : null,
-				"status": (data["idle"] != null) ? "online" : "idle"
-				])
+			cache.guilds[s.id].presences.add(
+				game: payload.game,
+				status: payload.status,
+				guild_id: s.id
+			)
 		}
 	}
 
@@ -540,50 +498,27 @@ class Client extends User {
 		changeStatus(game: [url: url, type: 1] << (desc ? [name: desc] : [:]))
 	}
 
-	Invite acceptInvite(String link, boolean isIdAlready=false){
-		if (!isIdAlready)
-			new Invite(this, requester.jsonPost("invite/${Invite.parseId(link)}", [:]))
-		else
-			new Invite(this, requester.jsonPost("invite/$link", [:]))
+	Invite acceptInvite(id){
+		new Invite(this, requester.jsonPost("invite/${Invite.parseId(id)}", [:]))
 	}
 
-	Invite getInvite(String link, boolean isIdAlready=false){
-		if (!isIdAlready)
-			new Invite(this, requester.jsonGet("invite/${Invite.parseId(link)}"))
-		else
-			new Invite(this, requester.jsonGet("invite/${link}"))
+	Invite requestInvite(id){
+		new Invite(this, requester.jsonGet("invite/${Invite.parseId(id)}"))
 	}
 
-	Invite createInvite(dest, Map data=[:]){
+	Invite createInvite(Map data = [:], dest){
 		new Invite(this, requester.jsonPost("channels/${id(dest)}/invites", data))
 	}
 
-	List<Invite> getInvitesFor(Server server){
-		server.invites
-	}
-
-	List<Invite> getInvitesFor(Channel channel){
-		channel.invites
-	}
-
-	List<Connection> getConnections(){
+	List<Connection> requestConnections(){
 		requester.jsonGet("users/@me/connections").collect { new Connection(this, it) }
 	}
 
-	void moveToChannel(Member member, VoiceChannel channel){
-		member.moveTo(channel)
-	}
-
 	User editProfile(Map data){
-		Map map = ["avatar": user.avatarHash, "email": this?.email, "password": this?.password, "username": user.username]
-		if (data["avatar"] != null){
-			if (data["avatar"] instanceof String && !(data["avatar"].startsWith("data"))){
-				data["avatar"] = ConversionUtil.encodeImage(data["avatar"] as File)
-			}else if (ConversionUtil.isImagable(data["avatar"])){
-				data["avatar"] = ConversionUtil.encodeImage(data["avatar"])
-			}
-		}
-		Map response = requester.jsonPatch("users/@me", map << data)
+		Map map = [avatar: user.avatarHash, email: this?.email,
+			password: this?.password, username: user.username]
+		Map response = requester.jsonPatch("users/@me", map <<
+			ConversionUtil.fixImages(data))
 		email = response.email
 		password = (data["new_password"] != null && data["new_password"] instanceof String) ? data["new_password"] : password
 		token = response.token
@@ -594,23 +529,20 @@ class Client extends User {
 		new User(this, response)
 	}
 
-	Application getApplication(){
+	Application requestApplication(){
 		new Application(this, requester.jsonGet("oauth2/applications/@me"))
 	}
 
-	List<Application> getApplications(){
+	List<Application> requestApplications(){
 		requester.jsonGet("oauth2/applications").collect { new Application(this, it) }
 	}
+
 	Map<String, Application> getApplicationMap(){
-		new DiscordListCache(applications, this).map
+		new DiscordListCache(requestApplications(), this).map
 	}
 
-	Application getApplicationFromId(String id){
-		new Application(this, requester.jsonGet("oauth2/applications/$id"))
-	}
-
-	Application getApplication(String id){
-		new Application(this, requester.jsonGet("oauth2/applications/$id"))
+	Application requestApplication(id){
+		new Application(this, requester.jsonGet("oauth2/applications/${this.id(id)}"))
 	}
 
 	Application editApplication(Application application, Map data){
@@ -622,15 +554,9 @@ class Client extends User {
 	}
 
 	Application createApplication(Map data){
-		Map map = ["icon": null, "description": "", "redirect_uris": [], "name": ""]
-		if (data["icon"] != null){
-			if (data["icon"] instanceof String && !(data["icon"].startsWith("data"))){
-				data["icon"] = ConversionUtil.encodeImage(data["icon"] as File)
-			}else if (ConversionUtil.isImagable(data["icon"])){
-				data["icon"] = ConversionUtil.encodeImage(data["icon"])
-			}
-		}
-		new Application(this, requester.jsonPost("oauth2/applications", map << data))
+		Map map = [icon: null, description: "", redirect_uris: [], name: ""]
+		new Application(this, requester.jsonPost("oauth2/applications", map <<
+			ConversionUtil.fixImages(data)))
 	}
 
 	BotAccount createBot(Application application, String oldAccountToken=null){
@@ -651,31 +577,30 @@ class Client extends User {
 		new Server(this, requester.jsonGet("guilds/${id(i)}"))
 	}
 	Channel requestChannel(i){
-		Map response = requester.jsonGet("channels/${id(i)}")
-		(response.type == "text") ? new TextChannel(this, response) : new VoiceChannel(this, response)
+		new Channel(this, requester.jsonGet("channels/${id(i)}"))
 	}
 
-	List<PrivateChannel> getPrivateChannels(){
+	List<Channel> getPrivateChannels(){
 		cache["private_channels"]?.list ?: []
 	}
 
-	Map<String, PrivateChannel> getPrivateChannelMap(){
+	Map<String, Channel> getPrivateChannelMap(){
 		cache["private_channels"]?.map ?: [:]
 	}
 
-	List<TextChannel> getTextChannels(){
+	List<Channel> getTextChannels(){
 		privateChannels + servers*.textChannels.flatten() ?: []
 	}
 
-	Map<String, TextChannel> getTextChannelMap(){
+	Map<String, Channel> getTextChannelMap(){
 		servers*.textChannelMap.sum() + privateChannelMap ?: [:]
 	}
 
-	List<VoiceChannel> getVoiceChannels(){
+	List<Channel> getVoiceChannels(){
 		servers*.voiceChannels.sum() ?: []
 	}
 
-	Map<String, VoiceChannel> getVoiceChannelMap(){
+	Map<String, Channel> getVoiceChannelMap(){
 		servers*.voiceChannelMap.sum() ?: [:]
 	}
 
@@ -697,9 +622,9 @@ class Client extends User {
 
 	Server server(id){ find(servers, serverMap, id) }
 
-	TextChannel textChannel(id){ find(textChannels, textChannelMap, id) }
+	Channel textChannel(id){ find(textChannels, textChannelMap, id) }
 
-	VoiceChannel voiceChannel(id){ find(voiceChannels, voiceChannelMap, id) }
+	Channel voiceChannel(id){ find(voiceChannels, voiceChannelMap, id) }
 
 	Channel channel(id){ find(channels, channelMap, id) }
 
@@ -713,64 +638,64 @@ class Client extends User {
 
 	void addGuildMemberAddListener(){
 		addListener(Events.MEMBER){ Map d ->
-			cache["guilds"][d.server.id]["members"].add(d.member.object)
-			cache["guilds"][d.server.id]["member_count"]++
+			cache["guilds"][d.json.guild_id]["members"].add(d.json)
+			cache["guilds"][d.json.guild_id]["member_count"]++
 		}
 	}
 
 	void addGuildMemberRemoveListener(){
 		addListener(Events.MEMBER_REMOVED){ Map d ->
-			cache["guilds"][d.server.id]["members"].remove(d.member.id)
-			cache["guilds"][d.server.id]["member_count"]--
+			cache["guilds"][d.json.guild_id]["members"].remove(d.json.user.id)
+			cache["guilds"][d.json.guild_id]["member_count"]--
 		}
 	}
 
 	void addGuildRoleCreateListener(){
 		addListener(Events.ROLE){ Map d ->
-			cache["guilds"][d.server.id]["roles"].add(d.role.object + ["guild_id": d.server.id])
+			cache["guilds"][d.json.guild_id]["roles"].add(d.json.role << [guild_id: d.json.guild_id])
 		}
 	}
 
 	void addGuildRoleDeleteListener(){
 		addListener(Events.ROLE_DELETE){ Map d ->
-			cache["guilds"][d.server.id]["roles"].remove(d.role.id)
+			cache["guilds"][d.json.guild_id]["roles"].remove(d.json.role_id)
 		}
 	}
 
 	void addChannelCreateListener(){
 		addListener(Events.CHANNEL_CREATE){ Map d ->
-			if (d.server){
-				cache["guilds"][d.server.id]["channels"].add(d.channel.object)
+			if (d.json.guild_id){
+				cache["guilds"][d.json.guild_id]["channels"].add(d.json)
 			}else{
-				cache["private_channels"].add(d.channel.object)
+				cache["private_channels"].add(d.json)
 			}
 		}
 	}
 
 	void addChannelDeleteListener(){
 		addListener(Events.CHANNEL_DELETE){ Map d ->
-			if (d.server){
-				cache["private_channels"].remove(d.channel.id)
+			if (d.json.guild_id){
+				cache["guilds"][d.json.guild_id]["channels"].remove(d.json.id)
 			}else{
-				cache["guilds"][d.server.id]["channels"].remove(d.channel.id)
+				cache["private_channels"].remove(d.json.id)
 			}
 		}
 	}
 
 	void addChannelUpdateListener(){
 		addListener(Events.CHANNEL_UPDATE){ Map d ->
-			cache["guilds"][d.server.id]["channels"][d.channel.id] << d.channel.object
+			cache["guilds"][d.json.guild_id]["channels"][d.json.id] <<
+				d.json
 		}
 	}
 
 	void addMessageCreateListener(){
 		addListener(Events.MESSAGE){ Map d ->
-			TextChannel channel = d.message.channel
-			if (messages[channel.id]){
-				messages[channel.id].add(d.message)
+			if (messages[d.json.channel_id]){
+				messages[d.json.channel_id].add(d.json)
 			}else{
-				messages[channel.id] = new DiscordListCache([d.message], this, Message)
-				messages[channel.id].root = channel
+				messages[d.json.channel_id] = new DiscordListCache([d.json], this, Message)
+				messages[d.json.channel_id].root = d.message.channel
 			}
 		}
 	}
@@ -778,7 +703,7 @@ class Client extends User {
 	void addMessageUpdateListener(){
 		addListener(Events.MESSAGE_UPDATE){ Map d ->
 			if (!(d.message instanceof String)){
-				TextChannel channel = d.message.channel
+				Channel channel = d.message.channel
 				if (messages[channel.id]){
 					if (messages[channel.id][d.message.id]){
 						messages[channel.id][d.message.id] << d.message.object
@@ -845,7 +770,7 @@ class Client extends User {
 					cache.guilds[server.id].members[d.member.id].user <<
 						d.newUser.object
 				}else{
-					cache.guilds[server.id].members.add(d.fullData.with {
+					cache.guilds[server.id].members.add(d.json.with {
 						Map di = it.clone()
 						di.remove("status")
 						di.remove("game")
@@ -855,11 +780,16 @@ class Client extends User {
 					})
 				}
 			}
-			cache.guilds[server.id].presences.add(d.fullData.with {
-				Map di = it.clone()
-				di.remove("roles")
-				di
-			})
+			if (d.json.status == "offline")
+				cache.guilds[server.id].presences.remove(d.json.user.id)
+			else {
+				cache.guilds[server.id].presences?.add(d.json.with {
+					Map di = it.clone()
+					di.remove("roles")
+					di.remove("nick")
+					di
+				} + [id: d.json.user.id])
+			}
 		}
 	}
 
@@ -894,15 +824,34 @@ class Client extends User {
 
 	void addUserUpdateListener(){
 		addListener("user change"){ Map d ->
-			cache["user"] << d.fullData
+			cache["user"] << d.json
 		}
 	}
 
 	void addGuildMemberChunkListener(){
 		addListener("guild members chunk"){ Map d ->
-			d.fullData.members.each {
-				cache["guilds"][d.fullData.guild_id]["members"].add(it)
+			d.members.each {
+				cache["guilds"][d.guild_id]["members"].add(it + [guild_id: d.guild_id])
 			}
+		}
+	}
+
+	void addGuildSyncListener(){
+		addListener("guild sync"){ Map d ->
+			d.members.each {
+				cache["guilds"][d.id]["members"].add(it + [guild_id: d.guild_id])
+			}
+			d.presences.each {
+				cache["guilds"][d.id]["presences"].add(it + [guild_id: d.guild_id])
+			}
+			cache["guilds"][d.id]["large"] = d.large
+		}
+	}
+
+	void addUserNoteUpdateListener(){
+		addListener("user note update"){ Map d ->
+			d.note ? (cache.notes[d.id] = d.note) :
+				cache.notes.remove(d.id)
 		}
 	}
 
@@ -916,7 +865,7 @@ class Client extends User {
 	void addReconnector(){
 		addListener("close"){
 			if (!gatewayClosed && it.code < 4000)
-				wsClient.reconnect()
+				ws.reconnect()
 		}
 	}
 }

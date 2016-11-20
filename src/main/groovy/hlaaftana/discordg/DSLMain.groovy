@@ -8,7 +8,7 @@ import hlaaftana.discordg.dsl.*
 class DSLMain {
 	static main(args){
 		ImportCustomizer imports = new ImportCustomizer()
-		imports.addStarImports("hlaaftana.discordg", "hlaaftana.discordg.dsl", "hlaaftana.discordg.objects", "hlaaftana.discordg.oauth", "hlaaftana.discordg.status", "hlaaftana.discordg.conn", "hlaaftana.discordg.util")
+		imports.addStarImports("hlaaftana.discordg", "hlaaftana.discordg.dsl", "hlaaftana.discordg.objects", "hlaaftana.discordg.oauth", "hlaaftana.discordg.status", "hlaaftana.discordg.net", "hlaaftana.discordg.util")
 		CompilerConfiguration cc = new CompilerConfiguration()
 		cc.addCompilationCustomizers(imports)
 		cc.scriptBaseClass = DelegatingScript.class.name
