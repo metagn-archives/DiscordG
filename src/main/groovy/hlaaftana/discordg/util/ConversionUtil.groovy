@@ -3,21 +3,37 @@ package hlaaftana.discordg.util
 class ConversionUtil {
 	static List imagable = [File, InputStream, URL, String, byte[]]
 
-	static String encodeImage(byte[] bytes){
-		return "data:image/jpg;base64," + bytes.encodeBase64().toString()
+	static Map fixImages(Map data, String... keys = ["avatar", "icon"]){
+		Map a = data.clone()
+		keys.each { String key ->
+			if (a.containsKey(key)){
+				if (isImagable(a[key])){
+					a[key] = ConversionUtil.encodeImage(a[key])
+				}else{
+					throw new IllegalArgumentException("$key cannot be resolved " +
+						"for class ${data[key].getClass()}")
+				}
+			}
+		}
+		a
+	}
+
+	static String encodeImage(byte[] bytes, String type = "jpg"){
+		"data:image/$type;base64," + bytes.encodeBase64().toString()
 	}
 
 	static String encodeImage(String pathToImage){
-		return this.encodeImage(pathToImage ==~ /https?:\/\/(?:.|\n)*/ ? new URL(pathToImage) : new File(pathToImage))
+		encodeImage(pathToImage ==~ /https?:\/\/(?:.|\n)*/ ?
+			new URL(pathToImage) : new File(pathToImage))
 	}
 
 	static String encodeImage(imagable){
-		return encodeImage(getBytes(imagable))
+		encodeImage(getBytes(imagable))
 	}
 
 	static byte[] getBytes(thing){
-		if (thing instanceof byte[]) return thing
-		else if (thing.class in imagable) return thing.bytes
+		if (thing instanceof byte[]) thing
+		else if (thing.class in imagable) thing.bytes
 		else throw new UnsupportedOperationException("Cannot get byte array of $thing")
 	}
 

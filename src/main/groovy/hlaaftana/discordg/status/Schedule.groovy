@@ -1,7 +1,5 @@
 package hlaaftana.discordg.status
 
-import hlaaftana.discordg.objects.MapObject
-
 class Schedule extends MapObject {
 	Schedule(Map object){ super(object) }
 

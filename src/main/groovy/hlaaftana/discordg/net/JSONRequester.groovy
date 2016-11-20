@@ -1,4 +1,4 @@
-package hlaaftana.discordg.conn
+package hlaaftana.discordg.net
 
 import hlaaftana.discordg.DiscordG
 import hlaaftana.discordg.util.JSONUtil

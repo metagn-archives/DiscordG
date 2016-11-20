@@ -24,16 +24,13 @@ class CommandBot implements Triggerable {
 	String logName = "DiscordG|CommandBot"
 	Log log
 	BotType type = BotType.PREFIX
-	Client client
+	volatile Client client
 	List commands = []
+	Map<String, Closure> extraCommandArgs = [:]
 	boolean acceptOwnCommands = false
 	boolean loggedIn = false
 	Closure commandListener
 
-	/**
-	 * @param client - The API object this bot should use.
-	 * @param commands - A List of Commands you want to register right off the bat. Empty by default.
-	 */
 	CommandBot(Map config = [:]){
 		config.each { k, v ->
 			if (k.startsWith("trigger"))
@@ -45,25 +42,17 @@ class CommandBot implements Triggerable {
 		if (!client) client = new Client()
 	}
 
-	/**
-	 * Adds a command.
-	 * @param command - the command.
-	 */
 	def addCommand(Command command){
-		this.commands.add(command)
+		commands.add(command)
 	}
 
-	/**
-	 * Adds a List of Commands.
-	 * @param commands - the list of commands.
-	 */
 	def addCommands(List<Command> commands){
-		this.commands.addAll(commands)
+		commands.addAll(commands)
 	}
 
 	DSLCommand command(Map info, alias, trigger = [], Closure closure){
 		DSLCommand hey = DSLCommand.new(info, this, alias, trigger, closure)
-		this.commands.add(hey)
+		commands.add(hey)
 		hey
 	}
 
@@ -105,11 +94,13 @@ class CommandBot implements Triggerable {
 	 */
 	def initialize(){
 		commandListener = client.listener(Events.MESSAGE) {
+			try{
+				if (!acceptOwnCommands && json.author.id == this.client.id) return
+			}catch (ex){}
 			for (Command c in commands){
-				if ((acceptOwnCommands || author != client) && c.match(message)){
+				if (c.match(message)){
 					try{
-						c.run(it)
-						c.run(message)
+						c it
 					}catch (ex){
 						ex.printStackTrace()
 						log.error "Command threw exception"
@@ -135,7 +126,7 @@ class CommandBot implements Triggerable {
 	}
 
 	def uninitialize(){
-		client.removeListener("MESSAGE_CREATE", commandListener)
+		client.listenerSystem.removeListener("MESSAGE_CREATE", commandListener)
 	}
 }
 
@@ -226,7 +217,8 @@ trait Restricted {
 	static List associatedIds(Message msg){
 		// i have no idea why i'm including the message id
 		List a = [msg?.id, msg?.channel?.id, msg?.author?.id, msg?.server?.id]
-		if (msg?.author(true) instanceof Member) a += msg?.author(true)?.roles?.id
+		def b = msg?.author(true)
+		if (b instanceof Member) a += b?.roles?.id
 		(a - null).unique()
 	}
 
@@ -404,12 +396,15 @@ class ClosureCommand extends Command {
 
 class DSLCommand extends Command {
 	Closure response
+	Map<String, Closure> extraArgs = [:]
 	Map info = [:]
 
 	DSLCommand(Map info = [:], Closure response, Triggerable parentT, alias, trigger = []){
 		super(parentT, alias, trigger)
 		this.response = response
 		info.each(this.&putAt)
+		if (parentT instanceof CommandBot && parentT.extraCommandArgs)
+			extraArgs << parentT.extraCommandArgs
 	}
 
 	static DSLCommand "new"(Map info = [:], Triggerable parentT, alias, trigger = [], Closure response){

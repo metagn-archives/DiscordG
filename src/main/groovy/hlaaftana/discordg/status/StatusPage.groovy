@@ -1,6 +1,5 @@
 package hlaaftana.discordg.status
 
-import hlaaftana.discordg.objects.MapObject
 import hlaaftana.discordg.util.ConversionUtil
 
 class StatusPage extends MapObject {

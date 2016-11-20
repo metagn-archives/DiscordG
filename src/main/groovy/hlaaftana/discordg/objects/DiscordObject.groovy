@@ -1,7 +1,7 @@
 package hlaaftana.discordg.objects
 
 import hlaaftana.discordg.Client;
-import hlaaftana.discordg.conn.Requester
+import hlaaftana.discordg.net.Requester
 import hlaaftana.discordg.util.JSONable
 import java.util.Date;
 
@@ -9,11 +9,31 @@ import java.util.Date;
  * A basic Discord object.
  * @author Hlaaftana
  */
-class DiscordObject extends APIMapObject implements Comparable {
+class DiscordObject implements Comparable {
+	Client client
+	Map object
 	String concatUrl = ""
 	Requester requester
-	DiscordObject(Client client, Map object, String concatUrl = ""){ super(client, object); this.concatUrl = concatUrl; setClient(client) }
-	void setClient(Client other){ super.setClient(other); if (client) requester = new Requester(client.requester, concatUrl) }
+	DiscordObject(Client c, Map o, String cu = ""){
+		concatUrl = cu
+		object = o
+		setClient(c)
+	}
+
+	void setClient(Client c){
+		this.client = c
+		if (client) requester = new Requester(client.requester, concatUrl)
+	}
+
+	Map getRawObject(){
+		object.collectEntries { k, v -> [(k): v instanceof DiscordListCache ?
+			v.mapList : v] }
+	}
+
+	Map getPatchableObject(){
+		object.findAll { k, v -> !(v instanceof DiscordListCache) }
+	}
+
 	String getId(){ object["id"] }
 	String getName(){ object["name"] }
 	String toString(){ name }

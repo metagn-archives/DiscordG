@@ -19,7 +19,7 @@ abstract class ListenerSystem {
 	def addListener(event, boolean temporary = false, Closure closure) {
 		event = parseEvent(event)
 		Closure ass = closure.clone()
-		if (temporary) ass = { Map d, Closure c -> ass(d); listeners[event].remove(c) }
+		if (temporary) ass = { Map d -> ass(d); listeners[event].remove(ass) }
 		if (listeners.containsKey(event)) listeners[event] += ass
 		else listeners[event] = [ass]
 		ass
@@ -39,10 +39,10 @@ abstract class ListenerSystem {
 
 	def dispatchEvent(type, data){
 		for (l in listeners[parseEvent(type)]){
-			l = l.clone()
+			def a = l.clone()
 			try{
-				if (l.maximumNumberOfParameters > 1) l(data, l)
-				else l(data)
+				if (a.parameterTypes.length > 1) a(data, l)
+				else a(data)
 			}catch (ex){
 				listenerError(parseEvent(type), ex, l, data)
 			}

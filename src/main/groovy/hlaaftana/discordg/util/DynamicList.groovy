@@ -76,6 +76,8 @@ class DynamicList extends AbstractList {
 
 	boolean removeAll(Collection ugh){ ugh.each { remove it }; true }
 
+	void clear(){ internal.clear() }
+
 	boolean isEmpty(){ internal.empty }
 
 	DynamicList plus(other){

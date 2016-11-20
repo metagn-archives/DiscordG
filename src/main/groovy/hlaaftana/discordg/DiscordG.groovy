@@ -4,9 +4,9 @@ import hlaaftana.discordg.util.Log
 import hlaaftana.discordg.util.MiscUtil
 
 class DiscordG {
-	static final String VERSION = "4.0.0"
+	static final String VERSION = "4.2.0"
 	static final String GITHUB = "https://github.com/hlaaftana/DiscordG"
-	static final String USER_AGENT = "DiscordBot ($GITHUB, $VERSION)"
+	static final String USER_AGENT = "groovy/$GroovySystem.version DiscordBot ($GITHUB, $VERSION)"
 
 	static Client withLogin(String email, String password){
 		Client client = new Client()

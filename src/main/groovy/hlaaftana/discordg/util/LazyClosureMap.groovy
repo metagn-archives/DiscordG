@@ -9,11 +9,11 @@ class LazyClosureMap implements Map {
 	LazyClosureMap(){}
 	LazyClosureMap(Map map){ putAll(map) }
 
-	static LazyClosureMap create(args = null, Closure ass){
+	static LazyClosureMap create(Map initial = [:], Closure ass){
 		Closure copy = ass.clone()
-		copy.delegate = new LazyClosureMapBuilder()
-		copy.resolveStrategy = Closure.DELEGATE_FIRST
-		copy(args)
+		copy.delegate = new LazyClosureMapBuilder(initial)
+		copy.resolveStrategy = Closure.OWNER_FIRST
+		copy()
 		copy.delegate.result
 	}
 
@@ -28,11 +28,7 @@ class LazyClosureMap implements Map {
 	}
 
 	def put(key, boolean lazy = true, Closure value){
-		if (lazy){
-			return addEntry(new LazyEntry(this, key, value)).rawValue
-		}else{
-			return addEntry(new LazyEntry(this, key, { value })).rawValue
-		}
+		addEntry(new LazyEntry(this, key, lazy ? value : { value })).rawValue
 	}
 
 	def put(key, boolean lazy = true, value){
@@ -71,6 +67,10 @@ class LazyClosureMap implements Map {
 		}
 	}
 
+	def alias(key, ...otherKeys){
+		otherKeys.each { this[it] = this.getRaw(key) }
+	}
+
 	LazyClosureMap rawEach(Closure closure){
 		if (closure.maximumNumberOfParameters == 2){
 			this.rawEntryTuples().each { closure(it) }
@@ -82,41 +82,41 @@ class LazyClosureMap implements Map {
 
 	List rawCollect(Closure closure){
 		if (closure.maximumNumberOfParameters == 2){
-			return this.rawEntryTuples().collect { closure(it) }
+			rawEntryTuples().collect { closure(it) }
 		}else{
-			return this.entrySet().collect { closure(it) }
+			entrySet().collect { closure(it) }
 		}
 	}
 
 	boolean rawAny(Closure closure){
 		if (closure.maximumNumberOfParameters == 2){
-			return this.rawEntryTuples().any { closure(it) }
+			rawEntryTuples().any { closure(it) }
 		}else{
-			return this.entrySet().any { closure(it) }
+			entrySet().any { closure(it) }
 		}
 	}
 
 	boolean rawEvery(Closure closure){
 		if (closure.maximumNumberOfParameters == 2){
-			return this.rawEntryTuples().every { closure(it) }
+			rawEntryTuples().every { closure(it) }
 		}else{
-			return this.entrySet().every { closure(it) }
+			entrySet().every { closure(it) }
 		}
 	}
 
 	LazyEntry rawFind(Closure closure){
 		if (closure.maximumNumberOfParameters == 2){
-			return this.entrySet().find { closure([it.key, it.rawValue]) }
+			entrySet().find { closure([it.key, it.rawValue]) }
 		}else{
-			return this.entrySet().find { closure(it) }
+			entrySet().find { closure(it) }
 		}
 	}
 
 	List rawFindAll(Closure closure){
 		if (closure.maximumNumberOfParameters == 2){
-			return this.entrySet().findAll { closure([it.key, it.rawValue]) }
+			entrySet().findAll { closure([it.key, it.rawValue]) }
 		}else{
-			return this.entrySet().findAll { closure(it) }
+			entrySet().findAll { closure(it) }
 		}
 	}
 
@@ -254,7 +254,7 @@ class LazyClosureMap implements Map {
 		LazyEntry(LazyClosureMap map, key, Closure value){ this.map = map; this.key = key; this.value = value }
 
 		Closure getRawValue(){
-			return this.@value
+			this.@value
 		}
 
 		def getValue(){
@@ -297,7 +297,7 @@ class LazyClosureMap implements Map {
 class LazyClosureMapBuilder {
 	LazyClosureMap result = [:]
 	LazyClosureMapBuilder(){}
-	LazyClosureMapBuilder(LazyClosureMap initial){ result << initial }
+	LazyClosureMapBuilder(Map initial){ result << initial }
 
 	def methodMissing(String name, args){
 		if (args.class.array || args instanceof Collection){
@@ -313,5 +313,13 @@ class LazyClosureMapBuilder {
 		}else{
 			methodMissing(name, [args])
 		}
+	}
+
+	def propertyMissing(String name){
+		result[name]
+	}
+
+	def propertyMissing(String name, value){
+		methodMissing(name, value)
 	}
 }

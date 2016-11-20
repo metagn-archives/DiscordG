@@ -25,11 +25,16 @@ class DiscordListCache extends Cache { // DO stands for DiscordObject
 	}
 
 	List getList(){
-		store.values().collect().collect { class_.newInstance(client, it) }
+		mapList.collect { class_.newInstance(client, it) }
 	}
 
 	List getMapList(){
-		store.values().collect()
+		try{
+			store.values().collect()
+		}catch (ConcurrentModificationException ex){
+			Thread.sleep 250
+			mapList
+		}
 	}
 
 	DynamicList getModifiableList(){
@@ -60,7 +65,7 @@ class DiscordListCache extends Cache { // DO stands for DiscordObject
 	}
 
 	def add(Map object){
-		store[object.id] = object
+		store[class_ == Member ? object.user.id : object.id] = object
 	}
 
 	def add(DiscordObject uh){

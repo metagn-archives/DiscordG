@@ -1,9 +1,9 @@
 package hlaaftana.discordg.objects
 
-import java.io.File
-import java.io.InputStream;
-import java.net.URL
-import java.util.List
+import java.util.List;
+import java.util.Map;
+
+import groovy.transform.InheritConstructors
 
 import hlaaftana.discordg.Client;
 import hlaaftana.discordg.util.JSONUtil
@@ -19,9 +19,9 @@ class User extends DiscordObject{
 		super(client, object, concatUrl)
 	}
 
-	List<Presence> getPresences(){ sharedServers.collect { it.member(this).presence } - null }
+	List<Presence> getPresences(){ client.members(this)*.presence - null }
 	String getStatus(){ presences[0]?.status ?: "offline" }
-	Presence.Game getGame(){ presences[0]?.game }
+	Game getGame(){ presences[0]?.game }
 	boolean isOnline(){ status == "online" }
 	boolean isOffline(){ status == "offline" }
 	boolean isIdle(){ status == "idle" }
@@ -46,10 +46,13 @@ class User extends DiscordObject{
 	String getDiscriminator(){ object["discriminator"] }
 	String getDiscrim(){ object["discriminator"] }
 	String getNameAndDiscrim(){ "$name#$discrim" }
-	boolean isBot(){ object["bot"] as boolean }
-	PrivateChannel getPrivateChannel(){
-		PrivateChannel ass = client.privateChannels.find { it.user.id == id }
-		ass ?: new PrivateChannel(client,
+	boolean isBot(){ object["bot"] }
+	String getEmail(){ object["email"] }
+	String getPassword(){ object["password"] }
+
+	Channel getPrivateChannel(){
+		Channel ass = client.privateChannels.find { it.dm && it.user.id == id }
+		ass ?: new Channel(client,
 			client.requester.jsonPost("users/@me/channels", [recipient_id: id]))
 	}
 
@@ -57,7 +60,7 @@ class User extends DiscordObject{
 		if (channel.private) return Permissions.PRIVATE_CHANNEL
 		Permissions doodle = initialPerms
 		List allOverwrites = channel.permissionOverwrites.findAll { it.involves(this) }.sort { it.role ? it.affected.position : channel.server.roles.size() + 1 }
-		for (Channel.PermissionOverwrite overwrite in allOverwrites){
+		for (PermissionOverwrite overwrite in allOverwrites){
 			if (doodle["administrator"]){
 				Permissions.CHANNEL_ALL_TRUE
 			}
@@ -68,11 +71,79 @@ class User extends DiscordObject{
 	}
 
 	List<Server> getSharedServers(){ client.servers.findAll { it.members*.id.contains(id) } }
-	String getMention(){ "<@${id}>" }
+	String getMention(){ "<@$id>" }
 	Member getMember(server){ get(this, server, Member) }
 	Member member(server){ get(this, server, Member) }
 
-	Message sendMessage(String message, boolean tts=false){ this.privateChannel.sendMessage(message, tts) }
-	Message sendFile(File file){ this.privateChannel.sendFile(file) }
-	Message sendFile(String filePath){ this.privateChannel.sendFile(filePath) }
+	Message sendMessage(String message, boolean tts = false){ privateChannel.sendMessage(message, tts) }
+	Message sendFile(File file){ privateChannel.sendFile(file) }
+	Message sendFile(String filePath){ privateChannel.sendFile(filePath) }
+}
+
+@InheritConstructors
+class Connection extends DiscordObject {
+	List<Integration> getIntegrations(){ object["integrations"].collect { new Integration(client, it) } }
+	boolean isRevoked(){ object["revoked"] }
+	String getType(){ object["type"] }
+}
+
+class Application extends DiscordObject {
+	Application(Client client, Map object){
+		super(client, object, "oauth2/applications/$object.id")
+	}
+
+	String getSecret(){ object["secret"] }
+	List getRedirectUris(){ object["redirect_uris"] }
+	String getDescription(){ object["description"] ?: "" }
+	BotAccount getBot(){ new BotAccount(client, object["bot"]) }
+	BotAccount getBotAccount(){ botAccount }
+	String getIconHash(){ object["icon"] }
+	String getIcon() {
+		iconHash ? "https://cdn.discordapp.com/app-icons/$id/${iconHash}.jpg"
+			: ""
+	}
+
+	Application edit(Map data){
+		Map map = [icon: iconHash, description: description,
+			redirect_uris: redirectUris, name: name]
+		if (data["icon"] != null){
+			if (data["icon"] instanceof String && !(data["icon"].startsWith("data"))){
+				data["icon"] = ConversionUtil.encodeImage(data["icon"] as File)
+			}else if (ConversionUtil.isImagable(data["icon"])){
+				data["icon"] = ConversionUtil.encodeImage(data["icon"])
+			}
+		}
+		new Application(this, requester.jsonPut("", map << data))
+	}
+
+	void delete(){
+		requester.delete("")
+	}
+
+	BotAccount createBot(String oldAccountToken = null){
+		new BotAccount(client, requester.jsonPost("bot",
+			(oldAccountToken == null) ? [:] : [token: oldAccountToken]))
+	}
+
+	String getInviteLink(Permissions permissions = null){
+		"https://discordapp.com/oauth2/authorize?client_id=$id&scope=bot" +
+			(permissions ? "&permissions=$permissions.value" : "")
+	}
+
+	String inviteLink(Permissions permissions = null){
+		getInviteLink(permissions)
+	}
+
+	String getInviteUrl(Permissions permissions = null){
+		getInviteLink(permissions)
+	}
+
+	String inviteUrl(Permissions permissions = null){
+		getInviteLink(permissions)
+	}
+}
+
+@InheritConstructors
+class BotAccount extends User {
+	String getToken(){ object["token"] }
 }
