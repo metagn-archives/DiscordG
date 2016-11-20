@@ -1,6 +1,7 @@
 package hlaaftana.discordg.objects
 
-import hlaaftana.discordg.Client;
+import hlaaftana.discordg.Client
+import hlaaftana.discordg.collections.DiscordListCache;
 import hlaaftana.discordg.net.HTTPClient
 import hlaaftana.discordg.util.JSONable
 import java.util.Date;

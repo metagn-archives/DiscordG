@@ -1,9 +1,9 @@
 package hlaaftana.discordg.objects
 
 import hlaaftana.discordg.Client
+import hlaaftana.discordg.collections.DiscordListCache
 import hlaaftana.discordg.util.*
 import java.awt.Color
-import java.util.List;
 import java.util.concurrent.Callable
 
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
@@ -144,17 +144,23 @@ class Server extends DiscordObject {
 
 	Presence presence(ass){ find(presences, ass) }
 
-	void editRoles(member, List<Role> roles) {
+	void editRoles(member, List roles) {
 		client.askPool("editMembers", id){
-			http.patch("members/${id(member)}", ["roles": roles*.id])
+			http.patch("members/${id(member)}", ["roles": roles.each(this.&id)])
 		}
 	}
 
-	void addRoles(Member member, List<Role> roles) {
+	void addRoles(Member member, List roles) {
 		editRoles(member, member.roles + roles)
 	}
 
-	void addRole(Member member, Role role){ addRoles(member, [role]) }
+	void addRole(member, role){
+		http.put("members/${id(member)}/roles/${id(role)}")
+	}
+
+	void removeRole(member, role){
+		http.delete("members/${id(member)}/roles/${id(role)}")
+	}
 
 	void kick(member) {
 		http.delete("members/${id(member)}")
@@ -508,15 +514,21 @@ class Member extends User {
 		permissionsFor(channel, permissions)
 	}
 
-	void editRoles(List<Role> roles) {
+	void editRoles(List roles) {
 		server.editRoles(this, roles)
 	}
 
-	void addRoles(List<Role> roles) {
+	void addRoles(List roles) {
 		server.addRoles(this, roles)
 	}
 
-	void addRole(Role role){ addRoles([role]) }
+	void addRole(role){
+		server.addRole(this, role)
+	}
+
+	void removeRole(role){
+		server.removeRole(this, role)
+	}
 
 	void kick() {
 		server.kick(this)

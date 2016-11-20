@@ -15,10 +15,10 @@ class JSONUtil {
 	 * @return a Map or a List containing the object.
 	 */
 	static parse(String string){
-		return new JsonSlurper().parseText(string)
+		new JsonSlurper().parseText(string)
 	}
 
-	static parse(File file, charset = "UTF-8"){ return parse(file.getText(charset)) }
+	static parse(File file, charset = "UTF-8"){ parse(file.getText(charset)) }
 
 	/**
 	 * Converts an object to JSON. Can be a Map, List, or anything JsonOutput.toJson can convert.
@@ -26,18 +26,18 @@ class JSONUtil {
 	 * @return a JSON string.
 	 */
 	static String json(thing){
-		return JsonOutput.toJson(thing instanceof JSONable ? thing.json() : thing)
+		JsonOutput.toJson(thing instanceof JSONable ? thing.json() : thing)
 	}
 
-	static File dump(String filename, thing, charset = "UTF-8"){ return dump(new File(filename), thing, charset) }
+	static File dump(String filename, thing, charset = "UTF-8"){ dump(new File(filename), thing, charset) }
 
 	static File dump(File file, thing, charset = "UTF-8"){
 		if (!file.exists()) file.createNewFile()
 		file.write(JsonOutput.prettyPrint(json(thing)), charset)
-		return file
+		file
 	}
 
-	static File modify(String filename, newData){ return modify(new File(filename), newData) }
+	static File modify(String filename, newData){ modify(new File(filename), newData) }
 
 	static File modify(File file, newData){
 		if (!file.exists()) return dump(file, newData)
@@ -51,8 +51,14 @@ class JSONUtil {
 				oldData << newData.toSpreadMap()
 			}
 		}
-		return dump(file, oldData)
+		dump(file, oldData)
 	}
+}
+
+trait JSONable {
+	// this is NOT supposed to return raw JSON, just a Groovy representation of an object
+	// that will regularly be translated to JSON
+	abstract json()
 }
 
 class JSONPath {

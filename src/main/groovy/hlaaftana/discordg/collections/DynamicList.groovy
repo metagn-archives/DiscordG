@@ -1,4 +1,4 @@
-package hlaaftana.discordg.util
+package hlaaftana.discordg.collections
 
 class DynamicList extends AbstractList {
 	Closure converter = Closure.IDENTITY

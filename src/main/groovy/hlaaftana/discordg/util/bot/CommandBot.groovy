@@ -5,9 +5,9 @@ import static hlaaftana.discordg.util.MiscUtil.dump
 import groovy.transform.*
 
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.EventData;
 import hlaaftana.discordg.DiscordG
 import hlaaftana.discordg.Events
+import hlaaftana.discordg.logic.EventData;
 import hlaaftana.discordg.objects.Member
 import hlaaftana.discordg.objects.Message
 import hlaaftana.discordg.objects.DiscordObject

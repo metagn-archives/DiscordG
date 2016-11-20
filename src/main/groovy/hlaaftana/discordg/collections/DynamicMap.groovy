@@ -1,4 +1,4 @@
-package hlaaftana.discordg.util
+package hlaaftana.discordg.collections
 
 import java.util.Collection;
 import java.util.Map;

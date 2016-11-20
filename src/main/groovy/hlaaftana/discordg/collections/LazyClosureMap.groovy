@@ -1,4 +1,4 @@
-package hlaaftana.discordg.util
+package hlaaftana.discordg.collections
 
 import java.util.concurrent.Future
 import java.util.concurrent.FutureTask

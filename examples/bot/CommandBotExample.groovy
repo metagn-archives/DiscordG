@@ -1,15 +1,14 @@
-import hlaaftana.discordg.DiscordG
-import hlaaftana.discordg.objects.*
-import hlaaftana.discordg.util.bot.*
+import hlaaftana.discordg.util.bot.CommandBot
 
+// triggers here mean the same thing as prefixes, buty ou can change it to suffixes
 CommandBot bot = new CommandBot(triggers: ["!", "\$"]) // notice how we don't log in yet
 
-// here we add an anonymous class extending Command. its only alias is "hello", and
-// can also be a list. do note that after "hello" i can add a list or string as
-// a list of prefixes / a prefix
+// the command's only alias is "hello", and can also be a list.
+// do note that after "hello" i can add a list or string as
+// a list of custom triggers / a trigger
 // the variables are the variables in the event data and
-// 								methods inside Command which take
-//								a Message or the event data as arguments
+// methods inside Command which take
+// a Message or the event data as arguments
 bot.command("hello"){
 	sendMessage("Hello there, $author.mention!")
 }

@@ -1,8 +1,8 @@
 package hlaaftana.discordg.dsl
 
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.EventData;
-import hlaaftana.discordg.Events;
+import hlaaftana.discordg.Events
+import hlaaftana.discordg.logic.EventData;
 import hlaaftana.discordg.objects.*
 
 class ClientBuilder {

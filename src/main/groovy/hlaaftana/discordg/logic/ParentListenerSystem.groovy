@@ -1,4 +1,4 @@
-package hlaaftana.discordg
+package hlaaftana.discordg.logic
 
 class ParentListenerSystem extends ListenerSystem {
 	def parent

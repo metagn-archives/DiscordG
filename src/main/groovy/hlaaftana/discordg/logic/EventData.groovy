@@ -1,6 +1,8 @@
-package hlaaftana.discordg
+package hlaaftana.discordg.logic
 
-import hlaaftana.discordg.util.LazyClosureMap
+import hlaaftana.discordg.Events
+import hlaaftana.discordg.collections.LazyClosureMap;
+
 import org.codehaus.groovy.runtime.InvokerHelper
 
 class EventData extends LazyClosureMap {
@@ -29,8 +31,8 @@ class EventData extends LazyClosureMap {
 
 	def getProperty(String name){
 		String methodName = "get" + name.capitalize()
-		if (methodName in getMetaClass().methods*.name) return this."$methodName"()
-		else return propertyMissing(name)
+		if (methodName in getMetaClass().methods*.name) this."$methodName"()
+		else propertyMissing(name)
 	}
 
 	void setProperty(String name, value){
@@ -40,7 +42,7 @@ class EventData extends LazyClosureMap {
 	}
 
 	def methodMissing(String name, args){
-		if (containsKey(this)) return this[name].call(args)
+		if (containsKey(this)) this[name].call(args)
 		else throw new MissingMethodException(name, EventData, args)
 	}
 }

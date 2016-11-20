@@ -1,11 +1,8 @@
 package hlaaftana.discordg.objects
 
-import java.util.List;
-import java.util.Map;
-
 import groovy.transform.InheritConstructors
 
-import hlaaftana.discordg.Client;
+import hlaaftana.discordg.Client
 import hlaaftana.discordg.util.JSONUtil
 
 /**

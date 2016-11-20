@@ -4,6 +4,7 @@ import groovy.lang.Closure;
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.Client
 import hlaaftana.discordg.VoiceClient
+import hlaaftana.discordg.collections.DiscordListCache;
 import hlaaftana.discordg.exceptions.MessageInvalidException
 import hlaaftana.discordg.exceptions.NoPermissionException
 import hlaaftana.discordg.util.JSONUtil
