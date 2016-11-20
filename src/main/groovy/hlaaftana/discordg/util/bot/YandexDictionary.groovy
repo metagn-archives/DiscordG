@@ -1,18 +1,18 @@
 package hlaaftana.discordg.util.bot
 
-import hlaaftana.discordg.net.JSONRequester
+import hlaaftana.discordg.util.JSONSimpleHTTP
 
 class YandexDictionary {
 	String key
 
 	List<String> languages(){
 		if (!key) throw new IllegalArgumentException("No key")
-		JSONRequester.get("https://dictionary.yandex.net/api/v1/dicservice.json/getLangs?key=$key")
+		JSONSimpleHTTP.get("https://dictionary.yandex.net/api/v1/dicservice.json/getLangs?key=$key")
 	}
 
 	Result lookup(String text, String lang = "en", String trto = "en"){
 		if (!key) throw new IllegalArgumentException("No key")
-		def json = JSONRequester.get("https://dictionary.yandex.net/api/v1/dicservice.json/lookup?" +
+		def json = JSONSimpleHTTP.get("https://dictionary.yandex.net/api/v1/dicservice.json/lookup?" +
 			"key=$key&lang=$lang-$trto&text=$text")
 		new Result(definitions: json.def.collect {
 			new Definition(text: it.text, partOfSpeech: it.pos,

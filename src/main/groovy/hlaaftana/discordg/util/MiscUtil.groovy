@@ -10,8 +10,7 @@ import java.time.ZoneId
 import groovy.transform.Memoized
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.objects.DiscordObject
-import hlaaftana.discordg.Client;
-import hlaaftana.discordg.net.JSONRequester
+import hlaaftana.discordg.Client
 
 /**
  * Utilities unrelated to the actual API itself. In fact, most are not even used.
@@ -91,15 +90,15 @@ class MiscUtil {
 	}
 
 	static List requestEmojis(){
-		JSONRequester.get("https://abal.moe/Discord/JSON/emojis.json")
+		JSONSimpleHTTP.get("https://abal.moe/Discord/JSON/emojis.json")
 	}
 
 	static List requestEmojiShortcuts(){
-		JSONRequester.get("https://abal.moe/Discord/JSON/emoji-shortcuts.json")
+		JSONSimpleHTTP.get("https://abal.moe/Discord/JSON/emoji-shortcuts.json")
 	}
 
 	static List<Game> requestGames(){
-		JSONRequester.get("https://abal.moe/Discord/JSON/games.json").collect { new Game(null, it) }
+		JSONSimpleHTTP.get("https://abal.moe/Discord/JSON/games.json").collect { new Game(null, it) }
 	}
 
 	static dump(list, newItem, Closure doto = Closure.IDENTITY){

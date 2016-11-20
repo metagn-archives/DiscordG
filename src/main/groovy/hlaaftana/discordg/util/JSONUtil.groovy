@@ -1,8 +1,8 @@
 package hlaaftana.discordg.util
 
-import java.util.Iterator;
-
+import com.mashape.unirest.http.Unirest
 import groovy.json.*
+import hlaaftana.discordg.DiscordG
 
 /**
  * Methods as utilities for JSON using the groovy.json package.
@@ -133,5 +133,27 @@ class JSONPath {
 				new Expression(ahde.toString(), this)
 			}
 		}
+	}
+}
+
+class JSONSimpleHTTP {
+	static get(String url){
+		JSONUtil.parse(Unirest.get(url).header("User-Agent", DiscordG.USER_AGENT).asString().getBody())
+	}
+
+	static delete(String url){
+		JSONUtil.parse(Unirest.delete(url).header("User-Agent", DiscordG.USER_AGENT).asString().getBody())
+	}
+
+	static post(String url, Map body){
+		JSONUtil.parse(Unirest.post(url).header("User-Agent", DiscordG.USER_AGENT).body(JSONUtil.json(body)).asString().getBody())
+	}
+
+	static patch(String url, Map body){
+		JSONUtil.parse(Unirest.patch(url).header("User-Agent", DiscordG.USER_AGENT).body(JSONUtil.json(body)).asString().getBody())
+	}
+
+	static put(String url, Map body){
+		JSONUtil.parse(Unirest.put(url).header("User-Agent", DiscordG.USER_AGENT).body(JSONUtil.json(body)).asString().getBody())
 	}
 }

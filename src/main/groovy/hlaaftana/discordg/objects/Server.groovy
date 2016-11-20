@@ -46,7 +46,7 @@ class Server extends DiscordObject {
 	Member getMe(){ members.find { it == client.user } }
 	String changeNick(String newNick){
 		client.askPool("changeNick"){
-			requester.jsonPatch("members/@me/nick", [nick: newNick])["nick"]
+			http.jsonPatch("members/@me/nick", [nick: newNick])["nick"]
 		}
 	}
 	String nick(String newNick){ changeNick(newNick) }
@@ -79,23 +79,23 @@ class Server extends DiscordObject {
 			}
 		}
 		copyOfData = copyOfCopyOfData
-		new Server(client, object << requester.jsonPatch("", copyOfData))
+		new Server(client, object << http.jsonPatch("", copyOfData))
 	}
 
 	void leave() {
-		client.requester.delete("users/@me/guilds/${id}")
+		client.http.delete("users/@me/guilds/${id}")
 	}
 
 	void delete() {
-		requester.delete("")
+		http.delete("")
 	}
 
 	Channel createTextChannel(String name) {
-		new Channel(client, requester.jsonPost("channels", [name: name, type: 0]))
+		new Channel(client, http.jsonPost("channels", [name: name, type: 0]))
 	}
 
 	Channel createVoiceChannel(String name) {
-		new Channel(client, requester.jsonPost("channels", [name: name, type: 2]))
+		new Channel(client, http.jsonPost("channels", [name: name, type: 2]))
 	}
 
 	List<Channel> requestTextChannels(){
@@ -107,11 +107,11 @@ class Server extends DiscordObject {
 	}
 
 	Channel requestChannel(id){
-		new Channel(client, requester.jsonGet("channels/${this.id(id)}"))
+		new Channel(client, http.jsonGet("channels/${this.id(id)}"))
 	}
 
 	List<Channel> requestChannels(){
-		requester.jsonGet("channels").collect { new Channel(client, it) }
+		http.jsonGet("channels").collect { new Channel(client, it) }
 	}
 
 	List<Channel> getTextChannels(){ channels.findAll { it.text } }
@@ -146,7 +146,7 @@ class Server extends DiscordObject {
 
 	void editRoles(member, List<Role> roles) {
 		client.askPool("editMembers", id){
-			requester.patch("members/${id(member)}", ["roles": roles*.id])
+			http.patch("members/${id(member)}", ["roles": roles*.id])
 		}
 	}
 
@@ -157,11 +157,11 @@ class Server extends DiscordObject {
 	void addRole(Member member, Role role){ addRoles(member, [role]) }
 
 	void kick(member) {
-		requester.delete("members/${id(member)}")
+		http.delete("members/${id(member)}")
 	}
 
 	List<User> getBans() {
-		requester.jsonGet("bans").collect { new User(client, it["user"]) }
+		http.jsonGet("bans").collect { new User(client, it["user"]) }
 	}
 
 	List<VoiceState> getVoiceStates(){
@@ -173,19 +173,19 @@ class Server extends DiscordObject {
 	}
 
 	List<Invite> getInvites(){
-		requester.jsonGet("invites").collect { new Invite(client, it) }
+		http.jsonGet("invites").collect { new Invite(client, it) }
 	}
 
 	List<Region> getRegions(){
-		requester.jsonGet("regions").collect { new Region(client, it) }
+		http.jsonGet("regions").collect { new Region(client, it) }
 	}
 
 	List<Integration> getIntegrations(){
-		requester.jsonGet("integrations").collect { new Integration(client, it) }
+		http.jsonGet("integrations").collect { new Integration(client, it) }
 	}
 
 	Integration createIntegration(String type, String id){
-		new Integration(client, requester.jsonPost("integrations", [type: type, id: id]))
+		new Integration(client, http.jsonPost("integrations", [type: type, id: id]))
 	}
 
 	String getRegion(){
@@ -193,24 +193,24 @@ class Server extends DiscordObject {
 	}
 
 	void ban(user, int days=0) {
-		requester.put("bans/${id(user)}?delete-message-days=$days", [:])
+		http.put("bans/${id(user)}?delete-message-days=$days", [:])
 	}
 
 	void unban(user) {
-		requester.delete("bans/${id(user)}")
+		http.delete("bans/${id(user)}")
 	}
 
 	int checkPrune(int days){
-		requester.jsonGet("prune?days=$days")["pruned"]
+		http.jsonGet("prune?days=$days")["pruned"]
 	}
 
 	int prune(int days){
-		requester.jsonPost("prune?days=$days")["pruned"]
+		http.jsonPost("prune?days=$days")["pruned"]
 	}
 
 	Role createRole(Map<String, Object> data) {
 		Map defaultData = [color: 0, hoist: false, name: "new role", permissions: defaultRole.permissionValue]
-		Role createdRole = new Role(client, requester.jsonPost("roles", [:]))
+		Role createdRole = new Role(client, http.jsonPost("roles", [:]))
 		editRole(createdRole, defaultData << data)
 	}
 
@@ -218,11 +218,11 @@ class Server extends DiscordObject {
 		Map defaultData = [name: role.name, color: role.colorValue, permissions: role.permissionValue, hoist: role.hoist]
 		if (data["color"] instanceof Color) data["color"] = data["color"].value
 		if (data["permissions"] instanceof Permissions) data["permissions"] = data["permissions"].value
-		new Role(client, requester.jsonPatch("roles/${role.id}", defaultData << data))
+		new Role(client, http.jsonPatch("roles/${role.id}", defaultData << data))
 	}
 
 	void deleteRole(role) {
-		requester.delete("roles/${id(role)}")
+		http.delete("roles/${id(role)}")
 	}
 
 	List<Role> batchModifyRoles(Closure closure){
@@ -238,11 +238,11 @@ class Server extends DiscordObject {
 			if (v["permissions"] instanceof Permissions) v["permissions"] = v["permissions"].value
 			hah.add(v + [id: id(k)])
 		}
-		requester.jsonPatch("roles", hah).collect { new Role(client, it + [guild_id: id]) }
+		http.jsonPatch("roles", hah).collect { new Role(client, it + [guild_id: id]) }
 	}
 
 	List<Webhook> requestWebhooks(){
-		requester.jsonGet("webhooks").collect { new Webhook(client, it) }
+		http.jsonGet("webhooks").collect { new Webhook(client, it) }
 	}
 
 	void batchModifyChannels(Closure closure){
@@ -256,16 +256,16 @@ class Server extends DiscordObject {
 		Modifier.getAllModifications(ass).each { k, v ->
 			hah.add(v + [id: id(k)])
 		}
-		requester.patch("channels", hah)
+		http.patch("channels", hah)
 	}
 
 	List<Member> requestMembers(int max=1000, boolean updateCache=true){
-		List members = requester.jsonGet("members?limit=${max}")
+		List members = http.jsonGet("members?limit=${max}")
 		if (max > 1000){
 			for (int m = 1; m < (int) Math.ceil(max / 1000) - 1; m++){
-				members += requester.jsonGet("members?after=${(m * 1000) + 1}&limit=1000")
+				members += http.jsonGet("members?after=${(m * 1000) + 1}&limit=1000")
 			}
-			members += requester.jsonGet("members?after=${(int)((Math.ceil(max / 1000) - 1) * 1000)+1}&limit=1000")
+			members += http.jsonGet("members?after=${(int)((Math.ceil(max / 1000) - 1) * 1000)+1}&limit=1000")
 		}
 		if (updateCache){
 			client.cache["guilds"][id]["members"] = new DiscordListCache(members.collect { it + ["guild_id": id] + it["user"] }, client, Member)
@@ -274,7 +274,7 @@ class Server extends DiscordObject {
 		members.collect { new Member(client, it + ["guild_id": id]) }
 	}
 
-	Member requestMember(id){ new Member(client, requester.jsonGet("members/${DiscordObject.id(id)}")) }
+	Member requestMember(id){ new Member(client, http.jsonGet("members/${DiscordObject.id(id)}")) }
 
 	Member getLastMember(){ members.max { it.joinDate } }
 	Member getLatestMember(){ members.max { it.joinDate } }
@@ -289,7 +289,7 @@ class Server extends DiscordObject {
 	Message sendFile(File file){ defaultChannel.sendFile(file) }
 	Message sendFile(String filePath){ defaultChannel.sendFile(filePath) }
 
-	Embed getEmbed(){ new Embed(client, requester.jsonGet("embed")) }
+	Embed getEmbed(){ new Embed(client, http.jsonGet("embed")) }
 
 	static Map construct(Client client, Map g){
 		g["members"] = new DiscordListCache(g.members.collect { it << [guild_id: g["id"]] << it["user"] }, client, Member)
@@ -311,7 +311,7 @@ class Server extends DiscordObject {
 		Server getServer(){ channel.server }
 		Embed edit(Map data){
 			Map json = [channel_id: (data["channel"] instanceof Channel) ? data["channel"].id : data["channel"].toString() ?: channel.id, enabled: data["enabled"] ?: enabled]
-			new Embed(client, requester.jsonPatch("embed", json))
+			new Embed(client, http.jsonPatch("embed", json))
 		}
 	}
 }
@@ -356,13 +356,13 @@ class Integration extends DiscordObject {
 	Date getSyncTime(){ ConversionUtil.fromJsonDate(object["synced_at"]) }
 	String getType(){ object["type"] }
 	Integration edit(Map data){
-		new Integration(client, requester.jsonPatch("", data))
+		new Integration(client, http.jsonPatch("", data))
 	}
 	void delete(){
-		requester.delete("")
+		http.delete("")
 	}
 	void sync(){
-		requester.post("sync")
+		http.post("sync")
 	}
 }
 
@@ -463,7 +463,7 @@ class Member extends User {
 
 	void edit(Map data){
 		client.askPool("editMembers", server.id){
-			requester.patch("", data)
+			http.patch("", data)
 		}
 	}
 
@@ -523,7 +523,7 @@ class Member extends User {
 	}
 
 	void moveTo(channel){
-		requester.patch("", [channel_id: id(channel)])
+		http.patch("", [channel_id: id(channel)])
 	}
 
 	User toUser(){ new User(client, object["user"]) }

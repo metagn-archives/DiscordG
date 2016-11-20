@@ -4,7 +4,7 @@ import com.mashape.unirest.http.Unirest
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.util.JSONUtil
 
-import static hlaaftana.discordg.net.JSONRequester.*
+import static hlaaftana.discordg.util.JSONSimpleHTTP.*
 
 /// A wrapper for https://cleverbot.io/
 /// API documentation: https://docs.cleverbot.io/docs/querying-cleverbot
