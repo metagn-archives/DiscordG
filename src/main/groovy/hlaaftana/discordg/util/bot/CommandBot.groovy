@@ -93,14 +93,14 @@ class CommandBot implements Triggerable {
 	 * @param password - the password to log in with.
 	 */
 	def initialize(){
-		commandListener = client.listener(Events.MESSAGE) {
+		commandListener = client.listener(Events.MESSAGE){
 			try{
 				if (!acceptOwnCommands && json.author.id == this.client.id) return
 			}catch (ex){}
 			for (Command c in commands){
 				if (c.match(message)){
 					try{
-						c it
+						c(it.clone())
 					}catch (ex){
 						ex.printStackTrace()
 						log.error "Command threw exception"
@@ -137,16 +137,16 @@ class BotType {
 	}
 	// These have IDs for convenience sake
 	static final BotType PREFIX = BotType.new(0, false){ Trigger trigger, Alias alias ->
-		/(?i)/ + quote(trigger) + quote(alias) + /(?:\s+((?:.|\n)*))?/
+		/(?i)(/ + quote(trigger) + quote(alias) + /)(?:\s+(?:.|\n)*)?/
 	}
 	static final BotType SUFFIX = BotType.new(1, false){ Trigger trigger, Alias alias ->
-		/(?i)/ + quote(alias) + quote(trigger) + /(?:\s+((?:.|\n)*))?/
+		/(?i)(/ + quote(alias) + quote(trigger) + /)(?:\s+(?:.|\n)*)?/
 	}
 	static final BotType REGEX = BotType.new(2){ Trigger trigger, Alias alias ->
-		trigger.toString() + alias.toString() + /(?:\s+((?:.|\n)*))?/
+		/(/ + trigger.toString() + alias.toString() + /)(?:\s+(?:.|\n)*)?/
 	}
 	static final BotType REGEX_SUFFIX = BotType.new(3){ Trigger trigger, Alias alias ->
-		alias.toString() + trigger.toString() + /(?:\s+((?:.|\n)*))?/
+		/(/ + alias.toString() + trigger.toString() + /)(?:\s+(?:.|\n)*)?/
 	}
 
 	Closure commandMatcher
@@ -314,7 +314,11 @@ class Command implements Triggerable, Aliasable, Restricted {
 	 * @return the arguments as a string.
 	 */
 	def args(Message msg){
-		this.allCaptures(msg).size() > 1 ? this.allCaptures(msg).last() ?: "" : ""
+		try{
+			msg.content.substring(allCaptures(msg)[0].size()).trim()
+		}catch (ex){
+			""
+		}
 	}
 
 	// only for regex
@@ -325,7 +329,8 @@ class Command implements Triggerable, Aliasable, Restricted {
 	// only for regex
 	List allCaptures(Message msg){
 		def aa = this.matcher(msg).collect()
-		aa instanceof String ? [aa] : aa[0] != null ? aa[0] : []
+		(aa instanceof String ? [aa] : aa[0] != null ?
+			aa[0] instanceof String ? [aa[0]] : aa[0] : []).collect { it ?: "" }.drop(1)
 	}
 
 	/**

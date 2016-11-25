@@ -50,6 +50,8 @@ class ConversionUtil {
 	}
 
 	static Date fromJsonDate(String string){
-		Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", string.replaceAll(/(?!\.)\d{3}\+00:00/, "+00:00"))
+		try{
+			Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", string.replaceAll(/(?!\.)\d{3}\+00:00/, "+00:00"))
+		}catch (ex){ null }
 	}
 }

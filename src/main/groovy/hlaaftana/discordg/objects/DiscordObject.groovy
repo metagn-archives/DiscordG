@@ -40,9 +40,17 @@ class DiscordObject implements Comparable {
 	String toString(){ name }
 	String inspect(){ "'$name' ($id)" }
 	Date getCreateTime(){ new Date(createTimeMillis) }
-	long getCreateTimeMillis(){ ((Long.parseLong(id) >> 22) + (1420070400000 as long)) as long }
+	long getCreateTimeMillis(){ idToMillis(id) }
 
-	static forId(String id, Class<? extends DiscordObject> clazz = this.class){
+	static long idToMillis(id){
+		(Long.parseLong(this.id(id)) >> 22) + 1420070400000L
+	}
+
+	static String millisToId(long ms, boolean raised = false){
+		(ms - 1420070400000L << 22) + (raised ? 1 << 22 : 0)
+	}
+
+	static forId(String id){
 		new DiscordObject(null, [id: id])
 	}
 

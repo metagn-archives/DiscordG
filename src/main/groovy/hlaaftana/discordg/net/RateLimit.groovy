@@ -1,4 +1,6 @@
-package hlaaftana.discordg.objects
+package hlaaftana.discordg.net
+
+import hlaaftana.discordg.objects.DiscordObject;
 
 @groovy.transform.InheritConstructors
 class RateLimit extends DiscordObject {

@@ -25,11 +25,11 @@ class User extends DiscordObject{
 	boolean isAway(){ status == "idle" }
 	String getMentionRegex(){ MENTION_REGEX(id) }
 	String getName(){ username }
-	String getUsername() { object["username"] }
-	String getAvatarHash(){ object["avatar"] ?: DefaultAvatars.get(Integer.parseInt(discriminator) % 5).hash }
+	String getUsername(){ object["username"] }
+	String getAvatarHash(){ object["avatar"]}
 	String getRawAvatarHash(){ object["avatar"] }
-	String getAvatar() { (object["avatar"] != null) ? "https://cdn.discordapp.com/avatars/${id}/${avatarHash}.jpg"
-		: "https://discordapp.com/assets/${avatarHash}.png" }
+	int getDefaultAvatarType(){ Integer.parseInt(discriminator) % 5 }
+	String getAvatar(){ "https://cdn.discordapp.com/avatars/${id}/${avatarHash}.jpg" }
 	InputStream getAvatarInputStream(){
 		avatar.toURL().newInputStream(requestProperties:
 			["User-Agent": client.fullUserAgent, Accept: "*/*"])
@@ -122,22 +122,13 @@ class Application extends DiscordObject {
 			(oldAccountToken == null) ? [:] : [token: oldAccountToken]))
 	}
 
-	String getInviteLink(Permissions permissions = null){
-		"https://discordapp.com/oauth2/authorize?client_id=$id&scope=bot" +
-			(permissions ? "&permissions=$permissions.value" : "")
+	String getApplicationLink(app, perms = null){
+		Client.getApplicationLink(app, perms)
 	}
 
-	String inviteLink(Permissions permissions = null){
-		getInviteLink(permissions)
-	}
-
-	String getInviteUrl(Permissions permissions = null){
-		getInviteLink(permissions)
-	}
-
-	String inviteUrl(Permissions permissions = null){
-		getInviteLink(permissions)
-	}
+	String getAppLink(app, perms = null){ getApplicationLink(app, perms) }
+	String applicationLink(app, perms = null){ getApplicationLink(app, perms) }
+	String appLink(app, perms = null){ getApplicationLink(app, perms) }
 }
 
 @InheritConstructors

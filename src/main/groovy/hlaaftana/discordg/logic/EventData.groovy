@@ -14,11 +14,9 @@ class EventData extends LazyClosureMap {
 	}
 
 	EventData clone(){
-		EventData ass = new EventData(type, [:])
-		this.each { LazyClosureMap.LazyEntry entry ->
-			ass[entry.key] = entry.rawValue
-		}
-		ass
+		EventData a = new EventData(type, [:])
+		rawEach { k, v -> a[k] = v.clone() }
+		a
 	}
 
 	def propertyMissing(String name){

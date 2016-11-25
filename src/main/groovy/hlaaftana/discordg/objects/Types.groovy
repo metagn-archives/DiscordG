@@ -75,3 +75,12 @@ interface OAuthScopes extends Types {
 	final String RPC_API = "rpc.api"
 	final String BOT = "bot"
 }
+
+interface DefaultAvatarTypes extends Types {
+	final int BLUE = 0
+	final int GREY = 1
+	final int GRAY = 1
+	final int GREEN = 2
+	final int YELLOW = 3
+	final int RED = 4
+}

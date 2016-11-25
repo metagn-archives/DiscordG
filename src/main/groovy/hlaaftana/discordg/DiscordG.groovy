@@ -11,18 +11,18 @@ class DiscordG {
 	static Client withLogin(String email, String password){
 		Client client = new Client()
 		client.login(email, password)
-		return client
+		client
 	}
 
 	static Client withToken(String token, boolean bot = true){
 		Client client = new Client()
 		client.login(token, bot)
-		return client
+		client
 	}
 
 	static Client withToken(String botName, String token){
 		Client client = new Client()
 		client.login(botName){ token }
-		return client
+		client
 	}
 }

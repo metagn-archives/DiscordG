@@ -370,6 +370,15 @@ class Client extends User {
 		a
 	}
 
+	static String getApplicationLink(app, perms = null){
+		"https://discordapp.com/oauth2/authorize?client_id=${id(app)}&scope=bot" +
+			(perms ? "&permissions=$perms.value" : "")
+	}
+
+	static String getAppLink(app, perms = null){ getApplicationLink(app, perms) }
+	static String applicationLink(app, perms = null){ getApplicationLink(app, perms) }
+	static String appLink(app, perms = null){ getApplicationLink(app, perms) }
+
 	String mute(t){
 		def d = t.class.array || t instanceof Collection ? t.collect { id(it) } : id(t)
 		mutedChannels += d
@@ -472,7 +481,7 @@ class Client extends User {
 		server.deleteRole(role)
 	}
 
-	void changeStatus(Map<String, Object> data) {
+	void changePresence(Map<String, Object> data) {
 		def oldPresence = presences.find { it.id == id }
 		def payload = [
 			status: data.status ?: oldPresence?.status ?: "online",
@@ -497,11 +506,9 @@ class Client extends User {
 		}
 	}
 
-	void play(String game){ changeStatus(game: game) }
-	void playGame(String game){ changeStatus(game: game) }
-	void stream(String desc = user.game.name, String url = null){
-		changeStatus(game: [url: url, type: 1] << (desc ? [name: desc] : [:]))
-	}
+	void status(status){ changePresence(status: status) }
+	void play(game){ changePresence(game: game) }
+	void playGame(game){ changePresence(game: game) }
 
 	Invite acceptInvite(id){
 		new Invite(this, http.jsonPost("invite/${Invite.parseId(id)}", [:]))
@@ -519,7 +526,7 @@ class Client extends User {
 		http.jsonGet("users/@me/connections").collect { new Connection(this, it) }
 	}
 
-	User editProfile(Map data){
+	User edit(Map data){
 		Map map = [avatar: user.avatarHash, email: this?.email,
 			password: this?.password, username: user.username]
 		Map response = http.jsonPatch("users/@me", map <<
@@ -669,28 +676,28 @@ class Client extends User {
 
 	void addChannelCreateListener(){
 		addListener(Events.CHANNEL_CREATE){ Map d ->
-			if (d.json.guild_id){
-				cache["guilds"][d.json.guild_id]["channels"].add(d.json)
+			if (d.constructed.guild_id){
+				cache["guilds"][d.constructed.guild_id]["channels"].add(d.constructed)
 			}else{
-				cache["private_channels"].add(d.json)
+				cache["private_channels"].add(d.constructed)
 			}
 		}
 	}
 
 	void addChannelDeleteListener(){
 		addListener(Events.CHANNEL_DELETE){ Map d ->
-			if (d.json.guild_id){
-				cache["guilds"][d.json.guild_id]["channels"].remove(d.json.id)
+			if (d.constructed.guild_id){
+				cache["guilds"][d.constructed.guild_id]["channels"].remove(d.constructed.id)
 			}else{
-				cache["private_channels"].remove(d.json.id)
+				cache["private_channels"].remove(d.constructed.id)
 			}
 		}
 	}
 
 	void addChannelUpdateListener(){
 		addListener(Events.CHANNEL_UPDATE){ Map d ->
-			cache["guilds"][d.json.guild_id]["channels"][d.json.id] <<
-				d.json
+			cache["guilds"][d.constructed.guild_id]["channels"][d.constructed.id] <<
+				d.constructed
 		}
 	}
 
@@ -700,41 +707,36 @@ class Client extends User {
 				messages[d.json.channel_id].add(d.json)
 			}else{
 				messages[d.json.channel_id] = new DiscordListCache([d.json], this, Message)
-				messages[d.json.channel_id].root = d.message.channel
+				messages[d.json.channel_id].root = channel(d.json.channel_id)
 			}
 		}
 	}
 
 	void addMessageUpdateListener(){
 		addListener(Events.MESSAGE_UPDATE){ Map d ->
-			if (!(d.message instanceof String)){
-				Channel channel = d.message.channel
-				if (messages[channel.id]){
-					if (messages[channel.id][d.message.id]){
-						messages[channel.id][d.message.id] << d.message.object
-					}else{
-						messages[channel.id].add(d.message)
-					}
+			if (messages[d.json.channel_id]){
+				if (messages[d.json.channel_id][d.json.id]){
+					messages[d.json.channel_id][d.json.id] << d.json
 				}else{
-					messages[channel.id] = new DiscordListCache([d.message], this, Message)
-					messages[channel.id].root = channel
+					messages[d.json.channel_id].add(d.json)
 				}
+			}else{
+				messages[d.json.channel_id] = new DiscordListCache([d.json], this, Message)
+				messages[d.json.channel_id].root = channel(d.json.channel_id)
 			}
 		}
 	}
 
 	void addMessageDeleteListener(){
 		addListener("message delete") { Map d ->
-			if (!(d.message instanceof String)){
-				messages[d.channel.id].remove(d.message.id)
-			}
+			messages[d.json.channel_id]?.remove(d.json.id)
 		}
 	}
 
 	void addGuildCreateListener(){
 		addListener(Events.SERVER){ Map d ->
-			Map server = d.server.object
-			if (cache["guilds"].any { k, v -> k == server["id"] }){
+			Map server = d.constructed
+			if (cache["guilds"][server["id"]]){
 				cache["guilds"][server["id"]] << server
 			}else{
 				cache["guilds"].add(server)
@@ -750,45 +752,46 @@ class Client extends User {
 
 	void addGuildMemberUpdateListener(){
 		addListener(Events.MEMBER_UPDATED){ Map d ->
-			cache["guilds"][d.server.id]["members"][d.member?.id]?.leftShift(d.member?.object) ?: null
+			cache["guilds"][d.server.id]["members"][d.member?.id]?.leftShift(d.member?.object)
 		}
 	}
 
 	void addGuildRoleUpdateListener(){
 		addListener(Events.ROLE_UPDATE){ Map d ->
-			cache["guilds"][d.server.id]["roles"][d.role.id] << d.role.object
+			if (cache["guilds"][d.json.guild_id]["roles"][d.json.id])
+				cache["guilds"][d.json.guild_id]["roles"][d.json.id] << d.json
+			else cache["guilds"][d.json.guild_id]["roles"][d.json.id] = d.json
 		}
 	}
 
 	void addGuildUpdateListener(){
 		addListener(Events.SERVER_UPDATED){ Map d ->
-			cache["guilds"][d.server.id] = d.server.object
+			cache["guilds"][d.json.id] = d.constructed
 		}
 	}
 
 	void addPresenceUpdateListener(){
 		addListener("presence change"){ Map d ->
-			Server server = d.server
-			if (!server) return
-			if (d.newUser){
-				if (d.member && cache.guilds[server.id].members[d.member?.id]){
-					cache.guilds[server.id].members[d.member.id].user <<
-						d.newUser.object
+			if (!d.json.guild_id) return
+			if (d.json.user.avatar){
+				if (cache.guilds[d.json.guild_id].members[d.json.user.id]){
+					cache.guilds[d.json.guild_id].members[d.json.user.id].user <<
+						d.json.user
 				}else{
-					cache.guilds[server.id].members.add(d.json.with {
+					cache.guilds[d.json.guild_id].members.add(d.json.with {
 						Map di = it.clone()
 						di.remove("status")
 						di.remove("game")
-						if (allowMemberRequesting) di << server.memberInfo(d.user).object
-						else di.joined_at = new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+						if (allowMemberRequesting)
+							di << server(d.json.guild_id).memberInfo(d.user).object
 						di
 					})
 				}
 			}
 			if (d.json.status == "offline")
-				cache.guilds[server.id].presences.remove(d.json.user.id)
+				cache.guilds[d.json.guild_id].presences.remove(d.json.user.id)
 			else {
-				cache.guilds[server.id].presences?.add(d.json.with {
+				cache.guilds[d.json.guild_id].presences?.add(d.json.with {
 					Map di = it.clone()
 					di.remove("roles")
 					di.remove("nick")
@@ -800,30 +803,32 @@ class Client extends User {
 
 	void addVoiceStateUpdateListener(){
 		addListener("voice state change"){ Map d ->
-			if (d.voiceState.channel){
-				def ass = cache["guilds"][d.server]["voice_states"][d.voiceState]
-				if (ass) ass << d.voiceState.object
-				else cache["guilds"][d.server]["voice_states"][d.voiceState] = d.voiceState.object
-				if (d.voiceState == this){
-					VoiceClient vc = voiceClients[d.server]
+			def gi = d.constructed.guild_id ?:
+				cache["guilds"].find { it.channels[d.constructed.channel_id] }.id
+			if (d.constructed.channel_id){
+				if (cache["guilds"][gi]["voice_states"][d.constructed.id])
+					cache["guilds"][gi]["voice_states"][d.constructed.id] << d.constructed
+				else cache["guilds"][gi]["voice_states"][d.constructed.id] = d.constructed
+				if (d.constructed.id == this){
+					VoiceClient vc = voiceClients[d.constructed.id]
 					if (vc) vc.handleVoiceStateUpdate(d)
 				}
 			}else{
-				cache["guilds"][d.server]["voice_states"].remove(d.voiceState.id)
+				cache["guilds"][gi]["voice_states"].remove(d.constructed.id)
 			}
 		}
 	}
 
 	void addVoiceServerUpdateListener(){
 		addListener("voice server change"){ Map d ->
-			VoiceClient vc = voiceClients[d.server]
+			VoiceClient vc = voiceClients[d.json.guild_id]
 			if (vc) vc.handleVoiceServerUpdate(d)
 		}
 	}
 
 	void addGuildEmojisUpdateListener(){
 		addListener("guild emojis change"){ Map d ->
-			cache["guilds"][d.server.id]["emojis"] = new DiscordListCache(this, d.emojis.mapList, Emoji)
+			cache["guilds"][d.json.guild_id]["emojis"] = d.emojis
 		}
 	}
 
