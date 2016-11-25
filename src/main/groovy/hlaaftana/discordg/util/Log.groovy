@@ -42,7 +42,7 @@ class Log {
 		String.format("<%s|%s> [%s] [%s]: %s",
 			message.time.toLocalDate(),
 			message.time.toLocalTime(),
-			MiscUtil.constantize(message.level.name),
+			message.level.name.toUpperCase(),
 			message.sender, message.content)
 	}
 

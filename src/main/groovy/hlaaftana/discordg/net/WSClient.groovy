@@ -156,6 +156,7 @@ class WSClient extends WebSocketAdapter {
 						eventData = edm {
 							server { ass.server }
 							channel { ass }
+							constructed { c }
 						}
 					}
 					when(["GUILD_BAN_ADD", "GUILD_BAN_REMOVE"]){
@@ -169,6 +170,7 @@ class WSClient extends WebSocketAdapter {
 						s = Server.construct(client, s)
 						eventData = edm {
 							server { new Server(client, s) }
+							constructed { s }
 						}
 					}
 					when("GUILD_DELETE"){
@@ -230,6 +232,7 @@ class WSClient extends WebSocketAdapter {
 						}
 						eventData = edm {
 							server { new Server(client, s) }
+							constructed { s }
 						}
 					}
 					when("MESSAGE_CREATE"){
@@ -272,7 +275,7 @@ class WSClient extends WebSocketAdapter {
 								member { client.server(data.guild_id).member(data.user) }
 								game { data.game ? new Game(client, data.game) : null }
 								status { data.status }
-								if (data.user.discriminator){
+								if (data.user.avatar){
 									newUser { new User(client, data.user) }
 								}
 							}
@@ -280,18 +283,21 @@ class WSClient extends WebSocketAdapter {
 					}
 					when("TYPING_START"){
 						eventData = edm {
-							Channel channel = client.channel(data["channel_id"])
-							channel { channel }
-							user { channel.private ? channel.user : channel.server.members.find { it.id == data["user_id"] } }
+							channel { client.channel(data["channel_id"]) }
+							user { def c = client.channel(data["channel_id"])
+								c.private ? c.user : c.server.member(data["user_id"]) }
 						}
 					}
 					when("VOICE_STATE_UPDATE"){
-						VoiceState ase = new VoiceState(client, data << [id: data["user_id"]])
+						Map v = data
+						v << [id: data["user_id"]]
+						VoiceState ase = new VoiceState(client, v)
 						eventData = edm {
 							voiceState { ase }
 							server { ase.server }
 							channel { ase.channel }
 							member { ase.member }
+							constructed { v }
 						}
 					}
 					when("VOICE_SERVER_UPDATE"){

@@ -146,7 +146,7 @@ class Server extends DiscordObject {
 
 	void editRoles(member, List roles) {
 		client.askPool("editMembers", id){
-			http.patch("members/${id(member)}", ["roles": roles.each(this.&id)])
+			http.patch("members/${id(member)}", ["roles": roles.collect(this.&id)])
 		}
 	}
 

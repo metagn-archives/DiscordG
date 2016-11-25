@@ -17,12 +17,6 @@ import hlaaftana.discordg.Client
  * @author Hlaaftana
  */
 class MiscUtil {
-	@InheritConstructors
-	static class Game extends DiscordObject {
-		Map<String, List<String>> getExecutables(){ object["executables"] }
-		String getCommandLineOptions(){ object["cmdline"] ?: "" }
-	}
-
 	static Map namedColors = [
 		aliceblue: 0xf0f8ff, antiquewhite: 0xfaebd7, aqua: 0x00ffff,
 		aquamarine: 0x7fffd4, azure: 0xf0ffff, beige: 0xf5f5dc, bisque: 0xffe4c4,
@@ -72,6 +66,51 @@ class MiscUtil {
 		yellowgreen: 0x9acd32
 	]
 
+	static Map converters = [
+		camel: [
+			snake: { it.replaceAll(/[A-Z]/){ "_$it".toLowerCase() } },
+			constant: { converters.camel.snake(it).toUpperCase() },
+			pascal: { it.capitalize() },
+			pascalSnake: { it.replaceAll(/[A-Z]/){ "_$it" }.capitalize() },
+			kebab: { it.replaceAll(/[A-Z]/){ "-$it".toLowerCase() } }
+		],
+		snake: [
+			camel: { it.replaceAll(/_([a-z])/){ full, ch -> ch.toUpperCase() } },
+			constant: { it.toUpperCase() },
+			pascal: { converters.snake.camel(it).capitalize() },
+			pascalSnake: { it.replaceAll(/_[a-z]/){ it.toUpperCase() }.capitalize() },
+			kebab: { it.replace("_", "-") }
+		],
+		constant: [
+			camel: { converters.snake.camel(it.toLowerCase()) },
+			snake: { it.toLowerCase() },
+			pascal: { converters.snake.pascal(it.toLowerCase()) },
+			pascalSnake: { converters.snake.pascalSnake(it.toLowerCase()) },
+			kebab: { converters.snake.kebab(it.toLowerCase()) }
+		],
+		pascal: [
+			camel: { uncapitalize(it) },
+			snake: { converters.camel.snake(uncapitalize(it)) },
+			constant: { converters.camel.constant(uncapitalize(it)) },
+			pascalSnake: { converters.camel.pascalSnake(uncapitalize(it)) },
+			kebab: { converters.camel.kebab(uncapitalize(it)) }
+		],
+		pascalSnake: [
+			camel: { uncapitalize(converters.pascalSnake.pascal(it)) },
+			snake: { uncapitalize(it).replaceAll(/_[A-Z]/){ it.toLowerCase() } },
+			pascal: { it.replaceAll(/_([A-Z])/){ full, ch -> ch } },
+			constant: { it.toUpperCase() },
+			kebab: { converters.snake.kebab(converters.pascalSnake.snake(it)) }
+		],
+		kebab: [
+			camel: { it.replaceAll(/\-([a-z])/){ full, ch -> ch.toUpperCase() } },
+			snake: { it.replace("-", "_") },
+			constant: { it.replace("-", "_").toUpperCase() },
+			pascal: { it.capitalize().replaceAll(/\-([a-z])/){ full, ch -> ch.toUpperCase() } },
+			pascalSnake: { it.capitalize().replaceAll(/\-([a-z])/){ full, ch -> "_$ch".toUpperCase() } }
+		]
+	]
+
 	static Random listRandom = new Random()
 
 	static Clipboard getClipboard(){ Toolkit.defaultToolkit.systemClipboard }
@@ -89,20 +128,8 @@ class MiscUtil {
 		LocalDateTime.ofInstant(date.toInstant(), tz)
 	}
 
-	static List requestEmojis(){
-		JSONSimpleHTTP.get("https://abal.moe/Discord/JSON/emojis.json")
-	}
-
-	static List requestEmojiShortcuts(){
-		JSONSimpleHTTP.get("https://abal.moe/Discord/JSON/emoji-shortcuts.json")
-	}
-
-	static List<Game> requestGames(){
-		JSONSimpleHTTP.get("https://abal.moe/Discord/JSON/games.json").collect { new Game(null, it) }
-	}
-
 	static dump(list, newItem, Closure doto = Closure.IDENTITY){
-		List mock = []
+		List mock = list
 		mock += newItem
 		mock = mock.collect { doto(it) }
 		mock
@@ -116,45 +143,64 @@ class MiscUtil {
 	}
 
 	@Memoized
-	static String constantize(String method){
-		method.replaceAll(/[A-Z]/){ method.startsWith(it) ? it : "_$it" }.toUpperCase()
+	static String uncapitalize(String s){
+		s[0] = s[0].toLowerCase()
+		s
 	}
 
 	@Memoized
-	static String unconstantize(String method){
-		method.toLowerCase().replaceAll(/_([a-z])/){ full, ch -> ch.toUpperCase() }
+	static String convertCasing(String text, String original, String to){
+		converters[original][to](text)
 	}
+
+	@Memoized
+	static String removeFormatting(String s){
+		s.replace("~", "\\~").replace("_", "\\_").replace("*", "\\*")
+			.replace("```", "\u200b`\u200b`\u200b`").replace("`", "\\`")
+			.replace(":", "\\:").replace("`", "\\`").replace("/", "\\/")
+			.replace("@", "\\@").replace("<", "\\<").replace(">", "\\>")
+	}
+
+	@Memoized
+	static String surround(String s, String sur){ "$sur$s$sur" }
+
+	@Memoized
+	static String bold(String s){ surround(s, "**") }
+	@Memoized
+	static String bolden(String s){ surround(s, "**") }
+	@Memoized
+	static String italic(String s, boolean underscore = false){
+		surround(s, underscore ? "_" : "*") }
+	@Memoized
+	static String italicize(String s, boolean underscore = false){
+		surround(s, underscore ? "_" : "*") }
+	@Memoized
+	static String underline(String s){ surround(s, "__") }
+	@Memoized
+	static String strikethrough(String s){ surround(s, "~~") }
+	@Memoized
+	static String code(String s){ surround(s, "`") }
+	@Memoized
+	static String block(String s, String language = ""){ "```$language\n$s```" }
 
 	/**
 	 * Registers a bunch of methods to help you with Discord formatting to the String meta class.
 	 */
 	static registerStringMethods(){
-		String.metaClass.removeFormatting = {
-			delegate.replace("~", "\\~").replace("_", "\\_").replace("*", "\\*")
-				.replace("```", "\u200b`\u200b`\u200b`").replace("`", "\\`")
-				.replace(":", "\\:").replace("`", "\\`").replace("/", "\\/")
-				.replace("@", "\\@").replace("<", "\\<").replace(">", "\\>")
-		}
-		String.metaClass.surround = { String sur -> "$sur$delegate$sur" }
-		String.metaClass.bold = { surround "**" }
-		String.metaClass.bolden = { surround "**" }
-		String.metaClass.italic = { boolean underscore=false -> underscore ? surround("_") : surround("*") }
-		String.metaClass.italicize = { boolean underscore=false -> underscore ? surround("_") : surround("*") }
-		String.metaClass.underline = { surround "__" }
-		String.metaClass.code = { surround "`" }
-		String.metaClass.block = { String language="" -> "```$language\n$delegate```" }
-		String.metaClass.strikethrough = { surround "~~" }
-		String.metaClass.isHexadecimal = {
-			delegate.toLowerCase() ==~ /[abcdef012346789]+/
+		MiscUtil.metaClass.methods.findAll {
+			it.declaringClass.theClass == MiscUtil &&
+				!(it.name in ["getProperty", "invokeMethod", "setProperty"]) &&
+				String in it.parameterTypes*.theClass }.each { a ->
+			String.metaClass."$a.name" = { ...args -> MiscUtil."$a.name"(delegate, *args) }
 		}
 	}
 
-	static registerListMethods(){
-		AbstractList.metaClass.allAreEqual = {
+	static registerCollectionMethods(){
+		Collection.metaClass.allAreEqual = {
 			def a = delegate[0]
 			delegate.every(a.&equals)
 		}
-		AbstractList.metaClass.randomItem = { Random random = listRandom ->
+		Collection.metaClass.sample = { Random random = listRandom ->
 			delegate[random.nextInt(delegate.size())]
 		}
 	}
