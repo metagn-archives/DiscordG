@@ -63,6 +63,10 @@ class Message extends DiscordObject {
 		if (ass && member) ass
 		else new User(client, object)
 	}
+	boolean isByWebhook(){ webhookId }
+	String getWebhookId(){ object.webhook_id }
+	Webhook getWebhook(){ client.requestWebhook(webhookId) }
+
 	Server getServer() { channel?.server }
 	Channel getParent(){ channel }
 	Channel getChannel() { client.channel(object.channel_id) }

@@ -112,8 +112,10 @@ class WSClient extends WebSocketAdapter {
 						client.cache["ready_data"] = data
 						DiscordListCache guilds = new DiscordListCache(data.guilds.collect { guildCreate ? it : Server.construct(client, it) }, client, Server)
 						client.cache["guilds"] = guilds
-						DiscordListCache privateChannels = new DiscordListCache(data["private_channels"], client, Channel)
+						DiscordListCache privateChannels = new DiscordListCache(data["private_channels"].each { Channel.construct(client, it) }, client, Channel)
 						client.cache["private_channels"] = privateChannels
+						DiscordListCache presences = new DiscordListCache(data["presences"].collect { it + [id: it.user.id] }, client, Presence)
+						client.cache["presences"] = presences
 						cachingState = LoadState.LOADED
 					}
 					if (guildCreate){
@@ -157,6 +159,13 @@ class WSClient extends WebSocketAdapter {
 							server { ass.server }
 							channel { ass }
 							constructed { c }
+						}
+					}
+					when(["CHANNEL_RECIPIENT_ADD", "CHANNEL_RECIPIENT_REMOVE"]){
+						eventData = edm {
+							channel { client.privateChannel(data["channel_id"]) }
+							recipient { new User(client, data["user"]) }
+							alias "recipient", "user"
 						}
 					}
 					when(["GUILD_BAN_ADD", "GUILD_BAN_REMOVE"]){
@@ -279,6 +288,19 @@ class WSClient extends WebSocketAdapter {
 									newUser { new User(client, data.user) }
 								}
 							}
+						}else{
+							eventData = edm {
+								user { new User(client, data.user) }
+								game { data.game ? new Game(client, data.game) : null }
+								status { data.status }
+								lastModified { data.last_modified }
+								isNew {
+									def old = client.user(data.user.id)
+									data.user.every { k, v ->
+										old[k] == data.user[k]
+									}.not()
+								}
+							}
 						}
 					}
 					when("TYPING_START"){
@@ -336,8 +358,9 @@ class WSClient extends WebSocketAdapter {
 					if (client.enableEventRegisteringCrashes) ex.printStackTrace()
 					client.log.info "Ignoring exception from $type object registering", client.log.name + "WS"
 				}
-				eventData["raw_type"] = type
-				eventData["time_received"] = receiveTime
+				eventData["rawType"] = type
+				eventData["timeReceived"] = receiveTime
+				eventData["seq"] = content.s
 				if (type != "READY" || client.copyReady) eventData["json"] = data
 				if (eventData["server"]) eventData["guild"] = eventData["server"]
 				Map event = eventData
@@ -347,6 +370,8 @@ class WSClient extends WebSocketAdapter {
 					Thread.start("$type-${messageCounts[op][type]}"){ client.dispatchEvent(type, event) }
 				}
 				Thread.start("ALL-${messageCounts[op].values().sum()}"){ client.dispatchEvent("ALL", event) }
+			}else if (op == 1){
+				seq = content.s
 			}else if (op == 7){
 				reconnect()
 			}else if (op == 9){

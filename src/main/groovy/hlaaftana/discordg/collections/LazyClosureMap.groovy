@@ -299,6 +299,10 @@ class LazyClosureMapBuilder {
 	LazyClosureMapBuilder(){}
 	LazyClosureMapBuilder(Map initial){ result << initial }
 
+	def alias(o, ...g){
+		g.each { result[g] = result.getRaw(o) }
+	}
+
 	def methodMissing(String name, args){
 		if (args.class.array || args instanceof Collection){
 			if (args[0] instanceof Closure){

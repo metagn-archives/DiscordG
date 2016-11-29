@@ -48,33 +48,30 @@ class User extends DiscordObject{
 	String getPassword(){ object["password"] }
 
 	Channel getPrivateChannel(){
-		Channel ass = client.privateChannels.find { it.dm && it.user.id == id }
-		ass ?: new Channel(client,
+		client.privateChannels.find { it.dm && it.user.id == id }
+	}
+
+	Channel createPrivateChannel(){
+		new Channel(client,
 			client.http.jsonPost("users/@me/channels", [recipient_id: id]))
 	}
 
-	Permissions permissionsFor(Channel channel, Permissions initialPerms = Permissions.ALL_FALSE){
-		if (channel.private) return Permissions.PRIVATE_CHANNEL
-		Permissions doodle = initialPerms
-		List allOverwrites = channel.permissionOverwrites.findAll { it.involves(this) }.sort { it.role ? it.affected.position : channel.server.roles.size() + 1 }
-		for (PermissionOverwrite overwrite in allOverwrites){
-			if (doodle["administrator"]){
-				Permissions.CHANNEL_ALL_TRUE
-			}
-			doodle += overwrite.allowed
-			doodle -= overwrite.denied
-		}
-		doodle
+	Channel createOrGetPrivateChannel(){
+		privateChannel ?: createPrivateChannel()
 	}
 
-	List<Server> getSharedServers(){ client.servers.findAll { it.members*.id.contains(id) } }
+	Permissions permissionsFor(Channel channel){
+		channel.permissionsFor(this)
+	}
+
+	List<Server> getSharedServers(){ client.servers.findAll { it.object.members.keySet().contains(id) } }
 	String getMention(){ "<@$id>" }
 	Member getMember(server){ get(this, server, Member) }
 	Member member(server){ get(this, server, Member) }
 
-	Message sendMessage(String message, boolean tts = false){ privateChannel.sendMessage(message, tts) }
-	Message sendFile(File file){ privateChannel.sendFile(file) }
-	Message sendFile(String filePath){ privateChannel.sendFile(filePath) }
+	Message sendMessage(String message, boolean tts = false){ createOrGetPrivateChannel().sendMessage(message, tts) }
+	Message sendFile(File file){ createOrGetPrivateChannel().sendFile(file) }
+	Message sendFile(String filePath){ createOrGetPrivateChannel().sendFile(filePath) }
 }
 
 @InheritConstructors
@@ -134,4 +131,24 @@ class Application extends DiscordObject {
 @InheritConstructors
 class BotAccount extends User {
 	String getToken(){ object["token"] }
+}
+
+class Profile extends User {
+	Profile(Client client, Map object){
+		super(client, object + object.user, "users/$object.id/profile")
+	}
+
+	User getUser(){ new User(client, object.user) }
+	boolean isPremium(){ object.premium }
+	List<Account> getAccounts(){ object.connected_accounts.collect { new Account(client, it) } }
+	List<String> getMutualServerIds(){ object.mutual_guilds*.id }
+	List<Server> getMutualServers(){ mutualServerIds.collect { client.server(it) } }
+	Map<String, String> getMutualServerNickMap(){
+		object.mutual_guilds.collectEntries { [(it.id): it.nick] }
+	}
+
+	@InheritConstructors
+	static class Account extends DiscordObject {
+		String getType(){ object.type }
+	}
 }

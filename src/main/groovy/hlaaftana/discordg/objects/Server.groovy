@@ -41,6 +41,7 @@ class Server extends DiscordObject {
 		}
 	}
 
+	String getOwnerId(){ object["owner_id"] }
 	Member getOwner() { members.find { it.id == object["owner_id"] } }
 
 	Member getMe(){ members.find { it == client.user } }
@@ -418,7 +419,8 @@ class Role extends DiscordObject{
 	Color getColor(){ new Color(object["color"]) }
 	boolean isLocked(){ isLockedFor(server.me) }
 	boolean isLockedFor(user){
-		position >= server.member(user).primaryRole.position
+		server.member(user).owner ? false :
+			position >= server.member(user).primaryRole.position
 	}
 	boolean isHoist(){ object["hoist"] }
 	boolean isManaged(){ object["managed"] }
@@ -453,11 +455,14 @@ class Member extends User {
 	Server getParent(){ server }
 	String getRawJoinDate(){ object["joined_at"] }
 	Date getJoinDate(){ ConversionUtil.fromJsonDate(rawJoinDate) }
+	List<String> getRoleIds(){ object["roles"] }
 	List<Role> getRoles(){
 		object["roles"].collect { server.role(it) }
 	}
 
 	Role role(ass){ find(roles, ass) }
+
+	boolean isOwner(){ server.ownerId == id }
 
 	Game getGame(){
 		presence?.game ?: null
@@ -497,21 +502,17 @@ class Member extends User {
 	Role getPrimaryRole(){ roles.max { it.position } }
 	int getColorValue(){ roles.findAll { it.colorValue != 0 }.max { it.position }?.colorValue ?: 0 }
 	Color getColor(){ new Color(colorValue) }
-	Permissions getPermissions(Permissions initialPerms = Permissions.ALL_FALSE){
-		Permissions full = initialPerms + server.defaultRole.permissions
+	Permissions getPermissions(){
+		if (owner) return Permissions.ALL_TRUE
+		Permissions full = server.defaultRole.permissions
 		for (Permissions perms in roles*.permissions){
 			if (perms["administrator"]){
-				full += Permissions.ALL_TRUE
-				break
+				return Permissions.ALL_TRUE
 			}else{
 				full += perms
 			}
 		}
 		full
-	}
-
-	Permissions fullPermissionsFor(Channel channel){
-		permissionsFor(channel, permissions)
 	}
 
 	void editRoles(List roles) {
@@ -559,9 +560,11 @@ class Presence extends DiscordObject {
 	Game getGame(){ object["game"] ? new Game(client, object["game"]) : null }
 	String getStatus(){ object["status"] }
 	Server getServer(){ client.serverMap[object["guild_id"]] }
+	boolean isFromServer(){ object.guild_id }
 	Server getParent(){ server }
 	Member getMember(){ server ? server.memberMap[id] : client.members(id)[0] }
 	String getName(){ member.name }
+	long getLastModified(){ object.last_modified }
 }
 
 @InheritConstructors

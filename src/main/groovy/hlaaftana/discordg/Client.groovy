@@ -413,6 +413,9 @@ class Client extends User {
 		}
 	}
 
+	List<Presence> getGlobalPresences(){ cache.presences?.list ?: [] }
+	Map<String, Presence> getGlobalPresenceMap(){ cache.presences?.map ?: [:] }
+
 	List<Channel> requestPrivateChannels(){
 		http.jsonGet("users/@me/channels").collect { new Channel(this, it) }
 	}
@@ -481,6 +484,10 @@ class Client extends User {
 		server.deleteRole(role)
 	}
 
+	Webhook requestWebhook(w){
+		new Webhook(this, http.jsonGet("webhooks/${id(w)}"))
+	}
+
 	void changePresence(Map<String, Object> data) {
 		def oldPresence = presences.find { it.id == id }
 		def payload = [
@@ -499,11 +506,18 @@ class Client extends User {
 		}
 		for (s in servers){
 			cache.guilds[s.id].presences.add(
+				user: cache.user,
 				game: payload.game,
 				status: payload.status,
 				guild_id: s.id
 			)
 		}
+		cache.presences.add(
+			user: cache.user,
+			game: payload.game,
+			status: payload.status,
+			last_modified: System.currentTimeMillis()
+		)
 	}
 
 	void status(status){ changePresence(status: status) }
@@ -539,6 +553,10 @@ class Client extends User {
 		cache["user"]["email"] = response.email
 		cache["user"]["verified"] = response.verified
 		new User(this, response)
+	}
+
+	Profile requestProfile(a){
+		new Profile(this, http.jsonGet("users/${id(a)}/profile"))
 	}
 
 	Application requestApplication(){
@@ -599,6 +617,28 @@ class Client extends User {
 	Map<String, Channel> getPrivateChannelMap(){
 		cache["private_channels"]?.map ?: [:]
 	}
+
+	Channel privateChannel(c){ find(privateChannels, privateChannelMap, c) }
+
+	List<Channel> getDmChannels(){
+		privateChannels.findAll { it.dm }
+	}
+
+	Map<String, Channel> getDmChannelMap(){
+		privateChannelMap.findAll { k, v -> v.dm }
+	}
+
+	Channel dmChannel(c){ find(dmChannels, dmChannelMap, c) }
+
+	List<Channel> getGroups(){
+		privateChannels.findAll { it.group }
+	}
+
+	Map<String, Channel> getGroupMap(){
+		privateChannelMap.findAll { k, v -> v.group }
+	}
+
+	Channel group(c){ find(groups, groupMap, c) }
 
 	List<Channel> getTextChannels(){
 		privateChannels + servers*.textChannels.flatten() ?: []
@@ -664,7 +704,7 @@ class Client extends User {
 
 	void addGuildRoleCreateListener(){
 		addListener(Events.ROLE){ Map d ->
-			cache["guilds"][d.json.guild_id]["roles"].add(d.json.role << [guild_id: d.json.guild_id])
+			cache["guilds"][d.json.guild_id]["roles"].add(d.json.role + [guild_id: d.json.guild_id])
 		}
 	}
 
@@ -752,15 +792,15 @@ class Client extends User {
 
 	void addGuildMemberUpdateListener(){
 		addListener(Events.MEMBER_UPDATED){ Map d ->
-			cache["guilds"][d.server.id]["members"][d.member?.id]?.leftShift(d.member?.object)
+			cache["guilds"][d.json.guild_id]["members"][d.json.user.id]?.leftShift(d.json)
 		}
 	}
 
 	void addGuildRoleUpdateListener(){
 		addListener(Events.ROLE_UPDATE){ Map d ->
-			if (cache["guilds"][d.json.guild_id]["roles"][d.json.id])
-				cache["guilds"][d.json.guild_id]["roles"][d.json.id] << d.json
-			else cache["guilds"][d.json.guild_id]["roles"][d.json.id] = d.json
+			if (cache["guilds"][d.json.guild_id]["roles"][d.json.role.id])
+				cache["guilds"][d.json.guild_id]["roles"][d.json.role.id] << d.json.role
+			else cache["guilds"][d.json.guild_id]["roles"][d.json.role.id] = d.json.role + [guild_id: d.json.guild_id]
 		}
 	}
 
@@ -772,32 +812,56 @@ class Client extends User {
 
 	void addPresenceUpdateListener(){
 		addListener("presence change"){ Map d ->
-			if (!d.json.guild_id) return
-			if (d.json.user.avatar){
-				if (cache.guilds[d.json.guild_id].members[d.json.user.id]){
-					cache.guilds[d.json.guild_id].members[d.json.user.id].user <<
-						d.json.user
-				}else{
-					cache.guilds[d.json.guild_id].members.add(d.json.with {
-						Map di = it.clone()
-						di.remove("status")
-						di.remove("game")
-						if (allowMemberRequesting)
-							di << server(d.json.guild_id).memberInfo(d.user).object
-						di
-					})
+			if (d.json.guild_id){
+				if (d.json.user.avatar){
+					if (cache.guilds[d.json.guild_id].members[d.json.user.id]){
+						cache.guilds[d.json.guild_id].members[d.json.user.id].user <<
+							d.json.user
+					}else{
+						cache.guilds[d.json.guild_id].members.add(d.json.with {
+							Map di = it.clone()
+							di.remove("status")
+							di.remove("game")
+							if (allowMemberRequesting)
+								di << server(d.json.guild_id).memberInfo(d.user).object
+							di
+						})
+					}
 				}
+				if (d.json.status == "offline")
+					cache.guilds[d.json.guild_id].presences.remove(d.json.user.id)
+				else {
+					cache.guilds[d.json.guild_id].presences?.add(d.json.with {
+						Map di = it.clone()
+						di.remove("roles")
+						di.remove("nick")
+						di
+					} + [id: d.json.user.id])
+				}
+			}else{
+				if (d.isNew){
+					cache.private_channels.each { k, v ->
+						if (v.recipients.containsKey(d.json.user.id))
+							v.recipients[d.json.user.id] = d.json.user
+					}
+				}
+				if (d.json.status == "offline")
+					cache.presences.remove(d.json.user.id)
+				else
+					cache.presences[d.json.user.id] = d.json + [id: d.json.user.id]
 			}
-			if (d.json.status == "offline")
-				cache.guilds[d.json.guild_id].presences.remove(d.json.user.id)
-			else {
-				cache.guilds[d.json.guild_id].presences?.add(d.json.with {
-					Map di = it.clone()
-					di.remove("roles")
-					di.remove("nick")
-					di
-				} + [id: d.json.user.id])
-			}
+		}
+	}
+
+	void addChannelRecipientAddListener(){
+		addListener("channel recipient add"){ Map d ->
+			cache.private_channels[d.json.channel_id].recipients.add(d.json.user)
+		}
+	}
+
+	void addChannelRecipientRemoveListener(){
+		addListener("channel recipient remove"){ Map d ->
+			cache.private_channels[d.json.channel_id].recipients.remove(d.json.user.id)
 		}
 	}
 
