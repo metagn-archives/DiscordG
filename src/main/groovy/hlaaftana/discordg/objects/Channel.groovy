@@ -37,13 +37,23 @@ class Channel extends DiscordObject {
 		dm || group ? null : client.serverMap[object["guild_id"]]
 	}
 	Server getParent(){ server }
-	List<User> getUsers(){ recipients + client.user }
+	List<User> getUsers(){
+		inServer ? members : (recipients + client.user)
+	}
 	List<User> getRecipients(){ object.recipients.collect { new User(client, it) } }
 	User getUser(){ recipients[0] }
 	User getRecipient(){ user }
 	String getName(){
-		dm || group ? (object.recipients*.name.join(", ") ?: "Unnamed")
+		dm ? user.name : group ? (object.recipients*.name.join(", ") ?: "Unnamed")
 			: object.name
+	}
+
+	void addRecipient(user){
+		http.put("recipients/${id(user)}")
+	}
+
+	void removeRecipient(user){
+		http.delete("recipients/${id(user)}")
 	}
 
 	List<PermissionOverwrite> getPermissionOverwrites(){
@@ -66,14 +76,36 @@ class Channel extends DiscordObject {
 		find(overwrites, overwriteMap, ass)
 	}
 
-	Permissions permissionsFor(user){
-		if (server == null) return Permissions.PRIVATE_CHANNEL
-		else server.member(user).permissionsFor(this)
+	Permissions permissionsFor(user, Permissions initialPerms){
+		if (this.private) return Permissions.PRIVATE_CHANNEL
+		Member member = server.member(user)
+		if (!member) return Permissions.ALL_FALSE
+		Map owMap = overwriteMap
+		Permissions doodle = new Permissions(initialPerms.value)
+		PermissionOverwrite everyoneOw = owMap[object.guild_id]
+		doodle -= everyoneOw.denied
+		doodle += everyoneOw.allowed
+		List<PermissionOverwrite> roleOws = member.roleIds
+			.findAll { owMap.containsKey(it) }.collect { owMap[it] }
+		if (roleOws){
+			doodle -= roleOws*.denied.sum()
+			doodle += roleOws*.allowed.sum()
+		}
+		if (owMap.containsKey(id(user))){
+			PermissionOverwrite userOw = owMap[id(user)]
+			doodle -= userOw.denied
+			doodle += userOw.allowed
+		}
+		doodle
 	}
 
-	Permissions fullPermissionsFor(user){
-		if (server == null) return Permissions.PRIVATE_CHANNEL
-		else server.member(user).fullPermissionsFor(this)
+	Permissions permissionsFor(user){
+		permissionsFor(user, server.member(user).permissions)
+	}
+
+	boolean canSee(user){
+		if (this.private) id(user) in users*.id
+		else permissionsFor(user)["readMessages"]
 	}
 
 	List<Invite> getInvites(){
@@ -374,7 +406,10 @@ class Channel extends DiscordObject {
 	}
 
 	List<VoiceState> getVoiceStates(){ server.voiceStates.findAll { it.channel == this } }
-	List<Member> getMembers(){ voiceStates*.member }
+	List<Member> getMembers(){
+		inServer ? (text ? server.members.findAll { canSee(it) } : voiceStates*.member) :
+			users
+	}
 	Map<String, VoiceState> getVoiceStateMap(){ voiceStates.collectEntries { [(it.id): it] } }
 	Map<String, Member> getMemberMap(){ members.collectEntries { [(it.id): it] } }
 
@@ -421,6 +456,8 @@ class Channel extends DiscordObject {
 		if (c["guild_id"]){
 			def po = c["permission_overwrites"]
 			if (po instanceof List) c["permission_overwrites"] = new DiscordListCache(po.collect { it << [channel_id: c["id"]] }, client, PermissionOverwrite)
+		}else{
+			c["recipients"] = new DiscordListCache(c["recipients"], client, User)
 		}
 		c
 	}

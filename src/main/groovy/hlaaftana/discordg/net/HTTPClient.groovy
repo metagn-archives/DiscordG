@@ -4,6 +4,7 @@ import java.util.regex.Pattern
 
 import groovy.transform.Memoized
 import hlaaftana.discordg.Client;
+import hlaaftana.discordg.DiscordG
 import hlaaftana.discordg.exceptions.*
 import hlaaftana.discordg.util.MiscUtil
 import hlaaftana.discordg.util.JSONUtil
@@ -22,6 +23,8 @@ class HTTPClient {
 	static String discordApi = "https://discordapp.com/api/"
 	static String canaryApi = "https://canary.discordapp.com/api/"
 	static String ptbApi = "https://ptb.discordapp.com/api/"
+	static String defaultApi = discordApi + "v6/"
+	static String latestApi = defaultApi
 	static Map<Integer, String> errorCodes = [
 		10001: "Unknown Account",
 		10002: "Unknown Application",
@@ -58,24 +61,29 @@ class HTTPClient {
 		50015: "Note is too long",
 		50016: "Provided too few or too many messages to delete. Must provide at least 2 and fewer than 100 messages to delete.",
 	]
-	String baseUrl = discordApi + "v6/"
+	String baseUrl = defaultApi
 	Map<String, RateLimit> ratelimits = [:]
 
 	Client client
 	HTTPClient(Client client, String concatUrl = ""){
 		this.client = client
-		baseUrl = concatUrlPaths(baseUrl, concatUrl)
+		if (concatUrl) baseUrl = concatUrlPaths(baseUrl, concatUrl)
 	}
 	HTTPClient(HTTPClient http, String concatUrl = ""){
 		client = http.client
 		baseUrl = http.baseUrl
-		baseUrl = concatUrlPaths(baseUrl, concatUrl)
+		if (concatUrl) baseUrl = concatUrlPaths(baseUrl, concatUrl)
 	}
 
 	def normal(){ baseUrl = discordApi }
 	def normalDiscord(){ baseUrl = discordApi }
 	def canary(){ baseUrl = canaryApi }
 	def ptb(){ baseUrl = ptbApi }
+
+	def setBaseUrl(String n){
+		baseUrl = n
+		latestApi = n
+	}
 
 	def parse(String request){
 		def a = request.split(/\s+/, 3)
@@ -112,16 +120,16 @@ class HTTPClient {
 	def headerUp(request){
 		def req = request
 		if (req instanceof HttpURLConnection){
-			if (client.token != null) req.setRequestProperty("Authorization", client.token)
+			if (client?.token) req.setRequestProperty("Authorization", client.token)
 			if (!(req.requestMethod == "GET")) req.setRequestProperty("Content-Type", "application/json")
-			req.setRequestProperty("User-Agent", client.fullUserAgent)
+			req.setRequestProperty("User-Agent", client ? client.fullUserAgent : DiscordG.USER_AGENT)
 			req
 		}else if (req instanceof URL){
 			headerUp(req.openConnection())
 		}else if (req instanceof BaseRequest){
-			if (client.token != null) req = req.header("Authorization", client.token)
+			if (client?.token) req = req.header("Authorization", client.token)
 			if (!(req.httpRequest.httpMethod == HttpMethod.GET)) req = req.header("Content-Type", "application/json")
-			req.header("User-Agent", client.fullUserAgent)
+			req.header("User-Agent", client ? client.fullUserAgent : DiscordG.USER_AGENT)
 		}else{
 			throw new IllegalArgumentException("tried to add headers to a ${request.class}")
 		}

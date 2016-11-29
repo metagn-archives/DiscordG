@@ -4,11 +4,14 @@ import com.mashape.unirest.http.Unirest
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.Client
 import hlaaftana.discordg.exceptions.MessageInvalidException
+import hlaaftana.discordg.net.HTTPClient
 import hlaaftana.discordg.util.ConversionUtil
 import hlaaftana.discordg.util.JSONUtil
 
 class Webhook extends DiscordObject {
-	Webhook(Client client, Map object){ super(client, object, "webhooks/$object.id") }
+	Webhook(Client client, Map object){
+		super(client, object, "webhooks/$object.id")
+	}
 
 	String getName(){ object.name ?: object.user.username }
 	String getAvatarHash(){ object.avatar ?: object.user.avatar }

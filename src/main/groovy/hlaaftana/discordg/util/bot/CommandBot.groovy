@@ -435,6 +435,9 @@ class DSLCommand extends Command {
 		aa["usedAlias"] = usedAlias(d.message)
 		aa["usedTrigger"] = usedTrigger(d.message)
 		aa["command"] = this
+		extraArgs.each { k, v ->
+			aa[k] = v
+		}
 		aa << this.properties
 		Closure copy = response.clone()
 		copy.delegate = aa

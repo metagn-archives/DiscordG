@@ -28,18 +28,18 @@ class Cache implements Map { // god fuck me i guess
 	}
 
 	def plus(Cache other){
-		return new Cache(this.store + other.store, this.root)
+		new Cache(this.store + other.store, this.root)
 	}
 
 	def putAt(String key, value){
 		if (this.containsKey(key)) this.call("modify", key, value)
 		else this.call("add", key, value)
-		return store[key] = value
+		store[key] = value
 	}
 
 	def getAt(String key){
 		this.call("get", key)
-		return store[key]
+		store[key]
 	}
 
 	def getProperty(String name){
@@ -65,44 +65,44 @@ class Cache implements Map { // god fuck me i guess
 	def propertyMissing(String name, value){
 		if (this.containsKey(name)) this.call("modify", name, value)
 		else this.call("add", name, value)
-		return store[name] = value
+		store[name] = value
 	}
 
 	def propertyMissing(String name){
 		this.call("get", name)
-		return store[name]
+		store[name]
 	}
 
 	int size(){
-		return store.size()
+		store.size()
 	}
 
 	boolean isEmpty() {
-		return store.isEmpty()
+		store.isEmpty()
 	}
 
 	boolean containsKey(key) {
-		return store.containsKey(key)
+		store.containsKey(key)
 	}
 
 	boolean containsValue(value) {
-		return store.containsValue(value)
+		store.containsValue(value)
 	}
 
 	def get(key) {
 		this.call("get", key)
-		return store.get(key)
+		store.get(key)
 	}
 
 	def put(key, value) {
 		if (this.containsKey(key)) this.call("modify", key, value)
 		else this.call("add", key, value)
-		return store.put(key, value)
+		store.put(key, value)
 	}
 
 	def remove(key) {
 		this.call("remove", key)
-		return store.remove(key)
+		store.remove(key)
 	}
 
 	void putAll(Map m) {
@@ -118,14 +118,14 @@ class Cache implements Map { // god fuck me i guess
 	}
 
 	Set keySet() {
-		return store.keySet()
+		store.keySet()
 	}
 
 	Collection values() {
-		return store.values()
+		store.values()
 	}
 
 	Set entrySet() {
-		return store.entrySet()
+		store.entrySet()
 	}
 }
