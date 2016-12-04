@@ -7,15 +7,15 @@ class Maintenance extends MapObject {
 
 	String getName(){ object["name"] }
 	String getStatus(){ object["status"] }
-	String getRawUpdateTime(){ object["updated_at"] }
-	Date getUpdateTime(){ ConversionUtil.fromJsonDate(object["updated_at"]) }
-	String getRawCreateTime(){ object["created_at"] }
-	Date getCreateTime(){ ConversionUtil.fromJsonDate(object["created_at"]) }
+	String getRawUpdatedAt(){ object["updated_at"] }
+	Date getUpdatedAt(){ ConversionUtil.fromJsonDate(object["updated_at"]) }
+	String getRawCreatedAt(){ object["created_at"] }
+	Date getCreatedAt(){ ConversionUtil.fromJsonDate(object["created_at"]) }
 	String getShortlink(){ object["shortlink"] }
-	String getRawScheduleStartTime(){ object["scheduled_for"] }
-	Date getScheduleStartTime(){ ConversionUtil.fromJsonDate(object["scheduled_for"]) }
-	String getRawScheduleEndTime(){ object["scheduled_until"] }
-	Date getScheduleEndTime(){ ConversionUtil.fromJsonDate(object["scheduled_until"]) }
+	String getRawScheduleStart(){ object["scheduled_for"] }
+	Date getScheduleStart(){ ConversionUtil.fromJsonDate(object["scheduled_for"]) }
+	String getRawScheduleEnd(){ object["scheduled_until"] }
+	Date getScheduleEnd(){ ConversionUtil.fromJsonDate(object["scheduled_until"]) }
 	String getId(){ object["id"] }
 	String getPageId(){ object["page_id"] }
 	String getImpact(){ object["impact"] }

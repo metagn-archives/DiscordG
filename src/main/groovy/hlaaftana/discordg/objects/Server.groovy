@@ -4,6 +4,8 @@ import hlaaftana.discordg.Client
 import hlaaftana.discordg.collections.DiscordListCache
 import hlaaftana.discordg.util.*
 import java.awt.Color
+import java.io.File;
+import java.io.InputStream;
 import java.util.concurrent.Callable
 
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
@@ -16,40 +18,25 @@ import groovy.transform.InheritConstructors
  */
 class Server extends DiscordObject {
 	Server(Client client, Map object){
-		super(client, object, "guilds/$object.id")
+		super(client, object)
 	}
 
 	String getRegionId(){ object["region"] }
-	String getRawJoinTime(){ object["joined_at"] }
-	Date getJoinTime(){ ConversionUtil.fromJsonDate(object["joined_at"]) }
+	String getRawJoinedAt(){ object["joined_at"] }
+	Date getJoinedAt(){ ConversionUtil.fromJsonDate(rawJoinedAt) }
 	String getIconHash(){ object["icon"] }
 	String getIcon() {
-		if (iconHash) "https://cdn.discordapp.com/icons/$id/${iconHash}.jpg"
-		else ""
+		iconHash ? "https://cdn.discordapp.com/icons/$id/${iconHash}.jpg" : ""
 	}
-
-	InputStream getIconInputStream(){ icon.toURL().openConnection().with {
-			setRequestProperty("User-Agent", client.fullUserAgent)
-			setRequestProperty("Accept", "*/*")
-			delegate
-		}.inputStream
-	}
-
-	File downloadIcon(File file){ file.withOutputStream { out ->
-			out << iconInputStream
-			new File(file.path)
-		}
-	}
+	boolean hasIcon(){ object["icon"] }
+	InputStream getIconInputStream(){ inputStreamFromDiscord(icon) }
+	File downloadIcon(file){ downloadFileFromDiscord(icon, file) }
 
 	String getOwnerId(){ object["owner_id"] }
-	Member getOwner() { members.find { it.id == object["owner_id"] } }
+	Member getOwner(){ member(ownerId) }
 
-	Member getMe(){ members.find { it == client.user } }
-	String changeNick(String newNick){
-		client.askPool("changeNick"){
-			http.jsonPatch("members/@me/nick", [nick: newNick])["nick"]
-		}
-	}
+	Member getMe(){ member(client) }
+	String changeNick(String newNick){ client.changeOwnServerNick(id, newNick) }
 	String nick(String newNick){ changeNick(newNick) }
 	String editNick(String newNick){ changeNick(newNick) }
 	String resetNick(){ changeNick("") }
@@ -65,54 +52,34 @@ class Server extends DiscordObject {
 	int getMfaLevel(){ object.mfa_level }
 	boolean isMfaRequiredForStaff(){ mfaLevel == MFALevelTypes.ELEVATED }
 
-	Role getDefaultRole(){ roles.find { it.id == id } }
+	Role getDefaultRole(){ role(id) }
 
 	Server edit(Map data) {
-		Map copyOfData = [name: data.name, region: data.region, icon: data.icon, afk_channel_id: data.afkChannel?.id, afk_timeout: data.afkTimeout, owner_id: data.owner?.id, verification_level: data.verificationLevel?.level]
-		Map copyOfCopyOfData = [:] << copyOfData // avoid concurrentmodificationexception
-		copyOfData.entrySet().each {
-			if (it.value == null){
-				if (it.key == "name"){
-					copyOfCopyOfData.name = name
-				}else{
-					copyOfCopyOfData.remove(it.key, it.value)
-				}
-			}
-		}
-		copyOfData = copyOfCopyOfData
-		new Server(client, object << http.jsonPatch("", copyOfData))
+		client.editServer(data, id)
 	}
 
 	void leave() {
-		client.http.delete("users/@me/guilds/${id}")
+		client.leaveServer(id)
 	}
 
 	void delete() {
-		http.delete("")
+		client.deleteServer(id)
 	}
 
 	Channel createTextChannel(String name) {
-		new Channel(client, http.jsonPost("channels", [name: name, type: 0]))
+		client.createTextChannel(this, name)
 	}
 
 	Channel createVoiceChannel(String name) {
-		new Channel(client, http.jsonPost("channels", [name: name, type: 2]))
+		client.createVoiceChannel(this, name)
 	}
 
-	List<Channel> requestTextChannels(){
-		requestChannels().findAll { it.text }
-	}
-
-	List<Channel> requestVoiceChannels(){
-		requestChannels().findAll { it.voice }
-	}
-
-	Channel requestChannel(id){
-		new Channel(client, http.jsonGet("channels/${this.id(id)}"))
+	Channel requestChannel(c){
+		client.requestServerChannel(this, c)
 	}
 
 	List<Channel> requestChannels(){
-		http.jsonGet("channels").collect { new Channel(client, it) }
+		client.requestServerChannels(this)
 	}
 
 	List<Channel> getTextChannels(){ channels.findAll { it.text } }
@@ -125,17 +92,16 @@ class Server extends DiscordObject {
 
 	Channel voiceChannel(id){ find(voiceChannels, id) }
 
-	Channel channel(id){ find(channels, id) }
+	Channel channel(id){ find(object.channels, id) }
 
 	List<Channel> getChannels(){ object["channels"].list }
-	Map<String, Channel> getChannelMap(){
-		object["channels"].map
-	}
+	Map<String, Channel> getChannelMap(){ object["channels"].map }
 
 	List<Role> getRoles(){ object["roles"].list }
 	Map<String, Role> getRoleMap(){ object["roles"].map }
+	List<String> getUsedRoleIds(){ object["members"].values()*.roles.flatten() }
 
-	Role role(ass){ find(roles, ass) }
+	Role role(ass){ find(object.roles, ass) }
 
 	List<Member> getMembers(){ object["members"].list }
 	Map<String, Member> getMemberMap(){ object["members"].map }
@@ -143,32 +109,30 @@ class Server extends DiscordObject {
 	List<Presence> getPresences(){ object["presences"].list }
 	Map<String, Presence> getPresenceMap(){ object["presences"].map }
 
-	Presence presence(ass){ find(presences, ass) }
+	Presence presence(ass){ find(object.presences, ass) }
 
 	void editRoles(member, List roles) {
-		client.askPool("editMembers", id){
-			http.patch("members/${id(member)}", ["roles": roles.collect(this.&id)])
-		}
+		client.editRoles(this, member, roles)
 	}
 
-	void addRoles(Member member, List roles) {
-		editRoles(member, member.roles + roles)
+	void addRoles(member, List roles) {
+		client.addRoles(this, member, roles)
 	}
 
 	void addRole(member, role){
-		http.put("members/${id(member)}/roles/${id(role)}")
+		client.addRole(this, member, role)
 	}
 
 	void removeRole(member, role){
-		http.delete("members/${id(member)}/roles/${id(role)}")
+		client.removeRole(this, member, role)
 	}
 
 	void kick(member) {
-		http.delete("members/${id(member)}")
+		client.kick(this, member)
 	}
 
-	List<User> getBans() {
-		http.jsonGet("bans").collect { new User(client, it["user"]) }
+	List<Ban> requestBans(){
+		client.requestBans(this)
 	}
 
 	List<VoiceState> getVoiceStates(){
@@ -179,20 +143,20 @@ class Server extends DiscordObject {
 		object["voice_states"].map
 	}
 
-	List<Invite> getInvites(){
-		http.jsonGet("invites").collect { new Invite(client, it) }
+	List<Invite> requestInvites(){
+		client.requestServerInvites(this)
 	}
 
-	List<Region> getRegions(){
-		http.jsonGet("regions").collect { new Region(client, it) }
+	List<Region> requestRegions(){
+		client.requestRegions(this)
 	}
 
-	List<Integration> getIntegrations(){
-		http.jsonGet("integrations").collect { new Integration(client, it) }
+	List<Integration> requestIntegrations(){
+		client.requestIntegrations(this)
 	}
 
 	Integration createIntegration(String type, String id){
-		new Integration(client, http.jsonPost("integrations", [type: type, id: id]))
+		client.createIntegration(this, type, id)
 	}
 
 	String getRegion(){
@@ -200,103 +164,80 @@ class Server extends DiscordObject {
 	}
 
 	void ban(user, int days=0) {
-		http.put("bans/${id(user)}?delete-message-days=$days", [:])
+		client.ban(this, user, days)
 	}
 
 	void unban(user) {
-		http.delete("bans/${id(user)}")
+		client.unban(this, user)
 	}
 
 	int checkPrune(int days){
-		http.jsonGet("prune?days=$days")["pruned"]
+		client.checkPrune(this, days)
 	}
 
 	int prune(int days){
-		http.jsonPost("prune?days=$days")["pruned"]
+		client.prune(this, days)
 	}
 
-	Role createRole(Map<String, Object> data) {
-		Map defaultData = [color: 0, hoist: false, name: "new role", permissions: defaultRole.permissionValue]
-		Role createdRole = new Role(client, http.jsonPost("roles", [:]))
-		editRole(createdRole, defaultData << data)
+	Role createRole(Map data) {
+		client.createRole(data, this)
 	}
 
-	Role editRole(Role role, Map<String, Object> data) {
-		Map defaultData = [name: role.name, color: role.colorValue, permissions: role.permissionValue, hoist: role.hoist]
-		if (data["color"] instanceof Color) data["color"] = data["color"].value
-		if (data["permissions"] instanceof Permissions) data["permissions"] = data["permissions"].value
-		new Role(client, http.jsonPatch("roles/${role.id}", defaultData << data))
+	Role editRole(role, Map data) {
+		client.editRole(data, this, role)
 	}
 
 	void deleteRole(role) {
-		http.delete("roles/${id(role)}")
+		client.deleteRole(this, role)
 	}
 
-	List<Role> batchModifyRoles(Closure closure){
-		closure.delegate = this
-		Thread ass = new Thread({
-			use(Modifier, closure)
-		} as Runnable)
-		ass.start()
-		ass.join()
-		List hah = []
-		Modifier.getAllModifications(ass).each { k, v ->
-			if (v["color"] instanceof Color) v["color"] = v["color"].value
-			if (v["permissions"] instanceof Permissions) v["permissions"] = v["permissions"].value
-			hah.add(v + [id: id(k)])
-		}
-		http.jsonPatch("roles", hah).collect { new Role(client, it + [guild_id: id]) }
+	List<Role> batchModifyRoles(Map mods){
+		client.batchModifyRoles(mods, this)
 	}
 
 	List<Webhook> requestWebhooks(){
-		http.jsonGet("webhooks").collect { new Webhook(client, it) }
+		client.requestServerWebhooks(this)
 	}
 
-	void batchModifyChannels(Closure closure){
-		closure.delegate = this
-		Thread ass = new Thread({
-			use(Modifier, closure)
-		} as Runnable)
-		ass.start()
-		ass.join()
-		List hah = []
-		Modifier.getAllModifications(ass).each { k, v ->
-			hah.add(v + [id: id(k)])
-		}
-		http.patch("channels", hah)
+	void batchModifyChannels(Map mods){
+		client.batchModifyChannels(mods, this)
 	}
 
 	List<Member> requestMembers(int max=1000, boolean updateCache=true){
-		List members = http.jsonGet("members?limit=${max}")
-		if (max > 1000){
-			for (int m = 1; m < (int) Math.ceil(max / 1000) - 1; m++){
-				members += http.jsonGet("members?after=${(m * 1000) + 1}&limit=1000")
-			}
-			members += http.jsonGet("members?after=${(int)((Math.ceil(max / 1000) - 1) * 1000)+1}&limit=1000")
-		}
-		if (updateCache){
-			client.cache["guilds"][id]["members"] = new DiscordListCache(members.collect { it + ["guild_id": id] + it["user"] }, client, Member)
-			client.cache["guilds"][id]["member_count"] = members.size()
-		}
-		members.collect { new Member(client, it + ["guild_id": id]) }
+		client.requestMembers(this, max, updateCache)
 	}
 
-	Member requestMember(id){ new Member(client, http.jsonGet("members/${DiscordObject.id(id)}")) }
+	Member requestMember(id){ client.requestMember(this, id) }
 
 	Member getLastMember(){ members.max { it.joinDate } }
 	Member getLatestMember(){ members.max { it.joinDate } }
 	int getMemberCount(){ object["member_count"] }
+
 	List<Emoji> getEmojis(){ object["emojis"].list }
 	List<Emoji> getEmoji(){ emojis }
+	Map<String, Emoji> getEmojiIdMap(){ object["emojis"].map }
+	Map<String, Emoji> getEmojiNameMap(){
+		object["emojis"].values().collectEntries { [(it.name): new Emoji(client, it)] }
+	}
 
-	Member getMember(user){ find(members, user) }
-	Member member(user){ find(members, user) }
+	List<Emoji> requestEmojis(){ client.requestEmojis(this) }
 
-	Message sendMessage(String message, boolean tts=false){ defaultChannel.sendMessage(message, tts) }
-	Message sendFile(File file){ defaultChannel.sendFile(file) }
-	Message sendFile(String filePath){ defaultChannel.sendFile(filePath) }
+	Emoji createEmoji(Map data){
+		client.createEmoji(data, this)
+	}
 
-	Embed getEmbed(){ new Embed(client, http.jsonGet("embed")) }
+	Emoji editEmoji(Map data, emoji){
+		client.editEmoji(data, this, emoji)
+	}
+
+	Member member(user){ find(object.members, user) }
+
+	Message sendMessage(String message, boolean tts=false){ sendMessage(content: message, tts: tts) }
+	Message sendMessage(Map data){ client.sendMessage(data, this) }
+	Message sendFile(...args){ client.sendFile(this, *args) }
+	Message sendFile(Map data, ...args){ client.sendFile(data, this, *args) }
+
+	Embed requestEmbed(){ client.requestEmbed(this) }
 
 	static Map construct(Client client, Map g){
 		g["members"] = new DiscordListCache(g.members.collect { it << [guild_id: g["id"]] << it["user"] }, client, Member)
@@ -308,18 +249,23 @@ class Server extends DiscordObject {
 		g
 	}
 
+	@InheritConstructors
 	static class Embed extends DiscordObject {
-		Embed(Client client, Map object){ super(client, object) }
-
 		String getId(){ object["channel_id"] }
 		String getName(){ channel.name }
 		boolean isEnabled(){ object["enabled"] }
 		Channel getChannel(){ client.channel(object["channel_id"]) }
 		Server getServer(){ channel.server }
 		Embed edit(Map data){
-			Map json = [channel_id: (data["channel"] instanceof Channel) ? data["channel"].id : data["channel"].toString() ?: channel.id, enabled: data["enabled"] ?: enabled]
-			new Embed(client, http.jsonPatch("embed", json))
+			client.editEmbed(data, server, this)
 		}
+	}
+
+	static class Ban extends User {
+		Ban(Client client, Map object){ super(client, object + object.user) }
+
+		User getUser(){ new User(client, object.user) }
+		String getReason(){ object.reason }
 	}
 }
 
@@ -347,7 +293,7 @@ class VoiceState extends DiscordObject {
 }
 
 class Integration extends DiscordObject {
-	Integration(Client client, Map object){ super(client, object, "guilds/${client.role(object["role_id"]).object["guild_id"]}/integrations/$object.id") }
+	Integration(Client client, Map object){ super(client, object) }
 
 	int getSubscriberCount(){ object["subscriber_count"] }
 	boolean isSyncing(){ object["syncing"] }
@@ -359,31 +305,28 @@ class Integration extends DiscordObject {
 	boolean isEnabled(){ object["enabled"] }
 	Role getRole(){ client.role(object["role_id"]) }
 	Server getServer(){ role.server }
-	String getRawSyncTime(){ object["synced_at"] }
-	Date getSyncTime(){ ConversionUtil.fromJsonDate(object["synced_at"]) }
+	String getRawSyncedAt(){ object["synced_at"] }
+	Date getSyncedAt(){ ConversionUtil.fromJsonDate(object["synced_at"]) }
 	String getType(){ object["type"] }
-	Integration edit(Map data){
-		new Integration(client, http.jsonPatch("", data))
-	}
-	void delete(){
-		http.delete("")
-	}
-	void sync(){
-		http.post("sync")
-	}
+	Integration edit(Map data){ client.editIntegration(data, server, this) }
+	void delete(){ client.deleteIntegration(server, this) }
+	void sync(){ client.syncIntegration(server, this) }
 }
 
 @InheritConstructors
 class Emoji extends DiscordObject {
-	Server getServer(){ client.server(object["guild_id"]) }
+	String getServerId(){ object.guild_id }
+	Server getServer(){ client.server(serverId) }
 	Server getParent(){ server }
-	List<Role> getRoles(){ server.roles.findAll { it.id in object["roles"] } }
+	List<Role> getRoles(){ object.roles.collect { server.role(it) } }
 	boolean requiresColons(){ object["require_colons"] }
 	boolean requireColons(){ object["require_colons"] }
 	boolean isRequiresColons(){ object["require_colons"] }
 	boolean isRequireColons(){ object["require_colons"] }
 	boolean isManaged(){ object["managed"] }
 	String getUrl(){ "https://cdn.discordapp.com/emojis/${id}.png" }
+	InputStream getInputStream(){ inputStreamFromDiscord(url) }
+	File download(file){ downloadFileFromDiscord(url, file) }
 }
 
 @InheritConstructors
@@ -429,38 +372,46 @@ class Role extends DiscordObject{
 	int getPermissionValue(){ object["permissions"] }
 	int getPosition(){ object["position"] }
 
-	Server getServer(){ client.server(object["guild_id"]) }
+	Server getServer(){ client.server(serverId) }
+	String getServerId(){ object.guild_id }
 	Server getParent(){ server }
 
 	String getMention(){ "<@&${id}>" }
 	String getMentionRegex(){ MENTION_REGEX(id) }
 
-	List<Member> getMembers(){ server.members.findAll { id in it.object.roles } }
-	boolean isUsed(){ server.members*.object*.roles.flatten().contains(id) }
-	Role edit(Map data){ server.editRole(this, data) }
-	void delete(){ server.deleteRole(this) }
-	void addTo(Member user){ server.addRole(user, this) }
-	void addTo(List<Member> users){ users.each { server.addRole(it, this) } }
+	List<Member> getMembers(){
+		client.cache.guilds[object.guild_id].members.values()
+			.findAll { it.roles.contains(id) }
+			.collect { new Member(client, it) }
+	}
+	boolean isUsed(){ server.usedRoleIds.contains(id) }
+	Role edit(Map data){ client.editRole(data, serverId, this) }
+	void delete(){ client.deleteRole(serverId, this) }
+	void addTo(user){ client.addRole(serverId, user, this) }
+	void addTo(Collection users){ users.each(this.&addTo) }
+	void removeFrom(user){ client.removeRole(serverId, user, this) }
+	void removeFrom(Collection users){ users.each(this.&removeFrom) }
 }
 
 class Member extends User {
 	Member(Client client, Map object){
-		super(client, object + object["user"], "/guilds/${object["guild_id"]}/members/${object == client ? "@me" : object["id"]}")
+		super(client, object + object["user"])
 	}
 
 	User getUser(){ new User(client, object["user"]) }
 	String getNick(){ object["nick"] ?: name }
 	String getRawNick(){ object["nick"] }
+	String getServerId(){ object.guild_id }
 	Server getServer(){ client.server(object["guild_id"]) }
 	Server getParent(){ server }
-	String getRawJoinDate(){ object["joined_at"] }
-	Date getJoinDate(){ ConversionUtil.fromJsonDate(rawJoinDate) }
+	String getRawJoinedAt(){ object["joined_at"] }
+	Date getJoinedAt(){ ConversionUtil.fromJsonDate(rawJoinedAt) }
 	List<String> getRoleIds(){ object["roles"] }
 	List<Role> getRoles(){
 		object["roles"].collect { server.role(it) }
 	}
 
-	Role role(ass){ find(roles, ass) }
+	Role role(ass){ find(server.object.roles, client, ass) }
 
 	boolean isOwner(){ server.ownerId == id }
 
@@ -469,17 +420,16 @@ class Member extends User {
 	}
 
 	Presence getPresence(){
-		server.presenceMap[id]
+		server.presence(id)
 	}
 
 	void edit(Map data){
-		client.askPool("editMembers", server.id){
-			http.patch("", data)
-		}
+		client.editMember(data, serverId, this)
 	}
 
 	void changeNick(String newNick){
-		id == client.cache["user"]["id"] ? server.nick(newNick) : edit(nick: newNick)
+		id == client.cache["user"]["id"] ? client.changeOwnNick(serverId, newNick) :
+			edit(nick: newNick)
 	}
 	void nick(String newNick){ changeNick(newNick) }
 	void editNick(String newNick){ changeNick(newNick) }
@@ -489,8 +439,8 @@ class Member extends User {
 	void unmute(){ edit(mute: false) }
 	void deafen(){ edit(deaf: true) }
 	void undeafen(){ edit(deaf: false) }
-	void ban(int days = 0){ server.ban this, days }
-	void unban(){ server.unban this }
+	void ban(int days = 0){ client.ban(serverId, this, days) }
+	void unban(){ client.unban(serverId, this) }
 	boolean isMute(){ object["mute"] }
 	boolean isDeaf(){ object["deaf"] }
 	boolean isDeafened(){ object["deaf"] }
@@ -516,27 +466,27 @@ class Member extends User {
 	}
 
 	void editRoles(List roles) {
-		server.editRoles(this, roles)
+		client.editRoles(serverId, this, roles)
 	}
 
 	void addRoles(List roles) {
-		server.addRoles(this, roles)
+		client.addRoles(serverId, this, roles)
 	}
 
 	void addRole(role){
-		server.addRole(this, role)
+		client.addRole(serverId, this, role)
 	}
 
 	void removeRole(role){
-		server.removeRole(this, role)
+		client.removeRole(serverId, this, role)
 	}
 
 	void kick() {
-		server.kick(this)
+		client.kick(serverId, this)
 	}
 
 	void moveTo(channel){
-		http.patch("", [channel_id: id(channel)])
+		client.moveMemberVoiceChannel(serverId, this, channel)
 	}
 
 	User toUser(){ new User(client, object["user"]) }

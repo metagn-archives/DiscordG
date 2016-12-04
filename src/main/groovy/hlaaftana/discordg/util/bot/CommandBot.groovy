@@ -6,8 +6,9 @@ import groovy.transform.*
 
 import hlaaftana.discordg.Client
 import hlaaftana.discordg.DiscordG
-import hlaaftana.discordg.Events
+import hlaaftana.discordg.logic.BasicListenerSystem
 import hlaaftana.discordg.logic.EventData;
+import hlaaftana.discordg.logic.ListenerSystem
 import hlaaftana.discordg.objects.Member
 import hlaaftana.discordg.objects.Message
 import hlaaftana.discordg.objects.DiscordObject
@@ -30,6 +31,8 @@ class CommandBot implements Triggerable {
 	boolean acceptOwnCommands = false
 	boolean loggedIn = false
 	Closure commandListener
+	Closure commandRunnerListener
+	ListenerSystem listenerSystem = new BasicListenerSystem()
 
 	CommandBot(Map config = [:]){
 		config.each { k, v ->
@@ -93,21 +96,30 @@ class CommandBot implements Triggerable {
 	 * @param password - the password to log in with.
 	 */
 	def initialize(){
-		commandListener = client.listener(Events.MESSAGE){
+		commandRunnerListener = listenerSystem.addListener(Events.COMMAND){ d ->
+			try{
+				d["command"](d)
+			}catch (ex){
+				ex.printStackTrace()
+				log.error "Command threw exception"
+			}
+		}
+		commandListener = client.listener("message"){ d ->
 			try{
 				if (!acceptOwnCommands && json.author.id == this.client.id) return
 			}catch (ex){}
+			boolean anyPassed = false
 			for (Command c in commands){
 				if (c.match(message)){
-					try{
-						c(it.clone())
-					}catch (ex){
-						ex.printStackTrace()
-						log.error "Command threw exception"
-					}
+					anyPassed = true
+					def clone = d.clone()
+					clone["command"] = c
+					listenerSystem.dispatchEvent(Events.COMMAND, clone)
 				}
 			}
+			if (!anyPassed) listenerSystem.dispatchEvent(Events.NO_COMMAND, d.clone())
 		}
+		listenerSystem.dispatchEvent(Events.INITIALIZE, [:])
 	}
 
 	def initialize(String token){
@@ -126,7 +138,14 @@ class CommandBot implements Triggerable {
 	}
 
 	def uninitialize(){
+		listenerSystem.removeListener(Events.COMMAND, commandRunnerListener)
 		client.listenerSystem.removeListener("MESSAGE_CREATE", commandListener)
+	}
+
+	static enum Events {
+		INITIALIZE,
+		COMMAND,
+		NO_COMMAND
 	}
 }
 
@@ -136,26 +155,25 @@ class BotType {
 		aot.regex ? g : Pattern.quote(g)
 	}
 	// These have IDs for convenience sake
-	static final BotType PREFIX = BotType.new(0, false){ Trigger trigger, Alias alias ->
+	static final BotType PREFIX = BotType.new(false){ Trigger trigger, Alias alias ->
 		/(?i)(/ + quote(trigger) + quote(alias) + /)(?:\s+(?:.|\n)*)?/
 	}
-	static final BotType SUFFIX = BotType.new(1, false){ Trigger trigger, Alias alias ->
+	static final BotType SUFFIX = BotType.new(false){ Trigger trigger, Alias alias ->
 		/(?i)(/ + quote(alias) + quote(trigger) + /)(?:\s+(?:.|\n)*)?/
 	}
-	static final BotType REGEX = BotType.new(2){ Trigger trigger, Alias alias ->
+	static final BotType REGEX = BotType.new { Trigger trigger, Alias alias ->
 		/(/ + trigger.toString() + alias.toString() + /)(?:\s+(?:.|\n)*)?/
 	}
-	static final BotType REGEX_SUFFIX = BotType.new(3){ Trigger trigger, Alias alias ->
+	static final BotType REGEX_SUFFIX = BotType.new { Trigger trigger, Alias alias ->
 		/(/ + alias.toString() + trigger.toString() + /)(?:\s+(?:.|\n)*)?/
 	}
 
 	Closure commandMatcher
-	int id
 	boolean caseSensitive
-	BotType(int id, Closure commandMatcher, boolean caseSensitive = true){ this.id = id; this.commandMatcher = commandMatcher; this.caseSensitive = caseSensitive }
+	BotType(Closure commandMatcher, boolean caseSensitive = true){ this.commandMatcher = commandMatcher; this.caseSensitive = caseSensitive }
 
-	static BotType "new"(int id, boolean caseSensitive = true, Closure commandMatcher){
-		new BotType(id, commandMatcher, caseSensitive)
+	static BotType "new"(boolean caseSensitive = true, Closure commandMatcher){
+		new BotType(commandMatcher, caseSensitive)
 	}
 }
 

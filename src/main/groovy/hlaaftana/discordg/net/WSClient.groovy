@@ -78,7 +78,7 @@ class WSClient extends WebSocketAdapter {
 					messageCounts[op] = [(type): 1]
 				}
 				seq = content["s"]
-				if (!(type in Events.values()*.type)){
+				if (!(type in Client.knownDiscordEvents)){
 					File file = new File("dumps/${type}_${System.currentTimeMillis()}.json")
 					new File("dumps").mkdir()
 					JSONUtil.dump(file, content.d)
@@ -99,7 +99,7 @@ class WSClient extends WebSocketAdapter {
 						cachingState = LoadState.LOADING
 						guildCreate = client.confirmedBot || data.user.bot || data.guilds.size() >= 100
 						if (guildCreate){
-							client.addListener(Events.INITIAL_GUILD_CREATE){ Map d ->
+							client.addListener("initial guild create"){ Map d ->
 								Map server = d.server.object
 								if (client.cache["guilds"].any { k, v -> k == server["id"] }){
 									client.cache["guilds"][server["id"]] << server
@@ -109,6 +109,7 @@ class WSClient extends WebSocketAdapter {
 							}
 						}
 						client.cache << data
+						client.object = data.user
 						client.cache["ready_data"] = data
 						DiscordListCache guilds = new DiscordListCache(data.guilds.collect { guildCreate ? it : Server.construct(client, it) }, client, Server)
 						client.cache["guilds"] = guilds
@@ -140,7 +141,7 @@ class WSClient extends WebSocketAdapter {
 				if (type == "MESSAGE_CREATE" && data.channel_id in client.mutedChannels)
 					return
 				while (!canDispatch(type));
-				EventData eventData = new EventData(Events.get(type), [:])
+				EventData eventData = new EventData(type, [:])
 				Closure edm = EventData.&create.curry(type)
 				Closure a = {
 					when("RESUMED"){
@@ -275,6 +276,26 @@ class WSClient extends WebSocketAdapter {
 								message { client.messages[data["channel_id"]] ? client.channel(data["channel_id"]).cachedLogMap[data["id"]] ?: data["id"] : data["id"] }
 								embeds { data["embeds"] }
 							}
+						}
+					}
+					when(["MESSAGE_REACTION_ADD", "MESSAGE_REACTION_REMOVE"]){
+						eventData = edm {
+							channel { client.channel(data["channel_id"]) }
+							user { client.user(data["user_id"]) }
+							message { client.messages[data.channel_id]
+								?.containsKey(data.message_id) ?
+								client.messages[data.channel_id][data.message_id] :
+								data.message_id }
+							emoji { data.emoji }
+						}
+					}
+					when("MESSAGE_REACTION_REMOVE_ALL"){
+						eventData = edm {
+							channel { client.channel(data["channel_id"]) }
+							message { client.messages[data.channel_id]
+								?.containsKey(data.message_id) ?
+								client.messages[data.channel_id][data.message_id] :
+								data.message_id }
 						}
 					}
 					when("PRESENCE_UPDATE"){
@@ -447,7 +468,7 @@ class WSClient extends WebSocketAdapter {
 	}
 
 	boolean canDispatch(event){
-		String ass = Events.get(event).type
+		String ass = Client.parseEvent(event)
 		if (ass == "READY") return true
 		dispatch ||
 			(guildCreate &&
@@ -458,15 +479,15 @@ class WSClient extends WebSocketAdapter {
 
 	boolean careAbout(event){
 		boolean aa = true
-		String ass = Events.get(event).type
+		String ass = Client.parseEvent(event)
 		if (ass in ["READY", "GUILD_MEMBERS_CHUNK", "GUILD_SYNC"]) return true
-		if (Events.get(event).type == "GUILD_CREATE" && (guildCreate || client.bot)) return true
+		if (ass == "GUILD_CREATE" && (guildCreate || client.bot)) return true
 		if (client.includedEvents){
 			aa = false
-			aa |= Events.get(event).type in client.includedEvents.collect { Events.get(it).type }
+			aa |= ass in client.includedEvents.collect { Client.parseEvent(it) }
 		}
 		if (client.excludedEvents){
-			aa &= !(Events.get(event).type in client.excludedEvents.collect { Events.get(it).type })
+			aa &= !(ass in client.excludedEvents.collect { Client.parseEvent(it) })
 		}
 		aa
 	}

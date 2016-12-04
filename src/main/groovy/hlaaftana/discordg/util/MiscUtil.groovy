@@ -142,6 +142,17 @@ class MiscUtil {
 		mock
 	}
 
+	static defaultValueOnException(defaultValue = null,
+		Collection<Class> exceptions = [Exception],
+		Closure expr){
+		try{
+			expr()
+		}catch (ex){
+			if (exceptions.any { ex in it }) defaultValue
+			else throw ex
+		}
+	}
+
 	@Memoized
 	static String uncapitalize(String s){
 		s[0] = s[0].toLowerCase()

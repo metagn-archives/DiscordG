@@ -1,7 +1,6 @@
 package hlaaftana.discordg.dsl
 
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.Events
 import hlaaftana.discordg.logic.EventData;
 import hlaaftana.discordg.objects.*
 
@@ -15,9 +14,8 @@ class ClientBuilder {
 	}
 
 	def listener(event, Closure dung){
-		Events e = Events.get(event)
-		client.addListener(e) { Map d ->
-			dung.delegate = new EventData(e, d)
+		client.addListener(event){ Map d ->
+			dung.delegate = new EventData(event, d)
 			dung.resolveStrategy = Closure.DELEGATE_FIRST
 			dung()
 		}

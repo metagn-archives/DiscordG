@@ -3,6 +3,7 @@ package hlaaftana.discordg.objects
 import groovy.transform.InheritConstructors
 
 import hlaaftana.discordg.Client
+import hlaaftana.discordg.util.ConversionUtil
 import hlaaftana.discordg.util.JSONUtil
 
 /**
@@ -12,8 +13,8 @@ import hlaaftana.discordg.util.JSONUtil
 class User extends DiscordObject{
 	static final MENTION_REGEX = { String id = /\d+/ -> /<@!?$id>/ }
 
-	User(Client client, Map object, String concatUrl = ""){
-		super(client, object, concatUrl)
+	User(Client client, Map object){
+		super(client, object)
 	}
 
 	List<Presence> getPresences(){ client.members(this)*.presence - null }
@@ -28,32 +29,27 @@ class User extends DiscordObject{
 	String getUsername(){ object["username"] }
 	String getAvatarHash(){ object["avatar"]}
 	String getRawAvatarHash(){ object["avatar"] }
+	boolean hasAvatar(){ object["avatar"] }
 	int getDefaultAvatarType(){ Integer.parseInt(discriminator) % 5 }
-	String getAvatar(){ "https://cdn.discordapp.com/avatars/${id}/${avatarHash}.jpg" }
-	InputStream getAvatarInputStream(){
-		avatar.toURL().newInputStream(requestProperties:
-			["User-Agent": client.fullUserAgent, Accept: "*/*"])
-	}
-	File downloadAvatar(File file){
-		file.withOutputStream { out ->
-			out << avatarInputStream
-			new File(file.path)
-		}
-	}
+	String getAvatar(){ hasAvatar() ?
+		"https://cdn.discordapp.com/avatars/${id}/${avatarHash}.jpg" : "" }
+	InputStream getAvatarInputStream(){ inputStreamFromDiscord(avatar) }
+	File downloadAvatar(file){ downloadFileFromDiscord(avatar, file) }
 	String getDiscriminator(){ object["discriminator"] }
 	String getDiscrim(){ object["discriminator"] }
 	String getNameAndDiscrim(){ "$name#$discrim" }
+	String getUniqueName(){ "$name#$discrim" }
+	String getUnique(){ "$name#$discrim" }
 	boolean isBot(){ object["bot"] }
 	String getEmail(){ object["email"] }
 	String getPassword(){ object["password"] }
 
 	Channel getPrivateChannel(){
-		client.privateChannels.find { it.dm && it.user.id == id }
+		client.userDmChannel(id)
 	}
 
 	Channel createPrivateChannel(){
-		new Channel(client,
-			client.http.jsonPost("users/@me/channels", [recipient_id: id]))
+		client.createPrivateChannel(this)
 	}
 
 	Channel createOrGetPrivateChannel(){
@@ -64,10 +60,10 @@ class User extends DiscordObject{
 		channel.permissionsFor(this)
 	}
 
-	List<Server> getSharedServers(){ client.servers.findAll { it.object.members.keySet().contains(id) } }
+	List<Server> getSharedServers(){ client.members(this)*.server }
 	String getMention(){ "<@$id>" }
-	Member getMember(server){ get(this, server, Member) }
-	Member member(server){ get(this, server, Member) }
+	Member getMember(server){ client.server(server).member(this) }
+	Member member(server){ client.server(server).member(this) }
 
 	Message sendMessage(String message, boolean tts = false){ createOrGetPrivateChannel().sendMessage(message, tts) }
 	Message sendFile(File file){ createOrGetPrivateChannel().sendFile(file) }
@@ -83,7 +79,7 @@ class Connection extends DiscordObject {
 
 class Application extends DiscordObject {
 	Application(Client client, Map object){
-		super(client, object, "oauth2/applications/$object.id")
+		super(client, object)
 	}
 
 	String getSecret(){ object["secret"] }
@@ -96,27 +92,20 @@ class Application extends DiscordObject {
 		iconHash ? "https://cdn.discordapp.com/app-icons/$id/${iconHash}.jpg"
 			: ""
 	}
+	boolean hasIcon(){ object["icon"] }
+	InputStream getIconInputStream(){ inputStreamFromDiscord(icon) }
+	File downloadIcon(file){ downloadFileFromDiscord(icon, file) }
 
 	Application edit(Map data){
-		Map map = [icon: iconHash, description: description,
-			redirect_uris: redirectUris, name: name]
-		if (data["icon"] != null){
-			if (data["icon"] instanceof String && !(data["icon"].startsWith("data"))){
-				data["icon"] = ConversionUtil.encodeImage(data["icon"] as File)
-			}else if (ConversionUtil.isImagable(data["icon"])){
-				data["icon"] = ConversionUtil.encodeImage(data["icon"])
-			}
-		}
-		new Application(this, http.jsonPut("", map << data))
+		client.editApplication(data, id)
 	}
 
 	void delete(){
-		http.delete("")
+		client.deleteApplication(id)
 	}
 
 	BotAccount createBot(String oldAccountToken = null){
-		new BotAccount(client, http.jsonPost("bot",
-			(oldAccountToken == null) ? [:] : [token: oldAccountToken]))
+		client.createApplicationBotAccount(this, oldAccountToken)
 	}
 
 	String getApplicationLink(app, perms = null){
@@ -135,7 +124,7 @@ class BotAccount extends User {
 
 class Profile extends User {
 	Profile(Client client, Map object){
-		super(client, object + object.user, "users/$object.id/profile")
+		super(client, object + object.user)
 	}
 
 	User getUser(){ new User(client, object.user) }

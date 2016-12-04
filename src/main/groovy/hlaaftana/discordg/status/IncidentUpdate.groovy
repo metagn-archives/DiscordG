@@ -7,12 +7,12 @@ class IncidentUpdate extends MapObject {
 
 	String getStatus(){ object["status"] }
 	String getBody(){ object["body"] }
-	String getRawUpdateTime(){ object["updated_at"] }
-	Date getUpdateTime(){ ConversionUtil.fromJsonDate(object["updated_at"]) }
-	String getRawCreateTime(){ object["created_at"] }
-	Date getCreateTime(){ ConversionUtil.fromJsonDate(object["created_at"]) }
-	String getRawDisplayTime(){ object["display_at"] }
-	Date getDisplayTime(){ ConversionUtil.fromJsonDate(object["display_at"]) }
+	String getRawUpdatedAt(){ object["updated_at"] }
+	Date getUpdatedAt(){ ConversionUtil.fromJsonDate(object["updated_at"]) }
+	String getRawCreatedAt(){ object["created_at"] }
+	Date getCreatedAt(){ ConversionUtil.fromJsonDate(object["created_at"]) }
+	String getRawDisplayAt(){ object["display_at"] }
+	Date getDisplayAt(){ ConversionUtil.fromJsonDate(object["display_at"]) }
 	String getId(){ object["id"] }
 	String getIncidentId(){ object["incident_id"] }
 }

@@ -8,6 +8,6 @@ class StatusPage extends MapObject {
 	String getId(){ object["id"] }
 	String getName(){ object["name"] }
 	String getUrl(){ object["url"] }
-	String getRawUpdateTime(){ object["updated_at"] }
-	Date getUpdateTime(){ ConversionUtil.fromJsonDate(object["updated_at"]) }
+	String getRawUpdatedAt(){ object["updated_at"] }
+	Date getUpdatedAt(){ ConversionUtil.fromJsonDate(object["updated_at"]) }
 }
