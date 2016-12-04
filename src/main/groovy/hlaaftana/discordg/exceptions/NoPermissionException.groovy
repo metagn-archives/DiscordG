@@ -1,6 +1,7 @@
 package hlaaftana.discordg.exceptions
 
-class NoPermissionException extends Exception {
-	NoPermissionException(message){ super(message) }
-	NoPermissionException(url, message) { super("Insufficient permissions while connecting to $url, message: $message") }
+class NoPermissionException extends HTTPException {
+	NoPermissionException(url, res){
+		super("Insufficient permissions while connecting to $url, message: $res.message", url, res)
+	}
 }

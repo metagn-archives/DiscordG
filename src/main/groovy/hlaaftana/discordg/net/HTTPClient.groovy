@@ -153,23 +153,23 @@ class HTTPClient {
 			ratelimits.remove(simplifyUrl(rlUrl))
 			return request(req)
 		}else if (status == 400){
-		throw new BadRequestException(fuck.url, errorCodes[JSONUtil.parse(returned.body).code])
+			throw new BadRequestException(fuck.url, JSONUtil.parse(returned.body))
 		}else if (status == 401){
-			throw new InvalidTokenException(client.token)
+			throw new InvalidTokenException(fuck.url, JSONUtil.parse(returned.body))
 		}else if (status == 403){
-			throw new NoPermissionException(fuck.url, errorCodes[JSONUtil.parse(returned.body).code])
+			throw new NoPermissionException(fuck.url, JSONUtil.parse(returned.body))
 		}else if (status == 404){
-			throw new NotFoundException(fuck.url, errorCodes[JSONUtil.parse(returned.body).code])
+			throw new NotFoundException(fuck.url, JSONUtil.parse(returned.body))
 		}else if (status == 405){
 			client.log.warn "$fuck.httpMethod not allowed for $fuck.url. Report to hlaaf", client.log.name + "HTTP"
 		}else if (status == 502){
 			if (client.retryOn502){
 				return request(req)
 			}else{
-				throw new HTTP5xxException(status, fuck.url)
+				throw new HTTP5xxException(fuck.url, JSONUtil.parse(returned.body))
 			}
 		}else if (status.intdiv(100) == 5){
-			throw new HTTP5xxException(status, fuck.url, errorCodes[JSONUtil.parse(returned.body).code])
+			throw new HTTP5xxException(fuck.url, JSONUtil.parse(returned.body))
 		}else if (status.intdiv(100) >= 3){
 			client.log.warn "Got status code $status while ${fuck.httpMethod}ing to $fuck.url, this isn't an error but just a warning.", client.log.name + "HTTP"
 		}

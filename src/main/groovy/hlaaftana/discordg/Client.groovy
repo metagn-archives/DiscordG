@@ -8,11 +8,17 @@ import groovy.lang.Closure
 import hlaaftana.discordg.collections.Cache
 import hlaaftana.discordg.collections.DiscordListCache;
 import hlaaftana.discordg.collections.DynamicMap;
+import hlaaftana.discordg.exceptions.MessageInvalidException
 import hlaaftana.discordg.logic.ActionPool
 import hlaaftana.discordg.logic.ParentListenerSystem;
 import hlaaftana.discordg.net.*
 import hlaaftana.discordg.util.*
 import hlaaftana.discordg.objects.*
+
+import java.awt.Color
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern
 
 import org.eclipse.jetty.util.ssl.SslContextFactory
@@ -25,12 +31,57 @@ import org.eclipse.jetty.websocket.client.WebSocketClient
  */
 class Client extends User {
 	static Closure newPool = ActionPool.&new
+	static Map eventAliases = [MESSAGE: "MESSAGE_CREATE",
+		NEW_MESSAGE: "MESSAGE_CREATE", MESSAGE_DELETED: "MESSAGE_DELETE",
+		MESSAGE_BULK_DELETE: "MESSAGE_DELETE_BULK",
+		MESSAGE_BULK_DELETED: "MESSAGE_DELETE_BULK",
+		MESSAGE_UPDATED: "MESSAGE_UPDATE", CHANNEL: "CHANNEL_CREATE",
+		NEW_CHANNEL: "CHANNEL_CREATE", CHANNEL_UPDATED: "CHANNEL_UPDATE",
+		CHANNEL_DELETED: "CHANNEL_DELETE", BAN: "GUILD_BAN_ADD",
+		UNBAN: "GUILD_BAN_REMOVE", GUILD: "GUILD_CREATE", SERVER: "GUILD_CREATE",
+		SERVER_CREATE: "GUILD_CREATE", GUILD_CREATED: "GUILD_CREATE",
+		SERVER_CREATED: "GUILD_CREATE", GUILD_UPDATED: "GUILD_UPDATE",
+		SERVER_UPDATED: "GUILD_UPDATE", SERVER_UPDATE: "GUILD_UPDATE",
+		SERVER_DELETE: "GUILD_DELETE", SERVER_DELETED: "GUILD_DELETE",
+		GUILD_DELETED: "GUILD_DELETE", MEMBER: "GUILD_MEMBER_ADD",
+		MEMBER_JOINED: "GUILD_MEMBER_ADD", NEW_MEMBER: "GUILD_MEMBER_ADD",
+		MEMBER_UPDATE: "GUILD_MEMBER_UPDATE",
+		MEMBER_UPDATED: "GUILD_MEMBER_UPDATE", MEMBER_LEFT: "GUILD_MEMBER_REMOVE",
+		MEMBER_KICKED: "GUILD_MEMBER_REMOVE", MEMBER_REMOVED: "GUILD_MEMBER_REMOVE",
+		ROLE: "GUILD_ROLE_CREATE", NEW_ROLE: "GUILD_ROLE_CREATE",
+		ROLE_UPDATE: "GUILD_ROLE_UPDATE", ROLE_UPDATED: "GUILD_ROLE_UPDATE",
+		GUILD_ROLE_UPDATE: "GUILD_ROLE_UPDATE", ROLE_DELETE: "GUILD_ROLE_DELETE",
+		ROLE_DELETED: "GUILD_ROLE_DELETE", PRESENCE: "PRESENCE_UPDATE",
+		TYPING: "TYPING_START", REACTION: "MESSAGE_REACTION_ADD",
+		REACTION_ADD: "MESSAGE_REACTION_ADD", NEW_REACTION: "MESSAGE_REACTION_ADD",
+		REACTION_REMOVED: "MESSAGE_REACTION_REMOVE",
+		REACTION_DELETED: "MESSAGE_REACTION_REMOVE",
+		REACTION_REMOVE: "MESSAGE_REACTION_REMOVE",
+		REACTION_DELETE: "MESSAGE_REACTION_REMOVE",
+		MESSAGE_REACTION_REMOVED: "MESSAGE_REACTION_REMOVE",
+		MESSAGE_REACTION_DELETED: "MESSAGE_REACTION_REMOVE",
+		MESSAGE_REACTION_DELETE: "MESSAGE_REACTION_REMOVE",
+		NOTE_UPDATE: "USER_NOTE_UPDATE", NOTE_UPDATED: "USER_NOTE_UPDATE",
+		NOTE: "USER_NOTE_UPDATE", CALL: "CALL_CREATE", CALL_STARTED: "CALL_CREATE",
+		CALL_UPDATED: "CALL_UPDATE", CALL_ENDED: "CALL_DELETE",
+		RECIPIENT: "CHANNEL_RECIPIENT_ADD", RECIPIENT_ADD: "CHANNEL_RECIPIENT_ADD",
+		RECIPIENT_ADDED: "CHANNEL_RECIPIENT_ADD",
+		NEW_RECIPIENT: "CHANNEL_RECIPIENT_ADD",
+		RECIPIENT_REMOVE: "CHANNEL_RECIPIENT_REMOVE",
+		RECIPIENT_REMOVED: "CHANNEL_RECIPIENT_REMOVE"]
+	static List knownDiscordEvents = ["READY", "MESSAGE_ACK", "GUILD_INTEGRATIONS_UPDATE",
+		"GUILD_EMOJIS_UPDATE", "VOICE_STATE_UPDATE", "VOICE_SERVER_UPDATE", "USER_UPDATE",
+		"USER_GUILD_SETTINGS_UPDATE", "USER_SETTINGS_UPDATE", "GUILD_MEMBERS_CHUNK",
+		"GUILD_SYNC", "RELATIONSHIP_ADD", "RELATIONSHIP_REMOVE", "CHANNEL_PINS_UPDATE",
+		"CHANNEL_PINS_ACK", "MESSAGE_REACTION_REMOVE_ALL", "WEBHOOKS_UPDATE", "RESUMED"] +
+			(eventAliases.values() as ArrayList).unique()
+	static List knownEvents = ["INITIAL_GUILD_CREATE", "UNRECOGINZED", "ALL"] + knownDiscordEvents
 
 	String customUserAgent = ""
 	String getFullUserAgent(){ "$DiscordG.USER_AGENT $customUserAgent" }
 
 	String tokenPrefix
-	public String token
+	String rawToken
 	String email
 	String getEmail(){
 		cache["user"]?.getOrDefault("email", this.@email)
@@ -73,7 +124,7 @@ class Client extends User {
 	def disableEventRegisteringCrashes(){ enableEventRegisteringCrashes = false }
 	long serverTimeout = 30_000
 	List includedEvents = []
-	List excludedEvents = [Events.TYPING]
+	List excludedEvents = ["TYPING"]
 	Tuple2 shardTuple // tuple of shard id and shard count.
 
 	Map<String, ActionPool> pools = [
@@ -102,6 +153,7 @@ class Client extends User {
 	Cache voiceData = Cache.empty(this)
 	String gateway
 	Cache messages = Cache.empty(this)
+	Cache reactions = Cache.empty(this)
 	boolean gatewayClosed
 
 	Client(Map config = [:]){
@@ -120,10 +172,15 @@ class Client extends User {
 		addChannelCreateListener()
 		addChannelDeleteListener()
 		addChannelUpdateListener()
+		addChannelRecipientAddListener()
+		addChannelRecipientRemoveListener()
 
 		addMessageCreateListener()
 		addMessageUpdateListener()
 		addMessageDeleteListener()
+		addMessageReactionAddListener()
+		addMessageReactionRemoveListener()
+		addMessageReactionRemoveAllListener()
 
 		addGuildCreateListener()
 		addGuildDeleteListener()
@@ -149,11 +206,11 @@ class Client extends User {
 
 
 	String getToken(){
-		tokenPrefix ? "$tokenPrefix ${this.@token}" : this.@token
+		tokenPrefix ? "$tokenPrefix $rawToken" : rawToken
 	}
 
 	void setToken(String newToken){
-		this.@token = newToken
+		rawToken = newToken
 	}
 
 	WSClient getWebSocketClient(){ ws }
@@ -275,7 +332,11 @@ class Client extends User {
 		else { a() }
 	}
 
-	String parseEvent(param){ Events.get(param).type }
+	static String parseEvent(str){
+		def r = str.toString().toUpperCase().replaceAll(/\s+/, '_')
+			.replace("CHANGE", "UPDATE").replaceAll(/^(?!VOICE_)SERVER/, "GUILD")
+		knownEvents.contains(r) ? r : (eventAliases[r] ?: "UNRECOGNIZED")
+	}
 
 	def listenerError(String event, Throwable ex, Closure closure, data){
 		if (enableListenerCrashes) ex.printStackTrace()
@@ -305,10 +366,7 @@ class Client extends User {
 	}
 
 	boolean isLoaded(){
-		this.@token &&
-			ws &&
-			ws.loaded &&
-			!cache.empty &&
+		rawToken && ws && ws.loaded && !cache.empty &&
 			(!client.bot || !servers.any { it.unavailable })
 	}
 
@@ -321,8 +379,6 @@ class Client extends User {
 	}
 
 	User getUser(){ new User(this, cache["user"]) }
-	Map getObject(){ cache["user"] ?: [:] }
-	void setObject(Map lol){ cache["user"] = lol }
 
 	boolean isVerified(){ cache["user"]["verified"] }
 
@@ -388,41 +444,15 @@ class Client extends User {
 
 	String getSessionId(){ cache["session_id"] }
 
-	Server createServer(Map data) {
-		new Server(this, http.jsonPost("guilds", [name: data.name.toString(),
-			region: (data.region ?: optimalRegion).toString()]))
-	}
-
 	List<Server> getServers() { cache["guilds"]?.list ?: [] }
 	Map<String, Server> getServerMap(){ cache["guilds"]?.map ?: [:] }
-
-	List<Server> requestServers(boolean checkCache = true){
-		http.jsonGet("users/@me/guilds").collect {
-			Map object = it
-			if (checkCache && !it.unavailable){
-				def cached = cache["guilds"][it.id]
-				object.members = cached.members
-				object.channels = cached.channels
-				object.presences = cached.presences
-				object.voice_states = cached.voice_states
-				object.roles = cached.roles
-				object.emojis = cached.emojis
-				object.large = cached.large
-			}
-			new Server(this, object)
-		}
-	}
 
 	List<Presence> getGlobalPresences(){ cache.presences?.list ?: [] }
 	Map<String, Presence> getGlobalPresenceMap(){ cache.presences?.map ?: [:] }
 
-	List<Channel> requestPrivateChannels(){
-		http.jsonGet("users/@me/channels").collect { new Channel(this, it) }
-	}
-
 	List<User> getAllUsers() {
 		// This takes a long time to .unique() on so i found this faster method
-		(members + privateChannels*.user).groupBy { it.id }
+		(members + privateChannels*.user - null).groupBy { it.id }
 			.values()*.first()
 	}
 	List<Member> getAllMembers(){ servers*.members.flatten() }
@@ -446,46 +476,6 @@ class Client extends User {
 
 	Map<String, Role> getRoleMap(){
 		servers*.roleMap.sum()
-	}
-
-	void editRoles(Member member, List<Role> roles) {
-		member.server.editRoles(member, roles)
-	}
-
-	void addRoles(Member member, List<Role> roles) {
-		member.server.addRoles(member, roles)
-	}
-
-	void kick(Member member) {
-		member.kick()
-	}
-
-	void kick(Server server, User user){
-		server.kick(user)
-	}
-
-	void ban(Server server, User user, int days=0) {
-		server.ban(user, days)
-	}
-
-	void unban(Server server, User user) {
-		server.unban(user)
-	}
-
-	Role createRole(Server server, Map<String, Object> data) {
-		server.createRole(data)
-	}
-
-	Role editRole(Server server, Role role, Map<String, Object> data) {
-		server.editRole(role, data)
-	}
-
-	void deleteRole(Server server, Role role) {
-		server.deleteRole(role)
-	}
-
-	Webhook requestWebhook(w){
-		new Webhook(this, http.jsonGet("webhooks/${id(w)}"))
 	}
 
 	void changePresence(Map<String, Object> data) {
@@ -524,90 +514,8 @@ class Client extends User {
 	void play(game){ changePresence(game: game) }
 	void playGame(game){ changePresence(game: game) }
 
-	Invite acceptInvite(id){
-		new Invite(this, http.jsonPost("invite/${Invite.parseId(id)}", [:]))
-	}
-
-	Invite requestInvite(id){
-		new Invite(this, http.jsonGet("invite/${Invite.parseId(id)}"))
-	}
-
-	Invite createInvite(Map data = [:], dest){
-		new Invite(this, http.jsonPost("channels/${id(dest)}/invites", data))
-	}
-
-	List<Connection> requestConnections(){
-		http.jsonGet("users/@me/connections").collect { new Connection(this, it) }
-	}
-
-	User edit(Map data){
-		Map map = [avatar: user.avatarHash, email: this?.email,
-			password: this?.password, username: user.username]
-		Map response = http.jsonPatch("users/@me", map <<
-			ConversionUtil.fixImages(data))
-		email = response.email
-		password = (data["new_password"] != null && data["new_password"] instanceof String) ? data["new_password"] : password
-		token = response.token
-			.replaceFirst(java.util.regex.Pattern.quote(tokenPrefix), "")
-			.trim()
-		cache["user"]["email"] = response.email
-		cache["user"]["verified"] = response.verified
-		new User(this, response)
-	}
-
-	Profile requestProfile(a){
-		new Profile(this, http.jsonGet("users/${id(a)}/profile"))
-	}
-
-	Application requestApplication(){
-		new Application(this, http.jsonGet("oauth2/applications/@me"))
-	}
-
-	List<Application> requestApplications(){
-		http.jsonGet("oauth2/applications").collect { new Application(this, it) }
-	}
-
-	Map<String, Application> getApplicationMap(){
-		new DiscordListCache(requestApplications(), this).map
-	}
-
-	Application requestApplication(id){
-		new Application(this, http.jsonGet("oauth2/applications/${this.id(id)}"))
-	}
-
-	Application editApplication(Application application, Map data){
-		application.edit(data)
-	}
-
-	void deleteApplication(Application application){
-		application.delete()
-	}
-
-	Application createApplication(Map data){
-		Map map = [icon: null, description: "", redirect_uris: [], name: ""]
-		new Application(this, http.jsonPost("oauth2/applications", map <<
-			ConversionUtil.fixImages(data)))
-	}
-
-	BotAccount createBot(Application application, String oldAccountToken=null){
-		application.createBot(oldAccountToken)
-	}
-
-	List<Region> getRegions(){
-		http.jsonGet("voice/regions").collect { new Region(this, it) }
-	}
-
 	Region getOptimalRegion(){
-		regions.find { it.optimal }
-	}
-
-	List<User> queueUsers(String query, int limit=25){ http.jsonGet("users?q=${URLEncoder.encode(query)}&limit=$limit").collect { new User(this, it) } }
-	User requestUser(i){ new User(this, http.jsonGet("users/${id(i)}")) }
-	Server requestServer(i){
-		new Server(this, http.jsonGet("guilds/${id(i)}"))
-	}
-	Channel requestChannel(i){
-		new Channel(this, http.jsonGet("channels/${id(i)}"))
+		requestRegions().find { it.optimal }
 	}
 
 	List<Channel> getPrivateChannels(){
@@ -618,7 +526,23 @@ class Client extends User {
 		cache["private_channels"]?.map ?: [:]
 	}
 
-	Channel privateChannel(c){ find(privateChannels, privateChannelMap, c) }
+	Channel privateChannel(c){ find(object.private_channels, c) }
+
+	DiscordListCache getUserDmChannelCache(){
+		DiscordListCache dlc = new DiscordListCache([], this, Channel)
+		dlc.store = (cache["private_channels"].values().findAll { it.type == 1 }
+			.collectEntries { [(it.recipients.keySet()[0]): it] })
+		dlc
+	}
+
+	Map<String, Channel> getUserDmChannelMap(){
+		userDmChannelCache.map
+	}
+
+	DiscordListCache getDmChannelCache(){
+		new DiscordListCache(cache.private_channels.values().findAll { it.type == 1 },
+			this, Channel)
+	}
 
 	List<Channel> getDmChannels(){
 		privateChannels.findAll { it.dm }
@@ -628,7 +552,9 @@ class Client extends User {
 		privateChannelMap.findAll { k, v -> v.dm }
 	}
 
-	Channel dmChannel(c){ find(dmChannels, dmChannelMap, c) }
+	Channel dmChannel(c){ channels(c).find { it.dm } }
+	List<Channel> dmChannels(c){ channels(c).findAll { it.dm } }
+	Channel userDmChannel(u){ find(userDmChannelCache, u) }
 
 	List<Channel> getGroups(){
 		privateChannels.findAll { it.group }
@@ -638,7 +564,8 @@ class Client extends User {
 		privateChannelMap.findAll { k, v -> v.group }
 	}
 
-	Channel group(c){ find(groups, groupMap, c) }
+	Channel group(c){ channels(c).find { it.group } }
+	List<Channel> groups(c){ channels(c).findAll { it.group } }
 
 	List<Channel> getTextChannels(){
 		privateChannels + servers*.textChannels.flatten() ?: []
@@ -664,58 +591,64 @@ class Client extends User {
 		textChannelMap + voiceChannelMap ?: [:]
 	}
 
-	List<Member> members(id){
-		boolean name = !(id ==~ /\d+/)
-		String aa = name ? id : resolveId(id)
-		members.findAll { name ? it.name == aa : it.id == aa }
-	}
+	Member member(t){ findNested(cache.guilds, "members", Member, t) }
+	List<Member> members(t){ findAllNested(cache.guilds, "members", Member, t) }
+	Member member(s, u){ find(cache.guilds[s].members, u) }
+	List<Member> members(s, u){ findAll(cache.guilds[s].members, u) }
 
-	User user(id){ find(members, servers*.memberMap.sum(), id).toUser() }
+	User user(u){ member(u)?.user }
 
-	Server server(id){ find(servers, serverMap, id) }
+	Server server(s){ find(cache.guilds, s) }
 
-	Channel textChannel(id){ find(textChannels, textChannelMap, id) }
+	Channel textChannel(...args){ channels(*args).find { it.text } }
+	List<Channel> textChannels(...args){ channels(*args).findAll { it.text } }
+	Channel voiceChannel(...args){ channels(*args).find { it.voice } }
+	List<Channel> voiceChannels(...args){ channels(*args).findAll { it.voice } }
 
-	Channel voiceChannel(id){ find(voiceChannels, voiceChannelMap, id) }
+	Channel channel(c){ findNested(cache.guilds, "channels", Channel, c) }
+	List<Channel> channels(c){ findAllNested(cache.guilds, "channels", Channel, c) }
+	Channel channel(s, c){ find(cache.guilds[s].channels, c) }
+	List<Channel> channels(s, c){ findAll(cache.guilds[s].channels, c) }
 
-	Channel channel(id){ find(channels, channelMap, id) }
-
-	Role role(id){ find(roles, roleMap, id) }
+	Role role(r){ findNested(cache.guilds, "roles", Role, r) }
+	List<Role> roles(r){ findAllNested(cache.guilds, "roles", Role, r) }
+	Role role(s, r){ find(cache.guilds[id(s)], r) }
+	List<Role> roles(s, r){ findAll(cache.guilds[id(s)], r) }
 
 	List getEverything(){
 		servers + roles + members + channels
 	}
 
-	// Adding built-in listeners. Look above at "removeListenersFor" to understand why I did it like
+	// WEBSOCKET LISTENERS
 
 	void addGuildMemberAddListener(){
-		addListener(Events.MEMBER){ Map d ->
+		addListener("MEMBER"){ Map d ->
 			cache["guilds"][d.json.guild_id]["members"].add(d.json)
 			cache["guilds"][d.json.guild_id]["member_count"]++
 		}
 	}
 
 	void addGuildMemberRemoveListener(){
-		addListener(Events.MEMBER_REMOVED){ Map d ->
+		addListener("MEMBER_REMOVED"){ Map d ->
 			cache["guilds"][d.json.guild_id]["members"].remove(d.json.user.id)
 			cache["guilds"][d.json.guild_id]["member_count"]--
 		}
 	}
 
 	void addGuildRoleCreateListener(){
-		addListener(Events.ROLE){ Map d ->
+		addListener("ROLE"){ Map d ->
 			cache["guilds"][d.json.guild_id]["roles"].add(d.json.role + [guild_id: d.json.guild_id])
 		}
 	}
 
 	void addGuildRoleDeleteListener(){
-		addListener(Events.ROLE_DELETE){ Map d ->
+		addListener("ROLE_DELETE"){ Map d ->
 			cache["guilds"][d.json.guild_id]["roles"].remove(d.json.role_id)
 		}
 	}
 
 	void addChannelCreateListener(){
-		addListener(Events.CHANNEL_CREATE){ Map d ->
+		addListener("CHANNEL_CREATE"){ Map d ->
 			if (d.constructed.guild_id){
 				cache["guilds"][d.constructed.guild_id]["channels"].add(d.constructed)
 			}else{
@@ -725,7 +658,7 @@ class Client extends User {
 	}
 
 	void addChannelDeleteListener(){
-		addListener(Events.CHANNEL_DELETE){ Map d ->
+		addListener("CHANNEL_DELETE"){ Map d ->
 			if (d.constructed.guild_id){
 				cache["guilds"][d.constructed.guild_id]["channels"].remove(d.constructed.id)
 			}else{
@@ -735,14 +668,14 @@ class Client extends User {
 	}
 
 	void addChannelUpdateListener(){
-		addListener(Events.CHANNEL_UPDATE){ Map d ->
+		addListener("CHANNEL_UPDATE"){ Map d ->
 			cache["guilds"][d.constructed.guild_id]["channels"][d.constructed.id] <<
 				d.constructed
 		}
 	}
 
 	void addMessageCreateListener(){
-		addListener(Events.MESSAGE){ Map d ->
+		addListener("MESSAGE"){ Map d ->
 			if (messages[d.json.channel_id]){
 				messages[d.json.channel_id].add(d.json)
 			}else{
@@ -753,7 +686,7 @@ class Client extends User {
 	}
 
 	void addMessageUpdateListener(){
-		addListener(Events.MESSAGE_UPDATE){ Map d ->
+		addListener("MESSAGE_UPDATE"){ Map d ->
 			if (messages[d.json.channel_id]){
 				if (messages[d.json.channel_id][d.json.id]){
 					messages[d.json.channel_id][d.json.id] << d.json
@@ -774,7 +707,7 @@ class Client extends User {
 	}
 
 	void addGuildCreateListener(){
-		addListener(Events.SERVER){ Map d ->
+		addListener("SERVER"){ Map d ->
 			Map server = d.constructed
 			if (cache["guilds"][server["id"]]){
 				cache["guilds"][server["id"]] << server
@@ -785,19 +718,19 @@ class Client extends User {
 	}
 
 	void addGuildDeleteListener(){
-		addListener(Events.SERVER_DELETED){ Map d ->
+		addListener("SERVER_DELETED"){ Map d ->
 			cache["guilds"].remove(d.server.id)
 		}
 	}
 
 	void addGuildMemberUpdateListener(){
-		addListener(Events.MEMBER_UPDATED){ Map d ->
+		addListener("MEMBER_UPDATED"){ Map d ->
 			cache["guilds"][d.json.guild_id]["members"][d.json.user.id]?.leftShift(d.json)
 		}
 	}
 
 	void addGuildRoleUpdateListener(){
-		addListener(Events.ROLE_UPDATE){ Map d ->
+		addListener("ROLE_UPDATE"){ Map d ->
 			if (cache["guilds"][d.json.guild_id]["roles"][d.json.role.id])
 				cache["guilds"][d.json.guild_id]["roles"][d.json.role.id] << d.json.role
 			else cache["guilds"][d.json.guild_id]["roles"][d.json.role.id] = d.json.role + [guild_id: d.json.guild_id]
@@ -805,7 +738,7 @@ class Client extends User {
 	}
 
 	void addGuildUpdateListener(){
-		addListener(Events.SERVER_UPDATED){ Map d ->
+		addListener("SERVER_UPDATED"){ Map d ->
 			cache["guilds"][d.json.id] = d.constructed
 		}
 	}
@@ -929,6 +862,32 @@ class Client extends User {
 		}
 	}
 
+	void addMessageReactionAddListener(){
+		addListener("message reaction add"){ Map d ->
+			def fabricated = [user_id: d.json.user_id,
+					emoji: d.json.emoji]
+			reactions.containsKey(d.json.message_id) ?
+				reactions[d.json.message_id].add(fabricated) :
+				reactions.put(d.json.message_id, [fabricated])
+		}
+	}
+
+	void addMessageReactionRemoveListener(){
+		addListener("message reaction remove"){ Map d ->
+			if (reactions.containsKey(d.json.message_id))
+				reactions[d.json.message_id].with {
+					remove(find { it.user_id == d.json.user_id && it.emoji == d.json.emoji })
+				}
+		}
+	}
+
+	void addMessageReactionRemoveAllListener(){
+		addListener("message reaction remove all"){ Map d ->
+			if (reactions.containsKey(d.json.message_id))
+				reactions.remove(d.json.message_id)
+		}
+	}
+
 	def requestMembersOnReady(){
 		addListener("ready"){
 			chunkMembersFor(servers.findAll { it.large })
@@ -941,5 +900,561 @@ class Client extends User {
 			if (!gatewayClosed && it.code < 4000)
 				ws.reconnect()
 		}
+	}
+
+	// HTTP REQUESTS
+
+	List<Server> requestServers(boolean checkCache = true){
+		http.jsonGet("users/@me/guilds").collect {
+			Map object = it
+			if (checkCache && !it.unavailable){
+				def cached = cache["guilds"][it.id]
+				object.members = cached.members
+				object.channels = cached.channels
+				object.presences = cached.presences
+				object.voice_states = cached.voice_states
+				object.roles = cached.roles
+				object.emojis = cached.emojis
+				object.large = cached.large
+			}
+			new Server(this, object)
+		}
+	}
+
+	List<Channel> requestPrivateChannels(){
+		http.jsonGet("users/@me/channels").collect { new Channel(this, it) }
+	}
+
+	void moveMemberVoiceChannel(s, u, vc){
+		editMember(channel_id: id(vc), s, u)
+	}
+
+	void editRoles(s, u, Collection r) {
+		editMember(roles: r.collect(this.&id), s, u)
+	}
+
+	void addRoles(s, u, Collection r) {
+		editRoles(s, u, cache.guilds[s].members[u].roles*.id + r)
+	}
+
+	void addRole(s, m, r){
+		http.put("guilds/${id(s)}/members/${id(m)}/roles/${id(r)}")
+	}
+
+	void removeRole(s, m, r){
+		http.delete("guilds/${id(s)}/members/${id(m)}/roles/${id(r)}")
+	}
+
+	String changeOwnServerNick(s, String nick){
+		askPool("changeNick"){
+			http.jsonPatch("guilds/${id(s)}/members/@me/nick",
+				[nick: nick])["nick"]
+		}
+	}
+
+	String changeServerNick(s, m, String nick){
+		editMember(nick: nick, s, m)
+	}
+
+	void kick(s, m){
+		http.delete("guilds/${id(s)}/members/${id(m)}")
+	}
+
+	List<Server.Ban> requestBans(s) {
+		http.jsonGet("guilds/${id(s)}/bans").collect { new Server.Ban(this, it) }
+	}
+
+	List<Invite> requestServerInvites(s){
+		http.jsonGet("guilds/${id(s)}/invites").collect { new Invite(this, it) }
+	}
+
+	List<Region> requestRegions(s){
+		http.jsonGet("guilds/${id(s)}/regions").collect { new Region(this, it) }
+	}
+
+	List<Integration> requestIntegrations(s){
+		http.jsonGet("guilds/${id(s)}/integrations").collect { new Integration(this, it) }
+	}
+
+	Integration createIntegration(s, type, id){
+		new Integration(this, http.jsonPost("guilds/${id(s)}/integrations",
+			[type: type.toString(), id: id.toString()]))
+	}
+
+	void ban(s, u, int d = 0) {
+		http.put("guilds/${id(s)}/bans/${id(u)}?delete-message-days=$d", [:])
+	}
+
+	void unban(s, u) {
+		http.delete("guilds/${id(s)}/bans/${id(u)}")
+	}
+
+	int checkPrune(s, int d){
+		http.jsonGet("guilds/${id(s)}/prune?days=$d")["pruned"]
+	}
+
+	int prune(s, int d){
+		http.jsonPost("guilds/${id(s)}/prune?days=$d")["pruned"]
+	}
+
+	Role createRole(Map data, s) {
+		if (data["color"] instanceof Color) data["color"] = data["color"].value
+		if (data["permissions"] instanceof Permissions) data["permissions"] = data["permissions"].value
+		Role createdRole = new Role(this, http.jsonPost("guilds/${id(s)}/roles", [:]))
+		editRole(data, s, createdRole)
+	}
+
+	Role editRole(Map data, s, r) {
+		if (data["color"] instanceof Color) data["color"] = data["color"].value
+		if (data["permissions"] instanceof Permissions) data["permissions"] = data["permissions"].value
+		new Role(this, http.jsonPatch("guilds/${id(s)}/roles/${id(r)}", data))
+	}
+
+	void deleteRole(s, r) {
+		http.delete("guilds/${id(s)}/roles/${id(r)}")
+	}
+
+	List<Role> batchModifyRoles(Map mods, s){
+		def hah = []
+		mods.each { k, v ->
+			if (v["color"] instanceof Color) v["color"] = v["color"].value
+			if (v["permissions"] instanceof Permissions) v["permissions"] = v["permissions"].value
+			hah.add(v + [id: id(k)])
+		}
+		http.jsonPatch("guilds/${id(s)}/roles", hah).collect { new Role(this, it + [guild_id: id(s)]) }
+	}
+
+	List<Webhook> requestServerWebhooks(s){
+		http.jsonGet("guilds/${s}/webhooks").collect { new Webhook(this, it) }
+	}
+
+	void batchModifyChannels(Map mods, s){
+		def hah = []
+		mods.each { k, v ->
+			hah.add(v + [id: id(k)])
+		}
+		http.patch("guilds/${id(s)}/channels", hah)
+	}
+
+	List<Member> requestMembers(s, int max=1000, boolean updateCache=true){
+		def i = id(s)
+		List members = http.jsonGet("guilds/$i/members?limit=${max}")
+		if (max > 1000){
+			for (int m = 1; m < (int) Math.ceil(max / 1000) - 1; m++){
+				members += http.jsonGet("guilds/$i/members?after=${(m * 1000) + 1}&limit=1000")
+			}
+			members += http.jsonGet("guilds/$i/members?after=${(int)((Math.ceil(max / 1000) - 1) * 1000)+1}&limit=1000")
+		}
+		if (updateCache){
+			client.cache["guilds"][i]["members"] = new DiscordListCache(members.collect { it + ["guild_id": i] + it["user"] }, this, Member)
+			client.cache["guilds"][i]["member_count"] = members.size()
+		}
+		members.collect { new Member(this, it + ["guild_id": i]) }
+	}
+
+	Member requestMember(s, m){ new Member(this,
+		http.jsonGet("guilds/${id(s)}/members/${id(m)}")) }
+
+	List<Emoji> requestEmojis(s){ http.jsonGet("guilds/${id(s)}/emojis")
+		.collect { new Emoji(this, it) } }
+
+	Emoji createEmoji(Map data, s){
+		new Emoji(this, http.jsonPost("guilds/${id(s)}/emojis",
+			ConversionUtil.fixImages(data, "image")))
+	}
+
+	Emoji editEmoji(Map data, s, emoji){
+		new Emoji(this, http.jsonPatch("guilds/${id(s)}/emojis/${id(emoji)}", data))
+	}
+
+	Webhook requestServerWebhook(s, w){
+		new Webhook(this, http.jsonGet("guilds/${id(s)}/webhooks/${id(w)}"))
+	}
+
+	Invite acceptInvite(i){
+		new Invite(this, http.jsonPost("invite/${Invite.parseId(i)}", [:]))
+	}
+
+	Invite requestInvite(i){
+		new Invite(this, http.jsonGet("invite/${Invite.parseId(i)}"))
+	}
+
+	Invite createInvite(Map data = [:], c){
+		new Invite(this, http.jsonPost("channels/${id(c)}/invites", data))
+	}
+
+	Server.Embed requestEmbed(s){ new Server.Embed(this, http.jsonGet("guilds/${id(s)}/embed")) }
+
+	Server.Embed editEmbed(Map data, s, e){ new Server.Embed(this,
+		http.jsonPatch("guilds/${id(s)}/embed", data)) }
+
+	List<Connection> requestConnections(){
+		http.jsonGet("users/@me/connections").collect { new Connection(this, it) }
+	}
+
+	User edit(Map data){
+		Map map = [avatar: user.avatarHash, email: this?.email,
+			password: this?.password, username: user.username]
+		Map response = http.jsonPatch("users/@me", map <<
+			ConversionUtil.fixImages(data))
+		email = response.email
+		password = (data["new_password"] != null && data["new_password"] instanceof String) ? data["new_password"] : password
+		token = response.token
+			.replaceFirst(java.util.regex.Pattern.quote(tokenPrefix), "")
+			.trim()
+		cache["user"]["email"] = response.email
+		cache["user"]["verified"] = response.verified
+		new User(this, response)
+	}
+
+	Profile requestProfile(a){
+		new Profile(this, http.jsonGet("users/${id(a)}/profile"))
+	}
+
+	Application requestApplication(){
+		new Application(this, http.jsonGet("oauth2/applications/@me"))
+	}
+
+	List<Application> requestApplications(){
+		http.jsonGet("oauth2/applications").collect { new Application(this, it) }
+	}
+
+	Application requestApplication(a){
+		new Application(this, http.jsonGet("oauth2/applications/${id(a)}"))
+	}
+
+	Application editApplication(Map data, a){
+		new Application(this, http.jsonPut("oauth2/applications/${id(a)}", map <<
+			ConversionUtil.fixImages(data)))
+	}
+
+	void deleteApplication(a){
+		http.delete("oauth2/applications/${id(a)}")
+	}
+
+	Application createApplication(Map data){
+		Map map = [icon: null, description: "", redirect_uris: [], name: ""]
+		new Application(this, http.jsonPost("oauth2/applications", map <<
+			ConversionUtil.fixImages(data)))
+	}
+
+	BotAccount createApplicationBotAccount(a, String oldAccountToken = null){
+		new BotAccount(this, http.jsonPost("oauth2/applications/${id(a)}/bot",
+			(oldAccountToken == null) ? [:] : [token: oldAccountToken]))
+	}
+
+	List<Region> requestRegions(){
+		http.jsonGet("voice/regions").collect { new Region(this, it) }
+	}
+
+	List<User> queueUsers(String query, int limit=25){
+		http.jsonGet("users?q=${URLEncoder.encode(query)}&limit=$limit")
+			.collect { new User(this, it) }
+	}
+
+	User requestUser(i){ new User(this, http.jsonGet("users/${id(i)}")) }
+	Server requestServer(i){ new Server(this, http.jsonGet("guilds/${id(i)}")) }
+	Channel requestChannel(i){ new Channel(this, http.jsonGet("channels/${id(i)}")) }
+
+	Server editServer(Map data, s) {
+		new Server(this, object << http.jsonPatch("guilds/${id(s)}",
+			ConversionUtil.fixImages(data)))
+	}
+
+	void leaveServer(s) {
+		http.delete("users/@me/guilds/${id(s)}")
+	}
+
+	void deleteServer(s) {
+		http.delete("guilds/${id(s)}")
+	}
+
+	Channel createTextChannel(s, String name) {
+		new Channel(this, http.jsonPost("guilds/${id(s)}/channels",
+			[name: name, type: 0]))
+	}
+
+	Channel createVoiceChannel(s, String name) {
+		new Channel(this, http.jsonPost("guilds/${id(s)}/channels",
+			[name: name, type: 2]))
+	}
+
+	Channel requestServerChannel(s, c){
+		new Channel(this, http.jsonGet("guilds/${id(s)}/channels/${id(c)}"))
+	}
+
+	List<Channel> requestServerChannels(s){
+		http.jsonGet("guilds/${id(s)}/channels").collect { new Channel(this, it) }
+	}
+
+	Integration editIntegration(Map data, s, i){
+		new Integration(this,
+			http.jsonPatch("guilds/${id(s)}/integrations/${id(i)}", data))
+	}
+
+	void deleteIntegration(s, i){
+		http.delete("guilds/${id(s)}/integrations/${id(i)}")
+	}
+
+	void syncIntegration(s, i){
+		http.post("guilds/${id(s)}/integrations/${id(i)}/sync")
+	}
+
+	void editMember(Map data, s, m){
+		askPool("editMembers", id(s)){
+			http.patch("guilds/${id(s)}/members/${id(m)}", data)
+		}
+	}
+
+	void addChannelRecipient(c, u){
+		http.put("channels/${id(c)}/recipients/${id(u)}")
+	}
+
+	void removeChannelRecipient(c, u){
+		http.delete("channels/${id(c)}/recipients/${id(u)}")
+	}
+
+	List<Invite> requestChannelInvites(c){
+		http.jsonGet("channels/${id(c)}/invites").collect { new Invite(this, it) }
+	}
+
+	void startTyping(c){
+		http.post("channels/${id(c)}/typing")
+	}
+
+	void deleteChannel(c){
+		http.delete("channels/${id(c)}")
+	}
+
+	Channel edit(Map data, c) {
+		new Channel(this, http.jsonPatch("channels/${id(c)}",
+			patchableObject << ConversionUtil.fixImages(data)))
+	}
+
+	void editChannelOverwrite(Map data, c, o){
+		String i = id(o)
+		String type = data.type ?: (role(i) ? "role" : "member")
+		int allowBytes = data.allow?.toInteger() ?: 0
+		int denyBytes = data.deny?.toInteger() ?: 0
+		http.put("channels/${id(c)}/permissions/${i}",
+			[allow: allowBytes, deny: denyBytes, id: i, type: type])
+	}
+
+	void deleteChannelOverwrite(c, o){
+		http.delete("channels/${id(c)}/permissions/${id(o)}")
+	}
+
+	Webhook createWebhook(Map data = [:], c){
+		new Webhook(client, http.jsonPost("channels/${id(c)}/webhooks",
+			ConversionUtil.fixImages(data)))
+	}
+
+	List<Webhook> requestChannelWebhooks(c){
+		http.jsonGet("channels/${id(c)}/webhooks").collect { new Webhook(this, it) }
+	}
+
+	Webhook requestWebhook(w){
+		new Webhook(this, http.jsonGet("webhooks/${id(w)}"))
+	}
+
+	Message sendMessage(Map data, c){
+		if (data.content != null){
+			data.content = client.filterMessage(data.content)
+			if (!data.content || data.content.size() > 2000)
+				throw new MessageInvalidException(data.content)
+		}
+		boolean isWebhook = MiscUtil.defaultValueOnException { data.webhook && c?.id && c?.token }
+		Closure clos = {
+			new Message(this, http.jsonPost(isWebhook ?
+				"webhooks/${id(c)}/$c.token" :
+				"channels/${id(c)}/messages", [channel_id: id] << data))
+		}
+		isWebhook ? clos() : askPool("sendMessages", getChannelQueueName(c), clos)
+	}
+
+	Message sendMessage(c, content, tts = false){ sendMessage(c, content: content, tts: tts) }
+
+	Message editMessage(Map data, c, m){
+		if (data.content != null){
+			data.content = client.filterMessage(data.content)
+			if (!data.content || data.content.size() > 2000)
+				throw new MessageInvalidException(data.content)
+		}
+		askPool("sendMessages", getChannelQueueName(c)){ // that's right, they're in the same bucket
+			new Message(this, http.jsonPatch("channels/${id(c)}/messages/${id(m)}", data))
+		}
+	}
+
+	void deleteMessage(c, m){
+		askPool("deleteMessages",
+			getChannelQueueName(c)){ http.delete("channels/${id(c)}/messages/${id(m)}") }
+	}
+
+	def sendFileRaw(Map data = [:], c, file){
+		boolean isWebhook = MiscUtil.defaultValueOnException { data.webhook && c?.id && c?.token }
+		List fileArgs = []
+		if (file instanceof File){
+			if (data["filename"]){
+				fileArgs += file.bytes
+				fileArgs += data["filename"]
+			}else fileArgs += file
+		}else{
+			fileArgs += ConversionUtil.getBytes(file)
+			if (!data["filename"]) throw new IllegalArgumentException("Tried to send non-file class ${file.class} and gave no filename")
+			fileArgs += data["filename"]
+		}
+		def url = http.baseUrl + (isWebhook ?
+			"webhooks/${id(c)}/${c.token}" :
+			"channels/${id(c)}/messages")
+		def aa = Unirest.post(url)
+			.header("Authorization", token)
+			.header("User-Agent", fullUserAgent)
+			.field("content", data["content"] == null ? "" : data["content"].toString())
+			.field("tts", data["tts"] as boolean)
+		if (fileArgs.size() == 1){
+			aa = aa.field("file", fileArgs[0])
+		}else if (fileArgs.size() == 2){
+			aa = aa.field("file", fileArgs[0], fileArgs[1])
+		}
+		def clos = {
+			JSONUtil.parse(aa.asString().body)
+		}
+		isWebhook ? clos() : askPool("sendMessages", getChannelQueueName(c), clos)
+	}
+
+	Message sendFile(Map data, c, implicatedFile, filename = null) {
+		def file
+		if (implicatedFile.class in [File, String]) file = implicatedFile as File
+		else file = ConversionUtil.getBytes(implicatedFile)
+		new Message(this, sendFileRaw((filename ? [filename: filename] : [:]) << data, c, file))
+	}
+
+	Message sendFile(c, implicatedFile, filename = null){
+		sendFile([:], c, implicatedFile, filename)
+	}
+
+	Message requestMessage(c, ms, boolean addToCache = true){
+		def ch = id(c)
+		def m = new Message(this,
+			http.jsonGet("channels/$ch/messages/${id(ms)}"))
+		if (addToCache){
+			if (messages[ch]) messages[ch].add(m)
+			else {
+				messages[ch] = new DiscordListCache([m], this, Message)
+				messages[ch].root = channel(ch)
+			}
+		}
+		m
+	}
+
+	Message message(c, m, boolean request = true){
+		request ? new Message(this, messages[id(c)][id(m)]) ?: requestMessage(c, m) :
+			new Message(this, messages[id(c)][id(m)])
+	}
+
+	String getChannelQueueName(c){
+		def i = id(c)
+		cache.private_channels.containsKey(i) ? "dm" : channel(c).object.guild_id
+	}
+
+	def pinMessage(c, m){
+		http.put("channels/${id(c)}/pins/${id(m)}")
+	}
+
+	def unpinMessage(c, m){
+		http.delete("channels/${id(c)}/pins/${id(m)}")
+	}
+
+	Collection<Message> requestPinnedMessages(c){
+		http.jsonGet("channels/${id(c)}/pins").collect { new Message(this, it) }
+	}
+
+	void reactToMessage(c, m, e){
+		http.put("channels/${id(c)}/messages/${id(m)}/" +
+			"reactions/${translateEmoji(e)}/@me")
+	}
+
+	void unreactToMessage(c, m, e, u = "@me"){
+		http.delete("channels/{id(c)}/messages/${id(m)}/" +
+			"reactions/${translateEmoji(e)}/${id(u)}")
+	}
+
+	List<User> requestReactors(c, m, e, int limit = 100){
+		http.jsonGet("channels/${id(c)}/messages/${id(m)}/reactions/" +
+			translateEmoji(e) + "?limit=$limit").collect { new User(this, it) }
+	}
+
+	String translateEmoji(emoji, s = null){
+		if (emoji ==~ /\d+/){
+			translateEmoji(emojis.find { it.id == emoji })
+		}else if (emoji instanceof Emoji){
+			"$emoji.name:$emoji.id"
+		}else if (emoji ==~ /\w+/){
+			def i = ((server(s)?.emojis ?: []) + (emojis - server(s)?.emojis)
+				).find { it.name == emoji }?.id
+			i ? "$emoji:$i" : ":$emoji:"
+		}else{
+			emoji
+		}
+	}
+
+	List<Message> requestChannelLogs(c, int max = 100, boundary = null,
+		boolean after = false){
+		def cached = messages[id(c)]
+		if (!boundary && cached.size() > max) return cached.sort { it.id }[-1..-max]
+			.collect { new Message(this, it) }
+		def l = rawRequestChannelLogs(c, max, boundary, after)
+		if (cached) l.each(messages[id(c)].&add)
+		else messages[id(c)] = new DiscordListCache(l, this, Message)
+		l.collect { new Message(this, it) }
+	}
+
+	List<Message> forceRequestChannelLogs(c, int m = 100, b = null,
+		boolean a = false){ rawRequestChannelLogs(c, m, b, a).collect { new Message(this, it) } }
+
+	List rawRequestChannelLogs(c, int max, boundary = null, boolean after = false){
+		Map params = [limit: max > 100 ? 100 : max]
+		if (boundary){
+			if (after) params.after = id(boundary)
+			else params.before = id(boundary)
+		}
+		List messages = rawRequestChannelLogs(params, c)
+		if (max > 100){
+			for (int m = 1; m < Math.floor(max / 100); m++){
+				messages += rawRequestChannelLogs(c,
+					before: messages.last().id, limit: 100)
+			}
+			messages += rawRequestChannelLogs(c,
+				before: messages.last().id, limit: max % 100 ?: 100)
+		}
+		messages
+	}
+
+	List rawRequestChannelLogs(Map data = [:], c){
+		String parameters = data ? "?" + data.collect { k, v ->
+			URLEncoder.encode(k.toString()) + "=" + URLEncoder.encode(v.toString())
+		}.join("&") : ""
+		http.jsonGet("channels/${id(c)}/messages$parameters")
+	}
+
+	def bulkDeleteMessages(c, Collection ids){
+		askPool("bulkDeleteMessages"){
+			http.post("channels/${id(c)}/messages/bulk-delete",
+				[messages: ids.collect { id(it) }])
+		}
+	}
+
+	Webhook editWebhook(Map data, w){
+		new Webhook(this, http.jsonPatch("webhooks/${id(w)}",
+			ConversionUtil.fixImages(data)))
+	}
+
+	void deleteWebhook(w){
+		http.delete("webhooks/${id(w)}")
+	}
+
+	Channel createPrivateChannel(u){
+		new Channel(this, http.jsonPost("users/@me/channels",
+			[recipient_id: id(u)]))
 	}
 }

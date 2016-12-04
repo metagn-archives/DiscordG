@@ -61,6 +61,10 @@ class DiscordListCache extends Cache { // DO stands for DiscordObject
 		store[DiscordObject.id(key)]
 	}
 
+	DiscordListCache plus(DiscordListCache other){
+		new DiscordListCache(mapList + other.mapList, client, class_)
+	}
+
 	def add(Map object){
 		store[class_ == Member ? object.user.id : object.id] = object
 	}

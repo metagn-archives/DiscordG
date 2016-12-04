@@ -1,5 +1,7 @@
 package hlaaftana.discordg.exceptions
 
-class BadRequestException extends Exception {
-	BadRequestException(String url, message){ super("$url with message: $message") }
+class BadRequestException extends HTTPException {
+	BadRequestException(url, res){
+		super("$url with message: $res.message", url, res)
+	}
 }

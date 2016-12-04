@@ -12,18 +12,17 @@ class Invite extends DiscordObject {
 	String getCode(){ object["code"] }
 	String getId(){ object["code"] }
 	String getUrl(){ "https://discord.gg/${id}" }
-	Server getServer(){
-		client.server(object["guild"]["id"])
-	}
-	DiscordObject getBaseServer(){ new DiscordObject(client, object["guild"]) }
+	Server getServer(){ client.server(object["guild"]["id"]) ?:
+		new DiscordObject(client, object["guild"]) }
 	boolean isRevoked(){ object["revoked"] }
-	String getRawCreateTime(){ object["created_at"] }
-	Date getCreateTime(){ ConversionUtil.fromJsonDate(object["created_at"]) }
+	String getRawCreatedAt(){ object["created_at"] }
+	Date getCreatedAt(){ ConversionUtil.fromJsonDate(object["created_at"]) }
 	boolean isTemporary(){ object["temporary"] }
 	int getUses(){ object["uses"] }
 	int getMaxUses(){ object["max_uses"] }
 	User getInviter(){ new User(client, object["inviter"]) }
-	DiscordObject getChannel(){ client.textChannelMap[object["channel"]["id"]] ?: new DiscordObject(client, object["channel"]) }
+	DiscordObject getChannel(){ client.channel(object["channel"]["id"]) ?:
+		new DiscordObject(client, object["channel"]) }
 	DiscordObject getParent(){ channel }
 	String toString(){ url }
 

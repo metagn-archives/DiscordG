@@ -10,20 +10,25 @@ import java.util.Date;
  * A basic Discord object.
  * @author Hlaaftana
  */
-class DiscordObject implements Comparable {
+class DiscordObject implements Comparable, JSONable {
 	Client client
 	Map object
-	String concatUrl = ""
-	HTTPClient http
-	DiscordObject(Client c, Map o, String cu = ""){
-		concatUrl = cu
+	DiscordObject(Client c, Map o){
+		client = c
 		object = o
-		setClient(c)
 	}
 
-	void setClient(Client c){
-		this.client = c
-		if (client) http = new HTTPClient(client.http, concatUrl)
+	InputStream inputStreamFromDiscord(url){
+		(url as URL).newInputStream(requestProperties:
+			["User-Agent": client.fullUserAgent, Accept: "*/*"])
+	}
+
+	File downloadFileFromDiscord(url, file){
+		File f = file as File
+		f.withOutputStream { out ->
+			out << inputStreamFromDiscord(url)
+			new File(f.path)
+		}
 	}
 
 	Map getRawObject(){
@@ -39,8 +44,8 @@ class DiscordObject implements Comparable {
 	String getName(){ object["name"] }
 	String toString(){ name }
 	String inspect(){ "'$name' ($id)" }
-	Date getCreateTime(){ new Date(createTimeMillis) }
-	long getCreateTimeMillis(){ idToMillis(id) }
+	Date getCreatedAt(){ new Date(createdAtMillis) }
+	long getCreatedAtMillis(){ idToMillis(id) }
 
 	static long idToMillis(id){
 		(Long.parseLong(this.id(id)) >> 22) + 1420070400000L
@@ -74,6 +79,53 @@ class DiscordObject implements Comparable {
 		}
 	}
 
+	static find(DiscordListCache cache, value){
+		String a = id(value)
+		if (!a) return null
+		def b = a.long ? cache[a] : findName(cache, a)
+		b ? cache.class_.newInstance(cache.client, b) : null
+	}
+
+	static findAll(DiscordListCache cache, value){
+		String a = id(value)
+		if (!a) return null
+		def b = a.long ? [cache[a]] : findAllName(cache, a)
+		b ? b.collect { cache.class_.newInstance(cache.client, it) } : []
+	}
+
+	static findNested(DiscordListCache cache, name, Class class_, value){
+		String x = id(value)
+		if (!x) return null
+		boolean a = x.long
+		for (g in cache.values()){
+			if (a && g[name].containsKey(x)) return class_.newInstance(
+				cache.client, g[name][x])
+			else {
+				def y = g[name].values().find { it.containsKey("username") ?
+					it.username == value : it.name == value }
+				if (y) return class_.newInstance(cache.client, y)
+			}
+		}
+		null
+	}
+
+	static findAllNested(DiscordListCache cache, name, Class class_, value){
+		String x = id(value)
+		if (!x) return []
+		boolean a = x.long
+		def d = []
+		for (g in cache.values()){
+			if (a && g[name].containsKey(x)) d.add(
+				class_.newInstance(cache.client, g[name][x]))
+			else {
+				def y = g[name].values().find { it.containsKey("username") ?
+					it.username == value : it.name == value }
+				if (y) d.add(class_.newInstance(cache.client, y))
+			}
+		}
+		d
+	}
+
 	static String resolveId(thing){
 		try {
 			thing?.id
@@ -89,7 +141,18 @@ class DiscordObject implements Comparable {
 	}
 
 	static findName(Collection ass, value){
-		ass.find { it.name == value }
+		ass.find { it.containsKey("username") ?
+			it.username == value : it.name == value }
+	}
+
+	static findName(DiscordListCache cache, value){
+		cache.mapList.find { it.containsKey("username") ?
+			it.username == value : it.name == value }
+	}
+
+	static findAllName(DiscordListCache cache, value){
+		cache.mapList.findAll { it.containsKey("username") ?
+			it.username == value : it.name == value }
 	}
 
 	static findId(Collection ass, value){
@@ -129,5 +192,9 @@ class DiscordObject implements Comparable {
 	/// compares creation dates
 	int compareTo(other){
 		id <=> id(other)
+	}
+
+	def json() {
+		rawObject
 	}
 }

@@ -1,5 +1,7 @@
 package hlaaftana.discordg.objects
 
+import java.io.File;
+import java.io.InputStream;
 import java.util.List;
 
 import groovy.transform.InheritConstructors
@@ -16,20 +18,21 @@ class Message extends DiscordObject {
 	static String urlPattern = /https?:\/\/[^\s<]+[^<"{|^~`\[\s]/
 
 	Message(Client client, Map object){
-		super(client, object, "channels/${object["channel_id"]}/messages/$object.id")
+		super(client, object)
 	}
 
 	String getName(){ content }
 	def getNonce(){ object["nonce"] }
 	String getContent(){ object["content"] }
-	String getRawEditTime(){ object["edited_timestamp"] }
-	Date getEditTime(){ ConversionUtil.fromJsonDate(rawEditTime) }
+	String getRawEditedAt(){ object["edited_timestamp"] }
+	Date getEditedAt(){ ConversionUtil.fromJsonDate(rawEditedAt) }
 	String getRawTimestamp(){ object["timestamp"] }
-	Date getTimestamp(){ ConversionUtil.fromJsonDate rawTimestamp }
+	Date getTimestamp(){ ConversionUtil.fromJsonDate(rawTimestamp) }
 	boolean isTts(){ object["tts"] }
 	int getType(){ object["type"] }
 	boolean isMentionsEveryone(){ object["mention_everyone"] }
-	boolean isPrivate(){ client.cache["private_channels"][object["channel_id"]] }
+	String getChannelId(){ object["channel_id"] }
+	boolean isPrivate(){ client.cache["private_channels"].containsKey(object["channel_id"]) }
 	boolean isDm(){ channel.dm }
 	boolean isGroup(){ channel.group }
 
@@ -52,7 +55,7 @@ class Message extends DiscordObject {
 	User author(boolean member = false){
 		getAuthor(member)
 	}
-	User getSender() { getAuthor() }
+	User getSender() { author }
 	User resolveMember(User user, boolean member = true){
 		Member ass = server?.member(user)
 		if (ass && member) ass
@@ -65,7 +68,7 @@ class Message extends DiscordObject {
 	}
 	boolean isByWebhook(){ webhookId }
 	String getWebhookId(){ object.webhook_id }
-	Webhook getWebhook(){ client.requestWebhook(webhookId) }
+	Webhook requestWebhook(){ client.requestWebhook(webhookId) }
 
 	Server getServer() { channel?.server }
 	Channel getParent(){ channel }
@@ -84,8 +87,7 @@ class Message extends DiscordObject {
 
 	List<Channel> getMentionedChannels(){ channelMentions }
 	List<Channel> getChannelMentions(){
-		def s = server
-		channelIdMentions.collect { s.channel(it) } - null
+		channelIdMentions.collect(server.&channel) - null
 	}
 
 	boolean isMentioned(thing = client.user){
@@ -95,23 +97,21 @@ class Message extends DiscordObject {
 	}
 
 	boolean isPinned(){ object["pinned"] }
-	def pin(){ channel.pin this }
-	def unpin(){ channel.unpin this }
+	def pin(){ client.pinMessage(channelId, id) }
+	def unpin(){ channel.unpinMessage(channelId, id) }
 
 	List<Reaction> getReactions(){ object.reactions.collect { new Reaction(client, it) } }
 
 	void react(emoji){
-		channel.react(this, emoji)
+		client.reactToMessage(channelId, this, emoji)
 	}
 
 	void unreact(emoji, user = "@me"){
-		channel.unreact(this, emoji, user)
+		client.unreactToMessage(channelId, this, emoji, user)
 	}
 
-	List<Reaction> requestReactions(){ channel.requestMessage(this).reactions }
-
 	List<User> requestReactors(emoji, int limit = 100){
-		channel.requestReactors(this, emoji, limit)
+		client.requestReactors(channelId, id, emoji, limit)
 	}
 
 	Message edit(String newContent) {
@@ -119,11 +119,11 @@ class Message extends DiscordObject {
 	}
 
 	Message edit(Map data){
-		channel.editMessage(this, data)
+		client.editMessage(data, channelId, this)
 	}
 
 	void delete() {
-		channel.deleteMessage(this)
+		client.deleteMessage(channelId, this)
 	}
 
 	void deleteAfter(long ms){ Thread.sleep(ms); delete() }
@@ -146,19 +146,8 @@ class Attachment extends DiscordObject {
 	int getHeight(){ object["height"] }
 	String getProxyUrl(){ object["proxy_url"] }
 	String getUrl(){ object["url"] }
-	InputStream getInputStream(){
-		url.toURL().openConnection().with {
-			setRequestProperty("User-Agent", client.fullUserAgent)
-			setRequestProperty("Accept", "*/*")
-			delegate
-		}.inputStream
-	}
-	File download(File file){
-		file.withOutputStream { out ->
-			out << inputStream
-			new File(file.path)
-		}
-	}
+	InputStream getInputStream(){ inputStreamFromDiscord(url) }
+	File download(file){ downloadFileFromDiscord(url, file) }
 }
 
 @InheritConstructors
@@ -170,6 +159,8 @@ class Embed extends DiscordObject {
 	String getType(){ object["type"] }
 	String getDescription(){ object["description"] }
 	String getUrl(){ object["url"] }
+	InputStream getInputStream(){ inputStreamFromDiscord(url) }
+	File download(file){ downloadFileFromDiscord(url, file) }
 	int getColor(){ object["color"] }
 	String getTimestamp(){ object["timestamp"] }
 
@@ -181,21 +172,6 @@ class Embed extends DiscordObject {
 	Author getAuthor(){ object.author ? new Author(client, object.author) : null }
 	List<Field> getFields(){ object.fields ? object.fields.collect { new Field(client, it) } : null }
 
-	InputStream getInputStream(){
-		url.toURL().openConnection().with {
-			setRequestProperty("User-Agent", client.fullUserAgent)
-			setRequestProperty("Accept", "*/*")
-			delegate
-		}.inputStream
-	}
-
-	File download(File file){
-		file.withOutputStream { out ->
-			out << inputStream
-			new File(file.path)
-		}
-	}
-
 	@InheritConstructors
 	static class Image extends DiscordObject {
 		String getName(){ url }
@@ -203,42 +179,16 @@ class Embed extends DiscordObject {
 		String getUrl(){ object["url"] }
 		int getWidth(){ object["width"] }
 		int getHeight(){ object["height"] }
-
-		InputStream getInputStream(){
-			url.toURL().openConnection().with {
-				setRequestProperty("User-Agent", client.fullUserAgent)
-				setRequestProperty("Accept", "*/*")
-				delegate
-			}.inputStream
-		}
-
-		File download(File file){
-			file.withOutputStream { out ->
-				out << inputStream
-				new File(file.path)
-			}
-		}
+		InputStream getInputStream(){ inputStreamFromDiscord(url) }
+		File download(file){ downloadFileFromDiscord(url, file) }
 	}
 
 	@InheritConstructors
 	static class Provider extends DiscordObject {
 		String getName(){ url }
 		String getUrl(){ object["url"] }
-
-		InputStream getInputStream(){
-			url.toURL().openConnection().with {
-				setRequestProperty("User-Agent", client.fullUserAgent)
-				setRequestProperty("Accept", "*/*")
-				delegate
-			}.inputStream
-		}
-
-		File download(File file){
-			file.withOutputStream { out ->
-				out << inputStream
-				new File(file.path)
-			}
-		}
+		InputStream getInputStream(){ inputStreamFromDiscord(url) }
+		File download(file){ downloadFileFromDiscord(url, file) }
 	}
 
 	@InheritConstructors
@@ -247,21 +197,8 @@ class Embed extends DiscordObject {
 		String getUrl(){ object["url"] }
 		int getWidth(){ object["width"] }
 		int getHeight(){ object["height"] }
-
-		InputStream getInputStream(){
-			url.toURL().openConnection().with {
-				setRequestProperty("User-Agent", client.fullUserAgent)
-				setRequestProperty("Accept", "*/*")
-				delegate
-			}.inputStream
-		}
-
-		File download(File file){
-			file.withOutputStream { out ->
-				out << inputStream
-				new File(file.path)
-			}
-		}
+		InputStream getInputStream(){ inputStreamFromDiscord(url) }
+		File download(file){ downloadFileFromDiscord(url, file) }
 	}
 
 	@InheritConstructors
@@ -269,21 +206,8 @@ class Embed extends DiscordObject {
 		String getName(){ object["name"] }
 		String getIconUrl(){ object["icon_url"] }
 		String getProxyIconUrl(){ object["proxy_icon_url"] }
-
-		InputStream getInputStream(){
-			iconUrl.toURL().openConnection().with {
-				setRequestProperty("User-Agent", client.fullUserAgent)
-				setRequestProperty("Accept", "*/*")
-				delegate
-			}.inputStream
-		}
-
-		File download(File file){
-			file.withOutputStream { out ->
-				out << inputStream
-				new File(file.path)
-			}
-		}
+		InputStream getIconInputStream(){ inputStreamFromDiscord(iconUrl) }
+		File downloadIcon(file){ downloadFileFromDiscord(iconUrl, file) }
 	}
 
 	@InheritConstructors
@@ -292,21 +216,8 @@ class Embed extends DiscordObject {
 		String getText(){ object["text"] }
 		String getIconUrl(){ object["icon_url"] }
 		String getProxyIconUrl(){ object["proxy_icon_url"] }
-
-		InputStream getInputStream(){
-			iconUrl.toURL().openConnection().with {
-				setRequestProperty("User-Agent", client.fullUserAgent)
-				setRequestProperty("Accept", "*/*")
-				delegate
-			}.inputStream
-		}
-
-		File download(File file){
-			file.withOutputStream { out ->
-				out << inputStream
-				new File(file.path)
-			}
-		}
+		InputStream getIconInputStream(){ inputStreamFromDiscord(iconUrl) }
+		File downloadIcon(file){ downloadFileFromDiscord(iconUrl, file) }
 	}
 
 	@InheritConstructors
@@ -323,6 +234,8 @@ class Reaction extends DiscordObject {
 	String getName(){ object.emoji.name }
 	int getCount(){ object.count }
 	String getUrl(){ "https://cdn.discordapp.com/emojis/${id}.png" }
+	InputStream getInputStream(){ inputStreamFromDiscord(url) }
+	File download(file){ downloadFileFromDiscord(url, file) }
 	boolean isCustom(){ name ==~ /\w+/ }
 	boolean isByMe(){ object.me }
 }

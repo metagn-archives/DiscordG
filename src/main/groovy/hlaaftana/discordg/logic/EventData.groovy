@@ -1,13 +1,13 @@
 package hlaaftana.discordg.logic
 
-import hlaaftana.discordg.Events
+import hlaaftana.discordg.Client
 import hlaaftana.discordg.collections.LazyClosureMap;
 
 import org.codehaus.groovy.runtime.InvokerHelper
 
 class EventData extends LazyClosureMap {
-	Events type
-	EventData(type, Map data){ super(data); this.type = Events.get(type) }
+	String type
+	EventData(type, Map data){ super(data); this.type = Client.parseEvent(type) }
 
 	static EventData create(type, Map initial = [:], Closure ass){
 		new EventData(type, LazyClosureMap.create(initial, ass))
