@@ -526,7 +526,8 @@ class Client extends User {
 		cache["private_channels"]?.map ?: [:]
 	}
 
-	Channel privateChannel(c){ find(object.private_channels, c) }
+	Channel privateChannel(c){ find(cache.private_channels, c) }
+	List<Channel> privateChannels(c){ findAll(cache.private_channels, c) }
 
 	DiscordListCache getUserDmChannelCache(){
 		DiscordListCache dlc = new DiscordListCache([], this, Channel)
@@ -591,8 +592,8 @@ class Client extends User {
 		textChannelMap + voiceChannelMap ?: [:]
 	}
 
-	Member member(t){ findNested(cache.guilds, "members", Member, t) }
-	List<Member> members(t){ findAllNested(cache.guilds, "members", Member, t) }
+	Member member(t){ findNested(cache.guilds, "members", t) }
+	List<Member> members(t){ findAllNested(cache.guilds, "members", t) }
 	Member member(s, u){ find(cache.guilds[s].members, u) }
 	List<Member> members(s, u){ findAll(cache.guilds[s].members, u) }
 
@@ -605,13 +606,15 @@ class Client extends User {
 	Channel voiceChannel(...args){ channels(*args).find { it.voice } }
 	List<Channel> voiceChannels(...args){ channels(*args).findAll { it.voice } }
 
-	Channel channel(c){ findNested(cache.guilds, "channels", Channel, c) }
-	List<Channel> channels(c){ findAllNested(cache.guilds, "channels", Channel, c) }
+	Channel channel(c){ findNested(cache.guilds, "channels", c) ?:
+		privateChannel(c) }
+	List<Channel> channels(c){ findAllNested(cache.guilds, "channels", c) ?:
+		privateChannels(c) }
 	Channel channel(s, c){ find(cache.guilds[s].channels, c) }
 	List<Channel> channels(s, c){ findAll(cache.guilds[s].channels, c) }
 
-	Role role(r){ findNested(cache.guilds, "roles", Role, r) }
-	List<Role> roles(r){ findAllNested(cache.guilds, "roles", Role, r) }
+	Role role(r){ findNested(cache.guilds, "roles", r) }
+	List<Role> roles(r){ findAllNested(cache.guilds, "roles", r) }
 	Role role(s, r){ find(cache.guilds[id(s)], r) }
 	List<Role> roles(s, r){ findAll(cache.guilds[id(s)], r) }
 
@@ -756,7 +759,7 @@ class Client extends User {
 							di.remove("status")
 							di.remove("game")
 							if (allowMemberRequesting)
-								di << server(d.json.guild_id).memberInfo(d.user).object
+								di << requestMember(d.json.guild_id, d.json.user.id).object
 							di
 						})
 					}
@@ -1258,7 +1261,7 @@ class Client extends User {
 	}
 
 	Message sendMessage(Map data, c){
-		if (data.content != null){
+		if (data.containsKey("content")){
 			data.content = client.filterMessage(data.content)
 			if (!data.content || data.content.size() > 2000)
 				throw new MessageInvalidException(data.content)

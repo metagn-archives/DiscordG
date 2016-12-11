@@ -380,10 +380,17 @@ class Role extends DiscordObject{
 	String getMentionRegex(){ MENTION_REGEX(id) }
 
 	List<Member> getMembers(){
-		client.cache.guilds[object.guild_id].members.values()
+		client.cache.guilds[serverId].members.values()
 			.findAll { it.roles.contains(id) }
 			.collect { new Member(client, it) }
 	}
+
+	List<PermissionOverwrite> getPermissionOverwrites(){
+		findAllNested(client.cache.guilds[serverId].channels,
+			"permission_overwrites", id)
+	}
+	List<PermissionOverwrite> getOverwrites(){ permissionOverwrites }
+
 	boolean isUsed(){ server.usedRoleIds.contains(id) }
 	Role edit(Map data){ client.editRole(data, serverId, this) }
 	void delete(){ client.deleteRole(serverId, this) }
@@ -488,6 +495,12 @@ class Member extends User {
 	void moveTo(channel){
 		client.moveMemberVoiceChannel(serverId, this, channel)
 	}
+
+	List<PermissionOverwrite> getPermissionOverwrites(){
+		findAllNested(client.cache.guilds[serverId].channels,
+			"permission_overwrites", id)
+	}
+	List<PermissionOverwrite> getOverwrites(){ permissionOverwrites }
 
 	User toUser(){ new User(client, object["user"]) }
 	def asType(Class target){

@@ -145,7 +145,7 @@ class WSClient extends WebSocketAdapter {
 				Closure edm = EventData.&create.curry(type)
 				Closure a = {
 					when("RESUMED"){
-						client.log.info "Succesfully resumed."
+						client.log.info "Successfully resumed."
 						eventData << data
 						client.cache << data
 					}
@@ -384,13 +384,12 @@ class WSClient extends WebSocketAdapter {
 				eventData["seq"] = content.s
 				if (type != "READY" || client.copyReady) eventData["json"] = data
 				if (eventData["server"]) eventData["guild"] = eventData["server"]
-				Map event = eventData
-				if (type == "GUILD_CREATE" && guildCreatingState == LoadState.LOADING){
-					Thread.start("$type-${messageCounts[op][type]}"){ client.dispatchEvent("INITIAL_GUILD_CREATE", event) }
-				}else{
-					Thread.start("$type-${messageCounts[op][type]}"){ client.dispatchEvent(type, event) }
-				}
-				Thread.start("ALL-${messageCounts[op].values().sum()}"){ client.dispatchEvent("ALL", event) }
+				Map event = eventData.clone()
+				Thread.start("$type-${messageCounts[op][type]}"){
+					client.dispatchEvent(type == "GUILD_CREATE" && guildCreatingState ==
+						LoadState.LOADING ? "INITIAL_GUILD_CREATE" : type, event) }
+				Thread.start("ALL-${messageCounts[op].values().sum()}"){
+					client.dispatchEvent("ALL", event) }
 			}else if (op == 1){
 				seq = content.s
 			}else if (op == 7){
@@ -404,7 +403,7 @@ class WSClient extends WebSocketAdapter {
 				if (justReconnected){
 					dispatch = true
 					justReconnected = false
-					client.log.info "Sucessfully reconnected. Resuming events..."
+					client.log.info "Successfully reconnected. Resuming events..."
 					resume()
 				}
 				threadKeepAlive(client.cache.heartbeat_interval)
