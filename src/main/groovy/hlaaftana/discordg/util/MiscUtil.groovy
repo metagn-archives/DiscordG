@@ -71,43 +71,31 @@ class MiscUtil {
 			snake: { it.replaceAll(/[A-Z]/){ "_$it".toLowerCase() } },
 			constant: { converters.camel.snake(it).toUpperCase() },
 			pascal: { it.capitalize() },
-			pascalSnake: { it.replaceAll(/[A-Z]/){ "_$it" }.capitalize() },
 			kebab: { it.replaceAll(/[A-Z]/){ "-$it".toLowerCase() } }
 		],
 		snake: [
 			camel: { it.replaceAll(/_([a-z])/){ full, ch -> ch.toUpperCase() } },
 			constant: { it.toUpperCase() },
 			pascal: { converters.snake.camel(it).capitalize() },
-			pascalSnake: { it.replaceAll(/_[a-z]/){ it.toUpperCase() }.capitalize() },
 			kebab: { it.replace("_", "-") }
 		],
 		constant: [
 			camel: { converters.snake.camel(it.toLowerCase()) },
 			snake: { it.toLowerCase() },
 			pascal: { converters.snake.pascal(it.toLowerCase()) },
-			pascalSnake: { converters.snake.pascalSnake(it.toLowerCase()) },
 			kebab: { converters.snake.kebab(it.toLowerCase()) }
 		],
 		pascal: [
 			camel: { uncapitalize(it) },
 			snake: { converters.camel.snake(uncapitalize(it)) },
 			constant: { converters.camel.constant(uncapitalize(it)) },
-			pascalSnake: { converters.camel.pascalSnake(uncapitalize(it)) },
 			kebab: { converters.camel.kebab(uncapitalize(it)) }
-		],
-		pascalSnake: [
-			camel: { uncapitalize(converters.pascalSnake.pascal(it)) },
-			snake: { uncapitalize(it).replaceAll(/_[A-Z]/){ it.toLowerCase() } },
-			pascal: { it.replaceAll(/_([A-Z])/){ full, ch -> ch } },
-			constant: { it.toUpperCase() },
-			kebab: { converters.snake.kebab(converters.pascalSnake.snake(it)) }
 		],
 		kebab: [
 			camel: { it.replaceAll(/\-([a-z])/){ full, ch -> ch.toUpperCase() } },
 			snake: { it.replace("-", "_") },
 			constant: { it.replace("-", "_").toUpperCase() },
 			pascal: { it.capitalize().replaceAll(/\-([a-z])/){ full, ch -> ch.toUpperCase() } },
-			pascalSnake: { it.capitalize().replaceAll(/\-([a-z])/){ full, ch -> "_$ch".toUpperCase() } }
 		]
 	]
 
@@ -161,7 +149,7 @@ class MiscUtil {
 
 	@Memoized
 	static String convertCasing(String text, String original, String to){
-		converters[original][to](text)
+		converters[original]?.get(to)?.call(text)
 	}
 
 	@Memoized

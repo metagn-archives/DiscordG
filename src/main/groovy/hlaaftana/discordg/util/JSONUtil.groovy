@@ -29,11 +29,13 @@ class JSONUtil {
 		JsonOutput.toJson(thing instanceof JSONable ? thing.json() : thing)
 	}
 
+	static String pjson(thing){ JsonOutput.prettyPrint(json(thing)) }
+
 	static File dump(String filename, thing, charset = "UTF-8"){ dump(new File(filename), thing, charset) }
 
 	static File dump(File file, thing, charset = "UTF-8"){
 		if (!file.exists()) file.createNewFile()
-		file.write(JsonOutput.prettyPrint(json(thing)), charset)
+		file.write(pjson(thing), charset)
 		file
 	}
 

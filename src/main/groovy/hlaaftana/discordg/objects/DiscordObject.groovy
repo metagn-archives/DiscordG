@@ -19,7 +19,7 @@ class DiscordObject implements Comparable, JSONable {
 	}
 
 	InputStream inputStreamFromDiscord(url){
-		(url as URL).newInputStream(requestProperties:
+		url.toURL().newInputStream(requestProperties:
 			["User-Agent": client.fullUserAgent, Accept: "*/*"])
 	}
 
@@ -93,34 +93,36 @@ class DiscordObject implements Comparable, JSONable {
 		b ? b.collect { cache.class_.newInstance(cache.client, it) } : []
 	}
 
-	static findNested(DiscordListCache cache, name, Class class_, value){
+	static findNested(DiscordListCache cache, name, value){
 		String x = id(value)
 		if (!x) return null
 		boolean a = x.long
 		for (g in cache.values()){
-			if (a && g[name].containsKey(x)) return class_.newInstance(
-				cache.client, g[name][x])
+			def c = g[name]
+			if (!c) return []
+			if (a && c.containsKey(x)) return c.class_.newInstance(
+				cache.client, c[x])
 			else {
-				def y = g[name].values().find { it.containsKey("username") ?
-					it.username == value : it.name == value }
-				if (y) return class_.newInstance(cache.client, y)
+				def y = findName(c.values(), x)
+				if (y) return c.class_.newInstance(cache.client, y)
 			}
 		}
 		null
 	}
 
-	static findAllNested(DiscordListCache cache, name, Class class_, value){
+	static findAllNested(DiscordListCache cache, name, value){
 		String x = id(value)
 		if (!x) return []
 		boolean a = x.long
 		def d = []
 		for (g in cache.values()){
-			if (a && g[name].containsKey(x)) d.add(
-				class_.newInstance(cache.client, g[name][x]))
+			def c = g[name]
+			if (!c) return []
+			if (a && c.containsKey(x)) d.add(
+				c.class_.newInstance(cache.client, c[x]))
 			else {
-				def y = g[name].values().find { it.containsKey("username") ?
-					it.username == value : it.name == value }
-				if (y) d.add(class_.newInstance(cache.client, y))
+				def y = findName(c.values(), x)
+				if (y) d.add(c.class_.newInstance(cache.client, y))
 			}
 		}
 		d
@@ -142,17 +144,20 @@ class DiscordObject implements Comparable, JSONable {
 
 	static findName(Collection ass, value){
 		ass.find { it.containsKey("username") ?
-			it.username == value : it.name == value }
+			it.username == value : it.containsKey("user") ? it.user["username"] == value :
+			it.name == value }
 	}
 
 	static findName(DiscordListCache cache, value){
 		cache.mapList.find { it.containsKey("username") ?
-			it.username == value : it.name == value }
+			it.username == value : it.containsKey("user") ? it.user["username"] == value :
+			it.name == value }
 	}
 
 	static findAllName(DiscordListCache cache, value){
 		cache.mapList.findAll { it.containsKey("username") ?
-			it.username == value : it.name == value }
+			it.username == value : it.containsKey("user") ? it.user["username"] == value :
+			it.name == value }
 	}
 
 	static findId(Collection ass, value){

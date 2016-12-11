@@ -34,9 +34,7 @@ class WhatIs {
 	}
 
 	def when(Map a){
-		a.each { k, v ->
-			when(k, v)
-		}
+		a.each(this.&whe)
 	}
 
 	def otherwise(Closure c){

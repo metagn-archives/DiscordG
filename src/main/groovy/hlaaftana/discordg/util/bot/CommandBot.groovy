@@ -24,10 +24,11 @@ import java.util.regex.Pattern
 class CommandBot implements Triggerable {
 	String logName = "DiscordG|CommandBot"
 	Log log
-	BotType type = BotType.PREFIX
+	CommandType defaultCommandType = CommandType.PREFIX
 	volatile Client client
 	List commands = []
 	Map<String, Closure> extraCommandArgs = [:]
+	Map<Class, Closure> errorResponses = [:]
 	boolean acceptOwnCommands = false
 	boolean loggedIn = false
 	Closure commandListener
@@ -100,6 +101,14 @@ class CommandBot implements Triggerable {
 			try{
 				d["command"](d)
 			}catch (ex){
+				try{
+					if (errorResponses.containsKey(ex.class)){
+						def a = errorResponses[ex.class].clone()
+						a.delegate = d
+						a(d)
+						return
+					}
+				}catch (ex2){}
 				ex.printStackTrace()
 				log.error "Command threw exception"
 			}
@@ -149,31 +158,31 @@ class CommandBot implements Triggerable {
 	}
 }
 
-class BotType {
+class CommandType {
 	private static quote(aot){
 		def g = aot.toString().toLowerCase()
 		aot.regex ? g : Pattern.quote(g)
 	}
 	// These have IDs for convenience sake
-	static final BotType PREFIX = BotType.new(false){ Trigger trigger, Alias alias ->
+	static final CommandType PREFIX = CommandType.new(false){ Trigger trigger, Alias alias ->
 		/(?i)(/ + quote(trigger) + quote(alias) + /)(?:\s+(?:.|\n)*)?/
 	}
-	static final BotType SUFFIX = BotType.new(false){ Trigger trigger, Alias alias ->
+	static final CommandType SUFFIX = CommandType.new(false){ Trigger trigger, Alias alias ->
 		/(?i)(/ + quote(alias) + quote(trigger) + /)(?:\s+(?:.|\n)*)?/
 	}
-	static final BotType REGEX = BotType.new { Trigger trigger, Alias alias ->
+	static final CommandType REGEX = CommandType.new { Trigger trigger, Alias alias ->
 		/(/ + trigger.toString() + alias.toString() + /)(?:\s+(?:.|\n)*)?/
 	}
-	static final BotType REGEX_SUFFIX = BotType.new { Trigger trigger, Alias alias ->
+	static final CommandType REGEX_SUFFIX = CommandType.new { Trigger trigger, Alias alias ->
 		/(/ + alias.toString() + trigger.toString() + /)(?:\s+(?:.|\n)*)?/
 	}
 
 	Closure commandMatcher
 	boolean caseSensitive
-	BotType(Closure commandMatcher, boolean caseSensitive = true){ this.commandMatcher = commandMatcher; this.caseSensitive = caseSensitive }
+	CommandType(Closure commandMatcher, boolean caseSensitive = true){ this.commandMatcher = commandMatcher; this.caseSensitive = caseSensitive }
 
-	static BotType "new"(boolean caseSensitive = true, Closure commandMatcher){
-		new BotType(commandMatcher, caseSensitive)
+	static CommandType "new"(boolean caseSensitive = true, Closure commandMatcher){
+		new CommandType(commandMatcher, caseSensitive)
 	}
 }
 
@@ -287,14 +296,14 @@ class Alias extends ClosureString implements Restricted {}
 class Trigger extends ClosureString implements Restricted {}
 
 class Command implements Triggerable, Aliasable, Restricted {
-	static BotType defaultBotType = BotType.PREFIX
-	BotType type = defaultBotType
+	static CommandType defaultCommandType = CommandType.PREFIX
+	CommandType type = defaultCommandType
 
 	Command(Triggerable parentT, alias, trigger = []){
 		addAlias alias
 		addTrigger trigger
 		addTrigger parentT
-		if (parentT instanceof CommandBot) type = parentT.type
+		if (parentT instanceof CommandBot) type = parentT.defaultCommandType
 	}
 
 	static Command "new"(Triggerable parentT, alias, trigger = []){
