@@ -8,6 +8,7 @@ class ActionPool {
 	long ms
 	ExecutorService waitPool
 	Map actions = [:]
+	Closure suspend = { (actions[it] ?: 0) >= max }
 
 	static "new"(int max, long ms){
 		new ActionPool(max: max, ms: ms)
@@ -20,7 +21,7 @@ class ActionPool {
 	}
 
 	def ask(String bucket = '$', Closure action){
-		while ((actions[bucket] ?: 0) >= max);
+		while (suspend(bucket));
 		if (actions[bucket]) actions[bucket]++
 		else actions[bucket] = 1
 		def result = action()

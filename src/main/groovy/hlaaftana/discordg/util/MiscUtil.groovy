@@ -7,6 +7,8 @@ import java.text.SimpleDateFormat
 import java.time.LocalDateTime
 import java.time.ZoneId
 
+import groovy.transform.CompileDynamic
+import groovy.transform.CompileStatic
 import groovy.transform.Memoized
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.objects.DiscordObject
@@ -17,7 +19,7 @@ import hlaaftana.discordg.Client
  * @author Hlaaftana
  */
 class MiscUtil {
-	static Map namedColors = [
+	static Map<String, Integer> namedColors = [
 		aliceblue: 0xf0f8ff, antiquewhite: 0xfaebd7, aqua: 0x00ffff,
 		aquamarine: 0x7fffd4, azure: 0xf0ffff, beige: 0xf5f5dc, bisque: 0xffe4c4,
 		black: 0x000000,  blanchedalmond: 0xffebcd, blue: 0x0000ff,
@@ -66,51 +68,22 @@ class MiscUtil {
 		yellowgreen: 0x9acd32
 	]
 
-	static Map converters = [
-		camel: [
-			snake: { it.replaceAll(/[A-Z]/){ "_$it".toLowerCase() } },
-			constant: { converters.camel.snake(it).toUpperCase() },
-			pascal: { it.capitalize() },
-			kebab: { it.replaceAll(/[A-Z]/){ "-$it".toLowerCase() } }
-		],
-		snake: [
-			camel: { it.replaceAll(/_([a-z])/){ full, ch -> ch.toUpperCase() } },
-			constant: { it.toUpperCase() },
-			pascal: { converters.snake.camel(it).capitalize() },
-			kebab: { it.replace("_", "-") }
-		],
-		constant: [
-			camel: { converters.snake.camel(it.toLowerCase()) },
-			snake: { it.toLowerCase() },
-			pascal: { converters.snake.pascal(it.toLowerCase()) },
-			kebab: { converters.snake.kebab(it.toLowerCase()) }
-		],
-		pascal: [
-			camel: { uncapitalize(it) },
-			snake: { converters.camel.snake(uncapitalize(it)) },
-			constant: { converters.camel.constant(uncapitalize(it)) },
-			kebab: { converters.camel.kebab(uncapitalize(it)) }
-		],
-		kebab: [
-			camel: { it.replaceAll(/\-([a-z])/){ full, ch -> ch.toUpperCase() } },
-			snake: { it.replace("-", "_") },
-			constant: { it.replace("-", "_").toUpperCase() },
-			pascal: { it.capitalize().replaceAll(/\-([a-z])/){ full, ch -> ch.toUpperCase() } },
-		]
-	]
-
 	static Random listRandom = new Random()
-
+	
+	@CompileStatic
 	static Clipboard getClipboard(){ Toolkit.defaultToolkit.systemClipboard }
-
+	
+	@CompileStatic
 	static copy(String content){
 		clipboard.setContents(new StringSelection(content), null)
 	}
-
+	
+	@CompileStatic
 	static String paste(){
 		clipboard.getContents(null).getTransferData(DataFlavor.stringFlavor)
 	}
-
+	
+	@CompileStatic
 	static LocalDateTime dateToLDT(Date date = new Date(),
 		ZoneId tz = ZoneId.systemDefault()){
 		LocalDateTime.ofInstant(date.toInstant(), tz)
@@ -140,45 +113,72 @@ class MiscUtil {
 			else throw ex
 		}
 	}
-
+		
+	@CompileStatic
+	static List splitWhen(iter, Closure cond){
+		def a = [[]]
+		iter.each {
+			if (cond(it)) a.add([it])
+			else a.last().add(it)
+		}
+		a
+	}
+	
+	@CompileStatic
 	@Memoized
 	static String uncapitalize(String s){
-		s[0] = s[0].toLowerCase()
-		s
+		s ? s[0].toLowerCase() + s.substring(1) : s
 	}
-
+	
+	@CompileStatic
 	@Memoized
-	static String convertCasing(String text, String original, String to){
-		converters[original]?.get(to)?.call(text)
+	static String removeFromStart(String s, CharSequence x){
+		s.startsWith(x.toString()) ? s.substring(x.size()) : s
 	}
-
+	
+	@CompileStatic
+	@Memoized
+	static String removeFromEnd(String s, CharSequence x){
+		s.endsWith(x.toString()) ? s.substring(0, s.size() - x.size()) : s
+	}
+	
+	@CompileStatic
 	@Memoized
 	static String removeFormatting(String s){
-		s.replace("~", "\\~").replace("_", "\\_").replace("*", "\\*")
-			.replace("```", "\u200b`\u200b`\u200b`").replace("`", "\\`")
-			.replace(":", "\\:").replace("`", "\\`").replace("/", "\\/")
-			.replace("@", "\\@").replace("<", "\\<").replace(">", "\\>")
+		s.replace('~', '\\~').replace('_', '\\_').replace('*', '\\*')
+			.replace('```', '\u200b`\u200b`\u200b`').replace('`', '\\`')
+			.replace(':', '\\:').replace('`', '\\`').replace('/', '\\/')
+			.replace('@', '\\@').replace('<', '\\<').replace('>', '\\>')
 	}
-
+	
+	@CompileStatic
 	@Memoized
 	static String surround(String s, String sur){ "$sur$s$sur" }
-
+	
+	@CompileStatic
 	@Memoized
-	static String bold(String s){ surround(s, "**") }
+	static String bold(String s){ surround(s, '**') }
+	@CompileStatic
 	@Memoized
-	static String bolden(String s){ surround(s, "**") }
+	static String bolden(String s){ surround(s, '**') }
+	@CompileStatic
 	@Memoized
 	static String italic(String s, boolean underscore = false){
-		surround(s, underscore ? "_" : "*") }
+		surround(s, underscore ? '_' : '*') }
+	@CompileStatic
 	@Memoized
 	static String italicize(String s, boolean underscore = false){
-		surround(s, underscore ? "_" : "*") }
+		surround(s, underscore ? '_' : '*') }
+	@CompileStatic
 	@Memoized
-	static String underline(String s){ surround(s, "__") }
+	static String underline(String s){ surround(s, '__') }
+	@CompileStatic
 	@Memoized
-	static String strikethrough(String s){ surround(s, "~~") }
+	static String strikethrough(String s){ surround(s, '~~') }
+	@CompileStatic
 	@Memoized
-	static String code(String s){ surround(s, "`") }
+	static String code(String s){ surround(s, '`') }
+	@CompileStatic
 	@Memoized
 	static String block(String s, String language = ""){ "```$language\n$s```" }
 
@@ -202,5 +202,40 @@ class MiscUtil {
 		Collection.metaClass.sample = { Random random = listRandom ->
 			delegate[random.nextInt(delegate.size())]
 		}
+	}
+}
+
+abstract class CasingType {
+	static final CasingType CAMEL = [
+		toWords: { MiscUtil.splitWhen(it.toString().toCharArray()){ Character.isUpperCase((char) it) }
+			*.join().collect(MiscUtil.&uncapitalize) },
+		fromWords: { it[0] + it.drop(1)*.capitalize().join() }
+	] as CasingType
+	static final CasingType SNAKE = [
+		toWords: { it.split('_') },
+		fromWords: { it.join('_') }
+	] as CasingType
+	static final CasingType CONSTANT = [
+		toWords: { it.toLowerCase().split('_') },
+		fromWords: { it.join('_').toUpperCase() }
+	] as CasingType
+	static final CasingType PASCAL = [
+		toWords: { MiscUtil.splitWhen(it.toString().toCharArray()){ Character.isUpperCase(it) }
+			.drop(1)*.join().collect(MiscUtil.&uncapitalize) },
+		fromWords: { it*.capitalize().join() }
+	] as CasingType
+	static final CasingType KEBAB = [
+		toWords: { it.split('-') },
+		fromWords: { it.join('-') }
+	] as CasingType
+
+	static Map defaultCases = [camel: CAMEL, snake: SNAKE,
+		constant: CONSTANT, pascal: PASCAL, kebab: KEBAB]
+	
+	abstract toWords(words)
+	abstract fromWords(words)
+	
+	String convert(String text, CasingType casing){
+		casing.fromWords(toWords(text))
 	}
 }

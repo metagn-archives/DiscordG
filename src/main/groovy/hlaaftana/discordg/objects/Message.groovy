@@ -66,13 +66,15 @@ class Message extends DiscordObject {
 		if (ass && member) ass
 		else new User(client, object)
 	}
+	Member getMember(){ author(true) }
 	boolean isByWebhook(){ webhookId }
 	String getWebhookId(){ object.webhook_id }
 	Webhook requestWebhook(){ client.requestWebhook(webhookId) }
 
-	Server getServer() { channel?.server }
+	String getServerId(){ client.channelServerIdMap[object.channel_id] }
+	Server getServer(){ channel?.server }
 	Channel getParent(){ channel }
-	Channel getChannel() { client.channel(object.channel_id) }
+	Channel getChannel(){ client.channel(object.channel_id) }
 
 	List<User> getMentions(boolean member = false){ object["mentions"].collect { resolveMember(it, member) } }
 	List mentions(boolean member = false){ getMentions(member) }

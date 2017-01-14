@@ -6,19 +6,20 @@ import hlaaftana.discordg.net.VoiceWSClient
 import hlaaftana.discordg.objects.*
 //import hlaaftana.discordg.util.AudioUtil
 import hlaaftana.discordg.util.Log
+import java.nio.ByteBuffer
 
 class VoiceClient extends DiscordObject {
 	String endpoint
 	String getEndpoint(){ fixEndpoint(this.@endpoint) }
 	int port
 	long heartbeatInterval
-	int ssrc
+	BigInteger ssrc
 	List<Long> pingIntervals = []
 	boolean voiceStateUpdated
 	boolean voiceServerUpdated
 	VoiceWSClient ws
 	String encryptionMode = "xsalsa20_poly1305"
-	@Delegate(excludes = ["parseEvent", "listenerError"])
+	@Delegate(excludes = ["parseEvent", "listenerError", "toString"])
 	ParentListenerSystem listenerSystem = new ParentListenerSystem(this)
 
 	String logName = client.logName + "Voice($id)"
@@ -157,7 +158,7 @@ enum VoiceEvents {
 			if (op instanceof VoiceEvents) op
 			else if (op instanceof String){
 				op = op.trim()
-				if (op ==~ /\d+/) VoiceEvents.values().find { it.op == op.toInteger() }
+				if (op.number) VoiceEvents.values().find { it.op == op.toInteger() }
 				else VoiceEvents.values().find { it.name() == op }
 			}else VoiceEvents.values().find { it.op == op.toInteger() }
 		}() ?: UNKNOWN

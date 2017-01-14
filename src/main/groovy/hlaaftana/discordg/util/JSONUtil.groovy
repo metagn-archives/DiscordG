@@ -44,16 +44,25 @@ class JSONUtil {
 	static File modify(File file, newData){
 		if (!file.exists()) return dump(file, newData)
 		def oldData = parse(file)
-		if (oldData instanceof List){
-			oldData += newData
-		}else if (oldData instanceof Map){
-			if (newData instanceof Map){
-				oldData << newData
-			}else{
-				oldData << newData.toSpreadMap()
-			}
+		oldData.toString()
+		newData.toString()
+		modifyMaps(oldData, newData).toString()
+		dump(file, modifyMaps(oldData, newData))
+	}
+	
+	static Map modifyMaps(Map x, Map y){
+		def a = x.clone() ?: [:]
+		y.each { k, v ->
+			if (a.containsKey(k)){
+				if (v instanceof Collection)
+					a[k] += v
+				else if (v instanceof Map)
+					a[k] << modifyMaps(a[k], v)
+				else
+					a[k] = v
+			}else a[k] = v
 		}
-		dump(file, oldData)
+		a
 	}
 }
 

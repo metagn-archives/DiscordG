@@ -15,6 +15,7 @@ class Invite extends DiscordObject {
 	Server getServer(){ client.server(object["guild"]["id"]) ?:
 		new DiscordObject(client, object["guild"]) }
 	boolean isRevoked(){ object["revoked"] }
+	boolean isDeleted(){ revoked }
 	String getRawCreatedAt(){ object["created_at"] }
 	Date getCreatedAt(){ ConversionUtil.fromJsonDate(object["created_at"]) }
 	boolean isTemporary(){ object["temporary"] }
@@ -25,6 +26,8 @@ class Invite extends DiscordObject {
 		new DiscordObject(client, object["channel"]) }
 	DiscordObject getParent(){ channel }
 	String toString(){ url }
+	
+	void delete(){ client.deleteInvite(id) }
 
 	static String parseId(String url){
 		url.startsWith("http:") || url.startsWith("https:") ?

@@ -8,8 +8,6 @@ class DynamicMap implements Map {
 	Closure keyConverter = Closure.IDENTITY
 	Closure valueConverter = Closure.IDENTITY	List<DynamicEntry> entries = Collections.synchronizedList([])
 
-	DynamicMap(){}
-
 	int size(){
 		entries.size()
 	}
@@ -31,11 +29,11 @@ class DynamicMap implements Map {
 	}
 
 	def getRaw(key){
-		getEntry(key).rawValue
+		getEntry(key)?.rawValue
 	}
 
 	def get(key){
-		getEntry(key).value
+		getEntry(key)?.value
 	}
 
 	def put(key, value){

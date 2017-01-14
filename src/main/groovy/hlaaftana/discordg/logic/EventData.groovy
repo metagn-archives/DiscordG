@@ -19,24 +19,26 @@ class EventData extends LazyClosureMap {
 		a
 	}
 
-	def propertyMissing(String name){
+	/*def propertyMissing(String name){
 		this[name]
 	}
 
 	def propertyMissing(String name, value){
 		this[name] = value
-	}
+	}*/
 
 	def getProperty(String name){
 		String methodName = "get" + name.capitalize()
 		if (methodName in getMetaClass().methods*.name) this."$methodName"()
-		else propertyMissing(name)
+		else if (containsKey(name)) this[name]
+		else throw new MissingPropertyException(name, this.class)//propertyMissing(name)
 	}
 
 	void setProperty(String name, value){
 		String methodName = "set" + name.capitalize()
 		if (methodName in getMetaClass().methods*.name) this."$methodName"(value)
-		else propertyMissing(name, value)
+		else if (containsKey(name)) this[name] = value
+		else throw new MissingPropertyException(name, this.class)//propertyMissing(name, value)
 	}
 
 	def methodMissing(String name, args){

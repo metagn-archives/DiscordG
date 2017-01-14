@@ -32,7 +32,6 @@ class WSClient extends WebSocketAdapter {
 	int seq
 	int heartbeats
 	int unackedHeartbeats
-	List heartbeatTimes
 	int reconnectTries
 	boolean justReconnected
 
@@ -117,6 +116,13 @@ class WSClient extends WebSocketAdapter {
 						client.cache["private_channels"] = privateChannels
 						DiscordListCache presences = new DiscordListCache(data["presences"].collect { it + [id: it.user.id] }, client, Presence)
 						client.cache["presences"] = presences
+						if (data.relationships){
+							DiscordListCache relationships = new DiscordListCache(data["relationships"].collect { it + [id: it.user.id] }, client, Relationship)
+							client.cache["relationships"] = relationships
+						}
+						if (data.user_guild_settings){
+							client.cache["user_guild_settings"] = data["user_guild_settings"].collectEntries { [(it.guild_id): it] }
+						}
 						cachingState = LoadState.LOADED
 					}
 					if (guildCreate){
@@ -212,7 +218,7 @@ class WSClient extends WebSocketAdapter {
 					when("GUILD_MEMBER_REMOVE"){
 						eventData = edm {
 							server { client.server(data["guild_id"]) }
-							user(client.server(data["guild_id"]).member(data["user"]) ?:
+							user(client.server(data["guild_id"])?.member(data["user"]) ?:
 									new User(client, data["user"]))
 							alias "user", "member"
 						}
@@ -253,14 +259,18 @@ class WSClient extends WebSocketAdapter {
 							sendMessage { msg.channel.&sendMessage }
 							sendFile { msg.channel.&sendFile }
 							respond { msg.channel.&sendMessage }
-							author { msg.author(true) }
+							author { msg.author }
+							member { msg.author(true) }
 							channel { msg.channel }
+							server { msg.server }
+							serverId { msg.serverId }
 						}
 					}
 					when("MESSAGE_DELETE"){
 						eventData = edm {
+							bulk { data["bulk"] as boolean }
 							channel { client.channelMap[data["channel_id"]] }
-							message(client.messages[data["channel_id"]] ?
+							message(client.cache.messages[data["channel_id"]] ?
 								client.channel(data["channel_id"]).cachedLogMap[data["id"]]
 								?: data["id"] : data["id"])
 						}
@@ -273,7 +283,7 @@ class WSClient extends WebSocketAdapter {
 						}else{
 							eventData = edm {
 								channel { client.channel(data["channel_id"]) }
-								message { client.messages[data["channel_id"]] ? client.channel(data["channel_id"]).cachedLogMap[data["id"]] ?: data["id"] : data["id"] }
+								message { client.cache.messages[data["channel_id"]] ? client.channel(data["channel_id"]).cachedLogMap[data["id"]] ?: data["id"] : data["id"] }
 								embeds { data["embeds"] }
 							}
 						}
@@ -282,9 +292,9 @@ class WSClient extends WebSocketAdapter {
 						eventData = edm {
 							channel { client.channel(data["channel_id"]) }
 							user { client.user(data["user_id"]) }
-							message { client.messages[data.channel_id]
+							message { client.cache.messages[data.channel_id]
 								?.containsKey(data.message_id) ?
-								client.messages[data.channel_id][data.message_id] :
+								client.cache.messages[data.channel_id][data.message_id] :
 								data.message_id }
 							emoji { data.emoji }
 						}
@@ -292,9 +302,9 @@ class WSClient extends WebSocketAdapter {
 					when("MESSAGE_REACTION_REMOVE_ALL"){
 						eventData = edm {
 							channel { client.channel(data["channel_id"]) }
-							message { client.messages[data.channel_id]
+							message { client.cache.messages[data.channel_id]
 								?.containsKey(data.message_id) ?
-								client.messages[data.channel_id][data.message_id] :
+								client.cache.messages[data.channel_id][data.message_id] :
 								data.message_id }
 						}
 					}
@@ -317,9 +327,9 @@ class WSClient extends WebSocketAdapter {
 								lastModified { data.last_modified }
 								isNew {
 									def old = client.user(data.user.id)
-									data.user.every { k, v ->
+									!data.user.every { k, v ->
 										old[k] == data.user[k]
-									}.not()
+									}
 								}
 							}
 						}
@@ -356,16 +366,20 @@ class WSClient extends WebSocketAdapter {
 						}
 					}
 					when("MESSAGE_DELETE_BULK"){
-						data.ids.each {
-							onWebSocketText(JSONUtil.json([
-								op: 0,
-								t: "MESSAGE_DELETE",
-								s: seq,
-								d: [
-									channel_id: data.channel_id,
-									id: it
-								]
-							]))
+						eventData << data
+						if (client.spreadBulkDelete){
+							data.ids.each {
+								onWebSocketText(JSONUtil.json([
+									op: 0,
+									t: "MESSAGE_DELETE",
+									s: seq,
+									d: [
+										channel_id: data.channel_id,
+										id: it,
+										bulk: true
+									]
+								]))
+							}
 						}
 					}
 					otherwise {
@@ -374,9 +388,9 @@ class WSClient extends WebSocketAdapter {
 					returnedValue = 1
 				}
 				try{
-					if (whatis(type, a) != 1 || eventData.empty) return
+					if (whatis(type, a) != 1 || !eventData) return
 				}catch (ex){
-					if (client.enableEventRegisteringCrashes) ex.printStackTrace()
+					ex.printStackTrace()
 					client.log.info "Ignoring exception from $type object registering", client.log.name + "WS"
 				}
 				eventData["rawType"] = type

@@ -19,7 +19,7 @@ class Log {
 	}
 
 	static class Message {
-		String sender
+		String by
 		Level level
 		String content
 		LocalDateTime time = LocalDateTime.now()
@@ -43,7 +43,7 @@ class Log {
 			message.time.toLocalDate(),
 			message.time.toLocalTime(),
 			message.level.name.toUpperCase(),
-			message.sender, message.content)
+			message.by, message.content)
 	}
 
 	Closure formatter = defaultFormatter
@@ -102,8 +102,8 @@ class Log {
 		}
 	}
 
-	def log(Level level, content, String sender = name){
-		Message ass = new Message(level: level, content: content.toString(), sender: sender)
+	def log(Level level, content, String by = name){
+		Message ass = new Message(level: level, content: content.toString(), by: by)
 		log(ass)
 	}
 
