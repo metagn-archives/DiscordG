@@ -4,7 +4,8 @@ import hlaaftana.discordg.Client
 import hlaaftana.discordg.collections.DiscordListCache;
 import hlaaftana.discordg.net.HTTPClient
 import hlaaftana.discordg.util.JSONable
-import java.util.Date;
+import hlaaftana.discordg.util.CasingType
+import hlaaftana.discordg.util.ConversionUtil
 
 /**
  * A basic Discord object.
@@ -52,18 +53,44 @@ class DiscordObject implements Comparable, JSONable {
 	}
 
 	static String millisToId(long ms, boolean raised = false){
-		(ms - 1420070400000L << 22) + (raised ? 1 << 22 : 0)
+		((ms - 1420070400000L) << 22) + (raised ? 1 << 22 : 0)
 	}
 
+	static isId(x){
+		try{
+			def a = x.toString().toLong()
+			a > 21154535154122752
+		}catch (ex){
+			false
+		}
+	}
+	
 	static forId(String id){
 		new DiscordObject(null, [id: id])
+	}
+
+	static Map patchData(Map data, ...imageKeys = ["avatar", "icon"]){
+		Map a = (Map) data.clone()
+		a = a.collectEntries { k, v -> [(CasingType.CAMEL.convert(k, CasingType.SNAKE)): v] }
+		imageKeys*.toString().each { String key ->
+			if (a.containsKey(key)){
+				if (ConversionUtil.isImagable(a[key])){
+					a[key] = ConversionUtil.encodeImage(a[key])
+				}else{
+					throw new IllegalArgumentException("$key cannot be resolved " +
+						"for class ${data[key].getClass()}")
+				}
+			}
+		}
+		a
 	}
 
 	static find(Collection ass, value){
 		String bong = id(value)
 		if (!bong) return null
-		if (bong.long){
-			findId(ass, bong)
+		if (isId(bong)){
+			def x = findId(ass, bong)
+			x ? x : findName(ass, bong)
 		}else{
 			findName(ass, bong)
 		}
@@ -72,7 +99,7 @@ class DiscordObject implements Comparable, JSONable {
 	static find(Collection ass, Map idMap, value){
 		String bong = id(value)
 		if (!bong) return null
-		if (bong.long){
+		if (isId(bong) && idMap.containsKey(bong)){
 			idMap[bong]
 		}else{
 			findName(ass, bong)
@@ -82,24 +109,24 @@ class DiscordObject implements Comparable, JSONable {
 	static find(DiscordListCache cache, value){
 		String a = id(value)
 		if (!a) return null
-		def b = a.long ? cache[a] : findName(cache, a)
+		def b = isId(a) && cache.containsKey(a) ? cache[a] : findName(cache, a)
 		b ? cache.class_.newInstance(cache.client, b) : null
 	}
 
 	static findAll(DiscordListCache cache, value){
 		String a = id(value)
 		if (!a) return null
-		def b = a.long ? [cache[a]] : findAllName(cache, a)
+		def b = isId(a) && cache.containsKey(a) ? [cache[a]] : findAllName(cache, a)
 		b ? b.collect { cache.class_.newInstance(cache.client, it) } : []
 	}
 
 	static findNested(DiscordListCache cache, name, value){
 		String x = id(value)
 		if (!x) return null
-		boolean a = x.long
+		boolean a = isId(x)
 		for (g in cache.values()){
 			def c = g[name]
-			if (!c) return []
+			if (!c) return null
 			if (a && c.containsKey(x)) return c.class_.newInstance(
 				cache.client, c[x])
 			else {
@@ -113,7 +140,7 @@ class DiscordObject implements Comparable, JSONable {
 	static findAllNested(DiscordListCache cache, name, value){
 		String x = id(value)
 		if (!x) return []
-		boolean a = x.long
+		boolean a = isId(x)
 		def d = []
 		for (g in cache.values()){
 			def c = g[name]
@@ -141,46 +168,37 @@ class DiscordObject implements Comparable, JSONable {
 	static find(Collection ass, String propertyName, value){
 		ass.find { it.getProperty(propertyName) == value }
 	}
+	
+	private static Closure nameClosure = { o, v ->
+		def bool = false
+		if (o.containsKey('username')) bool |= o.username == v
+		if (o.containsKey('name')) bool |= o.name == v
+		if (o.containsKey('nick')) bool |= o.nick == v
+		if (o.containsKey('user') && o.user.containsKey('username'))
+			bool |= o.user.username == v
+		bool
+	}
 
 	static findName(Collection ass, value){
-		ass.find { it.containsKey("username") ?
-			it.username == value : it.containsKey("user") ? it.user["username"] == value :
-			it.name == value }
+		ass.find(nameClosure.rcurry(value))
 	}
 
 	static findName(DiscordListCache cache, value){
-		cache.mapList.find { it.containsKey("username") ?
-			it.username == value : it.containsKey("user") ? it.user["username"] == value :
-			it.name == value }
+		cache.mapList.find(nameClosure.rcurry(value))
 	}
 
 	static findAllName(DiscordListCache cache, value){
-		cache.mapList.findAll { it.containsKey("username") ?
-			it.username == value : it.containsKey("user") ? it.user["username"] == value :
-			it.name == value }
+		cache.mapList.findAll(nameClosure.rcurry(value))
 	}
 
 	static findId(Collection ass, value){
 		ass.find { it.id == value }
 	}
 
-	static get(Client client, thing, Class cast = DiscordObject){
-		if (thing in cast) thing
-		else client.everything.find { it.id == id(thing) && it in cast }
-	}
-
-	static get(Client client, thing, parent, Class cast = DiscordObject){
-		if (thing in cast) thing
-		else client.everything.find { it.id == id(thing) && it in cast && id(it?.parent) == id(parent) }
-	}
-
-	def get(thing, Class cast = DiscordObject){ get(client, thing, cast) }
-	def get(thing, parent, Class cast = DiscordObject){ get(client, thing, parent, cast) }
-
 	DiscordObject swapClient(Client newClient){
 		def oldNotClient = this
 		oldNotClient.client = newClient
-		oldNotClient // this is the spiritually longest and guiltiest method i have written in the entire lib
+		oldNotClient
 	}
 
 	boolean isCase(other){ id.isCase(id(other)) }
@@ -196,7 +214,7 @@ class DiscordObject implements Comparable, JSONable {
 	}
 	/// compares creation dates
 	int compareTo(other){
-		id <=> id(other)
+		id.toLong() <=> id(other).toLong()
 	}
 
 	def json() {

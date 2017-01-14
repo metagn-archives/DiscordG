@@ -49,7 +49,7 @@ class Permissions {
 	}
 
 	boolean get(bitOffset){
-		offsetMap[BitOffsets.get(bitOffset)]
+		this[BitOffsets.get(bitOffset).offset]
 	}
 
 	boolean get(int index){

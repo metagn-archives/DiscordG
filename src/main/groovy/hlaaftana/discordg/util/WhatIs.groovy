@@ -34,7 +34,7 @@ class WhatIs {
 	}
 
 	def when(Map a){
-		a.each(this.&whe)
+		a.each(this.&when)
 	}
 
 	def otherwise(Closure c){

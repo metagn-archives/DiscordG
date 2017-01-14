@@ -22,6 +22,8 @@ class VoiceWSClient extends WebSocketAdapter {
 	DatagramSocket udpSocket
 	Thread udpKeepAliveThread
 	byte[] secretKey
+	char seq = 0
+	BigInteger timestamp
 
 	VoiceWSClient(VoiceClient v){
 		vc = v
@@ -48,7 +50,8 @@ class VoiceWSClient extends WebSocketAdapter {
 			vc.heartbeatInterval = data["heartbeat_interval"]
 			udpSocket = new DatagramSocket()
 			udpSocket.bind(new InetSocketAddress(vc.endpoint, vc.port))
-			udpSend bytebuf(70).with { putInt(vc.ssrc); it }
+			udpSend bytebuf(70).with { putInt(Integer.parseUnsignedInt(
+				vc.ssrc.toString())); it }
 			DatagramPacket receivedPacket = new DatagramPacket(new byte[70], 70)
 			udpSocket.receive(receivedPacket)
 			byte[] received = receivedPacket.data
@@ -89,7 +92,7 @@ class VoiceWSClient extends WebSocketAdapter {
 		}
 		udpSocket.close()
 		session.close()
-		Thread.currentThread().interrupt()
+		Thread.currentThread().close()
 	}
 
 	void onWebSocketError(Throwable t){
@@ -165,5 +168,22 @@ class VoiceWSClient extends WebSocketAdapter {
 
 	void udpSend(byte[] arr){
 		udpSocket.send new DatagramPacket(arr, arr.length)
+	}
+	
+	void sendVoice(ByteBuffer buf){ sendVoice(buf.array()) }
+	void sendVoice(byte[] bytes){
+		ByteBuffer x = bytebuf(24).with {
+			put(0x80)
+			put(0x78)
+			putChar(seq)
+			putInt(Integer.parseUnsignedInt(timestamp.toString()))
+			putInt(Integer.parseUnsignedInt(vc.ssrc.toString()))
+			putLong(0)
+			putInt(0)
+			it
+		}
+		seq = seq == Character.MAX_VALUE ? 0 : seq + 1
+		timestamp += 24
+		udpSend(x.array() + bytes)
 	}
 }

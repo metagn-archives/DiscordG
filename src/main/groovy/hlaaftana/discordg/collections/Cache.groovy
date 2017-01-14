@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Set;
 import org.codehaus.groovy.runtime.InvokerHelper
 
-class Cache implements Map { // god fuck me i guess
+class Cache implements Map {
 	def root
 	Map store
 	Map<String, Closure> listeners = [:]

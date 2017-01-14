@@ -28,11 +28,10 @@ class CommandBot implements Triggerable {
 	volatile Client client
 	List commands = []
 	Map<String, Closure> extraCommandArgs = [:]
-	Map<Class, Closure> errorResponses = [:]
 	boolean acceptOwnCommands = false
 	boolean loggedIn = false
-	Closure commandListener
-	Closure commandRunnerListener
+	public Closure commandListener
+	public Closure commandRunnerListener
 	ListenerSystem listenerSystem = new BasicListenerSystem()
 
 	CommandBot(Map config = [:]){
@@ -101,19 +100,12 @@ class CommandBot implements Triggerable {
 			try{
 				d["command"](d)
 			}catch (ex){
-				try{
-					if (errorResponses.containsKey(ex.class)){
-						def a = errorResponses[ex.class].clone()
-						a.delegate = d
-						a(d)
-						return
-					}
-				}catch (ex2){}
+				listenerSystem.dispatchEvent(Events.EXCEPTION, d.clone() + [exception: ex])
 				ex.printStackTrace()
 				log.error "Command threw exception"
 			}
 		}
-		commandListener = client.listener("message"){ d ->
+		commandListener = client.listen("message"){ d ->
 			try{
 				if (!acceptOwnCommands && json.author.id == this.client.id) return
 			}catch (ex){}
@@ -154,7 +146,8 @@ class CommandBot implements Triggerable {
 	static enum Events {
 		INITIALIZE,
 		COMMAND,
-		NO_COMMAND
+		NO_COMMAND,
+		EXCEPTION
 	}
 }
 
@@ -164,10 +157,10 @@ class CommandType {
 		aot.regex ? g : Pattern.quote(g)
 	}
 	// These have IDs for convenience sake
-	static final CommandType PREFIX = CommandType.new(false){ Trigger trigger, Alias alias ->
+	static final CommandType PREFIX = CommandType.new { Trigger trigger, Alias alias ->
 		/(?i)(/ + quote(trigger) + quote(alias) + /)(?:\s+(?:.|\n)*)?/
 	}
-	static final CommandType SUFFIX = CommandType.new(false){ Trigger trigger, Alias alias ->
+	static final CommandType SUFFIX = CommandType.new { Trigger trigger, Alias alias ->
 		/(?i)(/ + quote(alias) + quote(trigger) + /)(?:\s+(?:.|\n)*)?/
 	}
 	static final CommandType REGEX = CommandType.new { Trigger trigger, Alias alias ->
@@ -177,12 +170,12 @@ class CommandType {
 		/(/ + alias.toString() + trigger.toString() + /)(?:\s+(?:.|\n)*)?/
 	}
 
+	Closure customCaptures = { it.drop(1) }
 	Closure commandMatcher
-	boolean caseSensitive
-	CommandType(Closure commandMatcher, boolean caseSensitive = true){ this.commandMatcher = commandMatcher; this.caseSensitive = caseSensitive }
+	CommandType(Closure commandMatcher){ this.commandMatcher = commandMatcher }
 
-	static CommandType "new"(boolean caseSensitive = true, Closure commandMatcher){
-		new CommandType(commandMatcher, caseSensitive)
+	static CommandType "new"(Closure commandMatcher){
+		new CommandType(commandMatcher)
 	}
 }
 
@@ -350,7 +343,7 @@ class Command implements Triggerable, Aliasable, Restricted {
 
 	// only for regex
 	List captures(Message msg){
-		this.allCaptures(msg).drop(1)
+		type.customCaptures(allCaptures(msg))
 	}
 
 	// only for regex

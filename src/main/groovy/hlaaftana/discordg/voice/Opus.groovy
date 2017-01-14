@@ -7,10 +7,10 @@ import com.sun.jna.Native
 import com.sun.jna.ptr.PointerByReference
 
 class Opus {
-	static int sampleRate = 48000
-	static int channels = 2
-	static int frameSize = 960
-	static int frameTimeAmount = 20
+	int sampleRate = 48000
+	int channels = 2
+	int frameSize = 960
+	int frameTimeAmount = 20
 
 	static {
 		try{
@@ -26,15 +26,15 @@ class Opus {
 		}
 	}
 
-	static ShortBuffer decode(List<ByteBuffer> packets) {
+	ShortBuffer decode(List<ByteBuffer> packets) {
 		IntBuffer error = IntBuffer.allocate(4)
 		PointerByReference opusDecoder = OpusWrapper.INSTANCE.opus_decoder_create(sampleRate, channels, error)
 		ShortBuffer shortBuffer = ShortBuffer.allocate(1024 * 1024)
 		for (dataBuffer in packets) {
 			byte[] transferedBytes = new byte[dataBuffer.remaining()]
 			dataBuffer.get(transferedBytes)
-			int decoded = OpusWrapper.INSTANCE.opus_decode(opusDecoder, transferedBytes, transferedBytes.length,
-					shortBuffer, frameSize, 0)
+			int decoded = OpusWrapper.INSTANCE.opus_decode(opusDecoder, transferedBytes,
+				transferedBytes.length, shortBuffer, frameSize, 0)
 			shortBuffer.position(shortBuffer.position() + decoded)
 		}
 		shortBuffer.flip()
@@ -42,7 +42,7 @@ class Opus {
 		shortBuffer
 	}
 
-	static List<ByteBuffer> encode(ShortBuffer shortBuffer) {
+	List<ByteBuffer> encode(ShortBuffer shortBuffer) {
 		IntBuffer error = IntBuffer.allocate(4)
 		PointerByReference opusEncoder = OpusWrapper.INSTANCE.opus_encoder_create(sampleRate, channels,
 				OpusWrapper.OPUS_APPLICATION_RESTRICTED_LOWDELAY, error)
@@ -60,14 +60,5 @@ class Opus {
 		OpusWrapper.INSTANCE.opus_encoder_destroy(opusEncoder)
 		shortBuffer.flip()
 		list
-	}
-
-	class Encoder {
-		int sampleRate
-		int channels
-	}
-
-	class Decoder {
-
 	}
 }

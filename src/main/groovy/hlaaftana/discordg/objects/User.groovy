@@ -1,5 +1,7 @@
 package hlaaftana.discordg.objects
 
+import java.util.Map;
+
 import groovy.transform.InheritConstructors
 
 import hlaaftana.discordg.Client
@@ -47,6 +49,10 @@ class User extends DiscordObject{
 	Channel getPrivateChannel(){
 		client.userDmChannel(id)
 	}
+	
+	Channel getChannel(){
+		createOrGetPrivateChannel()
+	}
 
 	Channel createPrivateChannel(){
 		client.createPrivateChannel(this)
@@ -54,6 +60,18 @@ class User extends DiscordObject{
 
 	Channel createOrGetPrivateChannel(){
 		privateChannel ?: createPrivateChannel()
+	}
+
+	Relationship getRelationship(){
+		client.cache.relationships[id]
+	}
+
+	void addRelationship(type){
+		client.addRelationship(id, type)
+	}
+
+	void removeRelationship(){
+		client.removeRelationship(id)
 	}
 
 	Permissions permissionsFor(Channel channel){
@@ -65,9 +83,18 @@ class User extends DiscordObject{
 	Member getMember(server){ client.server(server).member(this) }
 	Member member(server){ client.server(server).member(this) }
 
-	Message sendMessage(String message, boolean tts = false){ createOrGetPrivateChannel().sendMessage(message, tts) }
-	Message sendFile(File file){ createOrGetPrivateChannel().sendFile(file) }
-	Message sendFile(String filePath){ createOrGetPrivateChannel().sendFile(filePath) }
+	Message sendMessage(content, boolean tts=false) { channel.sendMessage(content, tts) }
+	Message sendMessage(Map data){ channel.sendMessage(data) }
+	Message send(Map data){ sendMessage(data) }
+	Message send(content, boolean tts = false){ sendMessage(content, tts) }
+
+	Message sendFile(Map data, implicatedFile, filename = null) {
+		channel.sendFile(data, implicatedFile, filename)
+	}
+
+	Message sendFile(implicatedFile, filename = null) {
+		sendFile([:], implicatedFile, filename)
+	}
 }
 
 @InheritConstructors
@@ -140,4 +167,11 @@ class Profile extends User {
 	static class Account extends DiscordObject {
 		String getType(){ object.type }
 	}
+}
+
+class Relationship extends User {
+	Relationship(Client client, Map object){ super(client, object + object.user) }
+
+	User getUser(){ new User(client, object.user) }
+	int getType(){ object.type }
 }

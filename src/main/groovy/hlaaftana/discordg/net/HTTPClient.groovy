@@ -9,6 +9,7 @@ import hlaaftana.discordg.exceptions.*
 import hlaaftana.discordg.util.MiscUtil
 import hlaaftana.discordg.util.JSONUtil
 import hlaaftana.discordg.util.Log
+import static hlaaftana.discordg.util.CasingType.*
 
 import com.mashape.unirest.http.Unirest
 import com.mashape.unirest.request.BaseRequest
@@ -87,13 +88,13 @@ class HTTPClient {
 
 	def parse(String request){
 		def a = request.split(/\s+/, 3)
-		methodMissing(MiscUtil.convertCasing(a[0], "constant", "camel"), a.size() == 2 ? a[1] : [a[1], a[2]])
+		methodMissing(CAMEL.convert(a[0], CONSTANT), a.size() == 2 ? a[1] : [a[1], a[2]])
 	}
 
 	def methodMissing(String methodName, args){
 		List argl = args.class in [List, Object[]] ? args.collect() : [args]
 		String url
-		List methodParams = MiscUtil.convertCasing(methodName, "camel", "constant").split("_") as List
+		List methodParams = CAMEL.convert(methodName, CONSTANT).split("_") as List
 		boolean global = "GLOBAL" in methodParams
 		if (global) methodParams -= "GLOBAL"
 		boolean json = "JSON" in methodParams
@@ -104,7 +105,7 @@ class HTTPClient {
 		if (request) methodParams -= "REQUEST"
 		if (global) url = argl[0]
 		else url = concatUrlPaths(baseUrl, argl[0])
-		String method = MiscUtil.convertCasing(methodParams[0], "constant", "camel")
+		String method = CONSTANT.convert(methodParams[0], CAMEL)
 		def aa = headerUp(Unirest."$method"(url))
 		if (argl.size() > 1){
 			def data = argl[1] instanceof CharSequence ? argl[1].toString() : JSONUtil.json(argl[1])
@@ -136,42 +137,42 @@ class HTTPClient {
 	}
 
 	def request(BaseRequest req){
-		HttpRequest fuck = req.httpRequest
-		String rlUrl = fuck.url.replaceFirst(Pattern.quote(client.http.baseUrl), "")
+		HttpRequest ft = req.httpRequest
+		String rlUrl = ft.url.replaceFirst(Pattern.quote(client.http.baseUrl), "")
 		if (ratelimits[simplifyUrl(rlUrl)]){
 			client.log.trace "Awaiting ratelimit for $rlUrl"
 			while (ratelimits[simplifyUrl(rlUrl)]){}
 		}
-		def returned = fuck.asString()
+		def returned = ft.asString()
 		int status = returned.status
-		client.log.trace "HTTP REQUEST: $fuck.httpMethod $fuck.url $status", client.log.name + "HTTP"
+		client.log.trace "HTTP REQUEST: $ft.httpMethod $ft.url $status", client.log.name + "HTTP"
 		if (status == 429){
-			client.log.debug "Ratelimited when trying to $fuck.httpMethod to $fuck.url", client.log.name + "HTTP"
+			client.log.debug "Ratelimited when trying to $ft.httpMethod to $ft.url", client.log.name + "HTTP"
 			RateLimit rl = new RateLimit(client, JSONUtil.parse(returned.body))
 			ratelimits[simplifyUrl(rlUrl)] = rl
 			Thread.sleep(rl.retryTime)
 			ratelimits.remove(simplifyUrl(rlUrl))
 			return request(req)
 		}else if (status == 400){
-			throw new BadRequestException(fuck.url, JSONUtil.parse(returned.body))
+			throw new BadRequestException(ft.url, JSONUtil.parse(returned.body))
 		}else if (status == 401){
-			throw new InvalidTokenException(fuck.url, JSONUtil.parse(returned.body))
+			throw new InvalidTokenException(ft.url, JSONUtil.parse(returned.body))
 		}else if (status == 403){
-			throw new NoPermissionException(fuck.url, JSONUtil.parse(returned.body))
+			throw new NoPermissionException(ft.url, JSONUtil.parse(returned.body))
 		}else if (status == 404){
-			throw new NotFoundException(fuck.url, JSONUtil.parse(returned.body))
+			throw new NotFoundException(ft.url, JSONUtil.parse(returned.body))
 		}else if (status == 405){
-			client.log.warn "$fuck.httpMethod not allowed for $fuck.url. Report to hlaaf", client.log.name + "HTTP"
+			client.log.warn "$ft.httpMethod not allowed for $ft.url. Report to hlaaf", client.log.name + "HTTP"
 		}else if (status == 502){
 			if (client.retryOn502){
 				return request(req)
 			}else{
-				throw new HTTP5xxException(fuck.url, JSONUtil.parse(returned.body))
+				throw new HTTP5xxException(ft.url, JSONUtil.parse(returned.body))
 			}
 		}else if (status.intdiv(100) == 5){
-			throw new HTTP5xxException(fuck.url, JSONUtil.parse(returned.body))
+			throw new HTTP5xxException(ft.url, JSONUtil.parse(returned.body))
 		}else if (status.intdiv(100) >= 3){
-			client.log.warn "Got status code $status while ${fuck.httpMethod}ing to $fuck.url, this isn't an error but just a warning.", client.log.name + "HTTP"
+			client.log.warn "Got status code $status while ${ft.httpMethod}ing to $ft.url, this isn't an error but just a warning.", client.log.name + "HTTP"
 		}
 		returned
 	}

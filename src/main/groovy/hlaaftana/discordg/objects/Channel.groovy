@@ -7,10 +7,14 @@ import hlaaftana.discordg.VoiceClient
 import hlaaftana.discordg.collections.DiscordListCache;
 import hlaaftana.discordg.exceptions.MessageInvalidException
 import hlaaftana.discordg.exceptions.NoPermissionException
+import hlaaftana.discordg.net.VoiceWSClient
 import hlaaftana.discordg.util.JSONUtil
 import hlaaftana.discordg.util.ConversionUtil
 
 import java.util.Map;
+import org.eclipse.jetty.util.ssl.SslContextFactory
+import org.eclipse.jetty.websocket.client.ClientUpgradeRequest
+import org.eclipse.jetty.websocket.client.WebSocketClient
 
 import com.mashape.unirest.http.Unirest
 
@@ -18,11 +22,8 @@ import com.mashape.unirest.http.Unirest
  * A Discord channel.
  * @author Hlaaftana
  */
+@InheritConstructors
 class Channel extends DiscordObject {
-	Channel(Client client, Map object){
-		super(client, object)
-	}
-
 	String getMention(){ "<#$id>" }
 	Integer getPosition(){ object["position"] }
 	Integer getType(){ object.type }
@@ -80,23 +81,25 @@ class Channel extends DiscordObject {
 		if (this.private) return Permissions.PRIVATE_CHANNEL
 		Member member = server.member(user)
 		if (!member) return Permissions.ALL_FALSE
-		Map owMap = overwriteMap
-		Permissions doodle = new Permissions(initialPerms.value)
-		PermissionOverwrite everyoneOw = owMap[object.guild_id]
-		doodle -= everyoneOw.denied
-		doodle += everyoneOw.allowed
-		List<PermissionOverwrite> roleOws = member.roleIds
+		def doodle = initialPerms.value
+		def owMap = object.permission_overwrites
+		def everyoneOw = object.permission_overwrites[id]
+		if (everyoneOw){
+			doodle &= ~(everyoneOw.deny)
+			doodle |= everyoneOw.allow
+		}
+		def roleOws = member.roleIds
 			.findAll { owMap.containsKey(it) }.collect { owMap[it] }
 		if (roleOws){
-			doodle -= (roleOws*.denied*.value).inject { a, b -> a | b }
-			doodle += (roleOws*.allowed*.value).inject { a, b -> a | b }
+			doodle &= ~((roleOws*.deny).inject { a, b -> a | b })
+			doodle |= (roleOws*.allow).inject { a, b -> a | b }
 		}
 		if (owMap.containsKey(id(user))){
-			PermissionOverwrite userOw = owMap[id(user)]
-			doodle -= userOw.denied
-			doodle += userOw.allowed
+			def userOw = owMap[id(user)]
+			doodle &= ~(userOw.deny)
+			doodle |= userOw.allow
 		}
-		doodle
+		new Permissions(doodle)
 	}
 
 	Permissions permissionsFor(user){
@@ -209,9 +212,9 @@ class Channel extends DiscordObject {
 	List<Message> forceRequestLogs(int m = 100, b = null, boolean a = false){
 		client.forceRequestChannelLogs(m, b, a) }
 
-	List<Message> getCachedLogs(){ client.messages[id]?.list ?: [] }
+	List<Message> getCachedLogs(){ client.cache.messages[id]?.list ?: [] }
 
-	Map<String, Message> getCachedLogMap(){ client.messages[id]?.map ?: [:] }
+	Map<String, Message> getCachedLogMap(){ client.cache.messages[id]?.map ?: [:] }
 
 	def clear(int number = 100){ clear(logs(number)*.id) }
 
@@ -254,17 +257,18 @@ class Channel extends DiscordObject {
 
 	VoiceState voiceState(thing){ find(voiceStates, voiceStateMap, thing) }
 	Member member(thing){ find(members, memberMap, thing) }
+	Call getOngoingCall(){ client.ongoingCall(id) }
 
 	int getBitrate(){ object["bitrate"] }
 	int getUserLimit(){ object["user_limit"] }
 
 	boolean isFull(){
-		members.size() == userLimit
+		voiceStates.size() == userLimit
 	}
 
 	boolean canJoin(){
 		Permissions ass = server.me.permissionsFor(this)
-		ass["connect"] && (userLimit ? full : true || ass["moveMembers"])
+		ass["connect"] && (userLimit ? (!full || ass["moveMembers"]) : true )
 	}
 
 	void move(member){
@@ -272,22 +276,20 @@ class Channel extends DiscordObject {
 	}
 
 	VoiceClient join(Map opts = [:]){
-		if (!canJoin()) throw new NoPermissionException(full ? "Channel is full" : "Insufficient permissions to join voice channel ${inspect()}")
+		if (!canJoin()) throw new Exception(full ? "Channel is full" : "Insufficient permissions to join voice channel ${inspect()}")
 		VoiceClient vc = new VoiceClient(client, this, opts)
 		client.voiceClients[server] = vc
 		vc.connect()
 
-		/*Thread.start {
-			while (client.voiceData["endpoint"] == null){}
-			SslContextFactory sslFactory = new SslContextFactory()
-			WebSocketClient client = new WebSocketClient(sslFactory)
-			VoiceWSClient socket = new VoiceWSClient(client)
-			client.start()
-			ClientUpgradeRequest upgreq = new ClientUpgradeRequest()
-			client.connect(socket, new URI("wss://" + client.voiceData["endpoint"].replace(":80", "")), upgreq)
-			client.voiceWsClient = socket
-		}*
-		client.voiceClient*/
+		Thread.start {
+			while (vc.@endpoint == null){}
+			WebSocketClient wsc = new WebSocketClient(new SslContextFactory())
+			VoiceWSClient socket = new VoiceWSClient(vc)
+			wsc.start()
+			wsc.connect(socket, new URI(vc.endpoint), new ClientUpgradeRequest())
+			vc.ws = socket
+		}
+		vc
 	}
 
 	static Map construct(Client client, Map c, String serverId = null){
@@ -302,11 +304,12 @@ class Channel extends DiscordObject {
 	}
 }
 
+@InheritConstructors
 class PermissionOverwrite extends DiscordObject {
-	PermissionOverwrite(Client client, Map object){ super(client, object) }
-
-	Permissions getAllowed(){ new Permissions(object["allow"] ?: 0) }
-	Permissions getDenied(){ new Permissions(object["deny"] ?: 0) }
+	int getAllowedValue(){ object["allow"] ?: 0 }
+	int getDeniedValue(){ object["deny"] ?: 0 }
+	Permissions getAllowed(){ new Permissions(allowedValue) }
+	Permissions getDenied(){ new Permissions(deniedValue) }
 	String getType(){ object["type"] }
 	DiscordObject getAffected(){
 		if (type == "role"){
@@ -335,4 +338,15 @@ class PermissionOverwrite extends DiscordObject {
 	boolean isRole(){ type == "role" }
 	boolean isMember(){ type == "member" }
 	boolean isUser(){ type == "member" }
+}
+
+@InheritConstructors
+class Call extends DiscordObject {
+	String getId(){ object.channel_id }
+	String getMessageId(){ object.message_id }
+	String getRegionId(){ object.region }
+	List<String> getRingingUserIds(){ object.ringing }
+	List<User> getRingingUsers(){ ringingUserIds.collect(client.&user) }
+	List<VoiceState> getVoiceStates(){ object.voice_states.collect { new VoiceState(client, it) } }
+	boolean isUnavailable(){ object.unavailable }
 }

@@ -73,6 +73,10 @@ class Server extends DiscordObject {
 	Channel createVoiceChannel(String name) {
 		client.createVoiceChannel(this, name)
 	}
+	
+	Channel createChannel(Map data = [:]){
+		client.createChannel(data, this)
+	}
 
 	Channel requestChannel(c){
 		client.requestServerChannel(this, c)
@@ -191,16 +195,16 @@ class Server extends DiscordObject {
 		client.deleteRole(this, role)
 	}
 
-	List<Role> batchModifyRoles(Map mods){
-		client.batchModifyRoles(mods, this)
-	}
-
 	List<Webhook> requestWebhooks(){
 		client.requestServerWebhooks(this)
 	}
-
-	void batchModifyChannels(Map mods){
-		client.batchModifyChannels(mods, this)
+	
+	List<Role> editRolePositions(Map mods){
+		client.editRolePositions(mods, this)
+	}
+	
+	List<Channel> editChannelPositions(Map mods){
+		client.editChannelPositions(mods, this)
 	}
 
 	List<Member> requestMembers(int max=1000, boolean updateCache=true){
@@ -209,8 +213,8 @@ class Server extends DiscordObject {
 
 	Member requestMember(id){ client.requestMember(this, id) }
 
-	Member getLastMember(){ members.max { it.joinDate } }
-	Member getLatestMember(){ members.max { it.joinDate } }
+	Member getLastMember(){ members.max { it.joinedAt } }
+	Member getLatestMember(){ members.max { it.joinedAt } }
 	int getMemberCount(){ object["member_count"] }
 
 	List<Emoji> getEmojis(){ object["emojis"].list }
@@ -273,7 +277,6 @@ class VoiceState extends DiscordObject {
 	VoiceState(Client client, Map object){ super(client, object) }
 
 	Channel getChannel(){ client.channel(object["channel_id"]) }
-	Channel getVoiceChannel(){ client.channel(object["channel_id"]) }
 	User getUser(){ client.user(object["user_id"]) }
 	Server getServer(){ object["guild_id"] ? client.server(object["guild_id"]) : channel.server }
 	Channel getParent(){ channel }
@@ -415,10 +418,9 @@ class Member extends User {
 	Date getJoinedAt(){ ConversionUtil.fromJsonDate(rawJoinedAt) }
 	List<String> getRoleIds(){ object["roles"] }
 	List<Role> getRoles(){
-		object["roles"].collect { server.role(it) }
+		def x = client.cache.guilds[serverId].roles
+		object.roles.collect { new Role(client, x[it]) }
 	}
-
-	Role role(ass){ find(server.object.roles, client, ass) }
 
 	boolean isOwner(){ server.ownerId == id }
 
@@ -461,15 +463,15 @@ class Member extends User {
 	Color getColor(){ new Color(colorValue) }
 	Permissions getPermissions(){
 		if (owner) return Permissions.ALL_TRUE
-		Permissions full = server.defaultRole.permissions
-		for (Permissions perms in roles*.permissions){
-			if (perms["administrator"]){
+		int full = server.defaultRole.permissionValue
+		for (perms in roles*.permissionValue){
+			if ((perms >> 3) & 1){
 				return Permissions.ALL_TRUE
 			}else{
-				full += perms
+				full |= perms
 			}
 		}
-		full
+		new Permissions(full)
 	}
 
 	void editRoles(List roles) {
@@ -516,6 +518,8 @@ class Region extends DiscordObject {
 	int getSamplePort(){ object["sample_port"] }
 	boolean isVip(){ object["vip"] }
 	boolean isOptimal(){ object["optimal"] }
+	boolean isDeprecated(){ object['deprecated'] }
+	boolean isCustom(){ object['custom'] }
 }
 
 @InheritConstructors

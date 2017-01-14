@@ -24,6 +24,18 @@ abstract class ListenerSystem {
 		else listeners[event] = [ass]
 		ass
 	}
+	
+	Closure listen(event, boolean temporary = false, Closure closure){
+		Closure ass
+		ass = { Map d, Closure internal ->
+			//d["rawClosure"] = closure
+			//d["closure"] = ass
+			Closure copy = closure.clone()
+			copy.delegate = d
+			copy.parameterTypes.size() == 2 ? copy(copy.delegate, internal) : copy(copy.delegate)
+		}
+		addListener(event, temporary, ass)
+	}
 
 	def removeListener(event, Closure closure) {
 		listeners[parseEvent(event)].remove(closure)
