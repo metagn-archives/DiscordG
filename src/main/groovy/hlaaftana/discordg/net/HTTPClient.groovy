@@ -95,14 +95,10 @@ class HTTPClient {
 		List argl = args.class in [List, Object[]] ? args.collect() : [args]
 		String url
 		List methodParams = CAMEL.convert(methodName, CONSTANT).split("_") as List
-		boolean global = "GLOBAL" in methodParams
-		if (global) methodParams -= "GLOBAL"
-		boolean json = "JSON" in methodParams
-		if (json) methodParams -= "JSON"
-		boolean body = "BODY" in methodParams
-		if (body) methodParams -= "BODY"
-		boolean request = "REQUEST" in methodParams
-		if (request) methodParams -= "REQUEST"
+		boolean global = methodParams.remove('GLOBAL')
+		boolean json = methodParams.remove('JSON')
+		boolean body = methodParams.remove('BODY')
+		boolean request = methodParams.remove('REQUEST')
 		if (global) url = argl[0]
 		else url = concatUrlPaths(baseUrl, argl[0])
 		String method = CONSTANT.convert(methodParams[0], CAMEL)
@@ -137,22 +133,52 @@ class HTTPClient {
 	}
 
 	def request(BaseRequest req){
+		_request(req, 0)
+	}
+	
+	private _request(BaseRequest req, int rid){
 		HttpRequest ft = req.httpRequest
-		String rlUrl = ft.url.replaceFirst(Pattern.quote(client.http.baseUrl), "")
-		if (ratelimits[simplifyUrl(rlUrl)]){
-			client.log.trace "Awaiting ratelimit for $rlUrl"
-			while (ratelimits[simplifyUrl(rlUrl)]){}
+		String rlUrl = ft.url.replaceFirst(Pattern.quote(baseUrl), "")
+		if (ratelimits[ratelimitUrl(rlUrl)]){
+			int id = rid < 1 ? ratelimits[ratelimitUrl(rlUrl)].newRequest() : rid
+			while (ratelimits[ratelimitUrl(rlUrl)]?.requests?.contains(id)){}
 		}
 		def returned = ft.asString()
 		int status = returned.status
-		client.log.trace "HTTP REQUEST: $ft.httpMethod $ft.url $status", client.log.name + "HTTP"
-		if (status == 429){
-			client.log.debug "Ratelimited when trying to $ft.httpMethod to $ft.url", client.log.name + "HTTP"
-			RateLimit rl = new RateLimit(client, JSONUtil.parse(returned.body))
-			ratelimits[simplifyUrl(rlUrl)] = rl
-			Thread.sleep(rl.retryTime)
-			ratelimits.remove(simplifyUrl(rlUrl))
-			return request(req)
+		if ((returned.headers.containsKey('X-RateLimit-Limit') &&
+			returned.headers['X-RateLimit-Remaining'][0].toInteger() < 2) ||
+			returned.headers.containsKey('X-RateLimit-Global') ||
+			status == 429){
+			boolean precaution
+			def r
+			Thread.start {
+				if (ratelimits[ratelimitUrl(rlUrl)]) return
+				def js = returned.body ? JSONUtil.parse(returned.body) : [:]
+				precaution = !js.containsKey('retry-after')
+				client.log.debug precaution ? 
+					"Ratelimited when trying to $ft.httpMethod to $ft.url" :
+					"Precautioning a ratelimit for $ft.httpMethod $ft.url",
+					client.log.name + "HTTP"
+				RateLimit rl = new RateLimit(client, precaution ?
+					[global: false, retry_after: 
+						Math.abs((returned.headers['X-RateLimit-Reset'][0].toLong() * 1000) -
+						System.currentTimeMillis()), message: 'Precautionary ratelimit'] : js)
+				ratelimits[ratelimitUrl(rlUrl)] = rl
+				int xxx = ratelimits[ratelimitUrl(rlUrl)].newRequest()
+				if (!precaution) Thread.start {
+					r = _request(req, xxx)
+				}
+				while (rl.requests){
+					Thread.sleep(rl.retryTime)
+					rl.requests.removeAll(rl.requests.sort().take(
+						returned.headers['X-RateLimit-Limit'][0].toInteger() - 1))
+					// remove 1 from the limit just to be safe
+				}
+				ratelimits.remove(ratelimitUrl(rlUrl))
+			}
+			if (precaution) return returned
+			while (null == r){}
+			return r
 		}else if (status == 400){
 			throw new BadRequestException(ft.url, JSONUtil.parse(returned.body))
 		}else if (status == 401){
@@ -178,12 +204,12 @@ class HTTPClient {
 	}
 
 	@Memoized
-	static String simplifyUrl(String url){
+	static String ratelimitUrl(String url){
 		if (url.indexOf("?") > 0){
 			url = url.substring(url.indexOf("?"))
 		}
 		int i = 0
-		url.replaceAll(/\d+/){ "@id${++i}:$it" }
+		url.replaceAll(/\/\d+\//){ "/@${++i}/" }
 	}
 
 	@Memoized

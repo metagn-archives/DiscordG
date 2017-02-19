@@ -131,6 +131,8 @@ class Channel extends DiscordObject {
 		client.editChannel(data, this)
 	}
 
+	def move(int movement){ server.moveChannel(this, movement) }
+
 	void editPermissions(Map d, t){ client.editChannelOverwrite(d, this, t) }
 	void editPermissions(t, Map d){ client.editChannelOverwrite(d, this, t) }
 	void addPermissions(Map d, t){ client.editChannelOverwrite(d, this, t) }
@@ -206,11 +208,11 @@ class Channel extends DiscordObject {
 	List<User> requestReactors(m, e, int l = 100){ client.requestReactors(this, m, e, l) }
 
 	List<Message> requestLogs(int m = 100, b = null,
-		boolean a = false){ client.requestChannelLogs(this, m, b, a) }
+		bt = 'before'){ client.requestChannelLogs(this, m, b, bt) }
 	List<Message> logs(int m = 100, b = null,
-		boolean a = false){ requestLogs(m, b, a) }
-	List<Message> forceRequestLogs(int m = 100, b = null, boolean a = false){
-		client.forceRequestChannelLogs(m, b, a) }
+		bt = 'before'){ requestLogs(m, b, bt) }
+	List<Message> forceRequestLogs(int m = 100, b = null, bt = 'before'){
+		client.forceRequestChannelLogs(m, b, bt) }
 
 	List<Message> getCachedLogs(){ client.cache.messages[id]?.list ?: [] }
 
@@ -256,7 +258,7 @@ class Channel extends DiscordObject {
 	Map<String, Member> getMemberMap(){ members.collectEntries { [(it.id): it] } }
 
 	VoiceState voiceState(thing){ find(voiceStates, voiceStateMap, thing) }
-	Member member(thing){ find(members, memberMap, thing) }
+	User member(thing){ find(members, memberMap, thing) }
 	Call getOngoingCall(){ client.ongoingCall(id) }
 
 	int getBitrate(){ object["bitrate"] }

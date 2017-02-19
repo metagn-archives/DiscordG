@@ -202,6 +202,26 @@ class Server extends DiscordObject {
 	List<Role> editRolePositions(Map mods){
 		client.editRolePositions(mods, this)
 	}
+
+	List<Role> moveRole(ro, int movement){
+		Role r = role(ro)
+		def rp = Math.max(r.position + movement, 0)
+		def rg = rp..<r.position
+		def dif = rp <=> r.position
+		Map x = [:]
+		roles.findAll { it.position in rg }.each { x[it.id] = it.position + dif }
+		editRolePositions(x)
+	}
+
+	List<Channel> moveChannel(chan, int movement){
+		Channel c = channel(chan)
+		def cp = Math.max(c.position + movement, 0)
+		def cg = cp..<c.position
+		def dif = cp <=> c.position
+		Map x = [:]
+		channels.findAll { it.position in cg }.each { x[it.id] = it.position + dif }
+		editChannelPositions(x)
+	}
 	
 	List<Channel> editChannelPositions(Map mods){
 		client.editChannelPositions(mods, this)
@@ -328,7 +348,7 @@ class Emoji extends DiscordObject {
 	boolean isRequireColons(){ object["require_colons"] }
 	boolean isManaged(){ object["managed"] }
 	String getUrl(){ "https://cdn.discordapp.com/emojis/${id}.png" }
-	InputStream getInputStream(){ inputStreamFromDiscord(url) }
+	InputStream newInputStream(){ inputStreamFromDiscord(url) }
 	File download(file){ downloadFileFromDiscord(url, file) }
 }
 
@@ -401,6 +421,7 @@ class Role extends DiscordObject{
 	void addTo(Collection users){ users.each(this.&addTo) }
 	void removeFrom(user){ client.removeRole(serverId, user, this) }
 	void removeFrom(Collection users){ users.each(this.&removeFrom) }
+	def move(int movement){ server.moveRole(this, movement) }
 }
 
 class Member extends User {
@@ -504,6 +525,14 @@ class Member extends User {
 	}
 	List<PermissionOverwrite> getOverwrites(){ permissionOverwrites }
 
+	boolean isSuperior(){
+		roles*.position.max() > server.me.roles*.position.max()
+	}
+	
+	boolean isSuperiorTo(user){
+		roles*.position.max() > server.member(user).roles*.position.max()
+	}
+	
 	User toUser(){ new User(client, object["user"]) }
 	def asType(Class target){
 		if (target == User) toUser()

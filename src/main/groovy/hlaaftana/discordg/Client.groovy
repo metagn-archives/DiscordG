@@ -31,54 +31,213 @@ import org.eclipse.jetty.websocket.client.WebSocketClient
  */
 class Client extends User {
 	static Closure newPool = ActionPool.&new
-	static Map eventAliases = [MESSAGE: "MESSAGE_CREATE",
-		NEW_MESSAGE: "MESSAGE_CREATE", MESSAGE_DELETED: "MESSAGE_DELETE",
-		MESSAGE_BULK_DELETE: "MESSAGE_DELETE_BULK",
-		MESSAGE_BULK_DELETED: "MESSAGE_DELETE_BULK",
-		MESSAGE_UPDATED: "MESSAGE_UPDATE", CHANNEL: "CHANNEL_CREATE",
-		NEW_CHANNEL: "CHANNEL_CREATE", CHANNEL_UPDATED: "CHANNEL_UPDATE",
-		CHANNEL_DELETED: "CHANNEL_DELETE", BAN: "GUILD_BAN_ADD",
-		UNBAN: "GUILD_BAN_REMOVE", GUILD: "GUILD_CREATE", SERVER: "GUILD_CREATE",
-		SERVER_CREATE: "GUILD_CREATE", GUILD_CREATED: "GUILD_CREATE",
-		SERVER_CREATED: "GUILD_CREATE", GUILD_UPDATED: "GUILD_UPDATE",
-		SERVER_UPDATED: "GUILD_UPDATE", SERVER_UPDATE: "GUILD_UPDATE",
-		SERVER_DELETE: "GUILD_DELETE", SERVER_DELETED: "GUILD_DELETE",
-		GUILD_DELETED: "GUILD_DELETE", MEMBER: "GUILD_MEMBER_ADD",
-		MEMBER_JOINED: "GUILD_MEMBER_ADD", NEW_MEMBER: "GUILD_MEMBER_ADD",
-		MEMBER_UPDATE: "GUILD_MEMBER_UPDATE",
-		MEMBER_UPDATED: "GUILD_MEMBER_UPDATE", MEMBER_LEFT: "GUILD_MEMBER_REMOVE",
-		MEMBER_KICKED: "GUILD_MEMBER_REMOVE", MEMBER_REMOVED: "GUILD_MEMBER_REMOVE",
-		ROLE: "GUILD_ROLE_CREATE", NEW_ROLE: "GUILD_ROLE_CREATE",
-		ROLE_UPDATE: "GUILD_ROLE_UPDATE", ROLE_UPDATED: "GUILD_ROLE_UPDATE",
-		GUILD_ROLE_UPDATE: "GUILD_ROLE_UPDATE", ROLE_DELETE: "GUILD_ROLE_DELETE",
-		ROLE_DELETED: "GUILD_ROLE_DELETE", PRESENCE: "PRESENCE_UPDATE",
-		TYPING: "TYPING_START", REACTION: "MESSAGE_REACTION_ADD",
-		REACTION_ADD: "MESSAGE_REACTION_ADD", NEW_REACTION: "MESSAGE_REACTION_ADD",
-		REACTION_REMOVED: "MESSAGE_REACTION_REMOVE",
-		REACTION_DELETED: "MESSAGE_REACTION_REMOVE",
-		REACTION_REMOVE: "MESSAGE_REACTION_REMOVE",
-		REACTION_DELETE: "MESSAGE_REACTION_REMOVE",
-		MESSAGE_REACTION_REMOVED: "MESSAGE_REACTION_REMOVE",
-		MESSAGE_REACTION_DELETED: "MESSAGE_REACTION_REMOVE",
-		MESSAGE_REACTION_DELETE: "MESSAGE_REACTION_REMOVE",
-		NOTE_UPDATE: "USER_NOTE_UPDATE", NOTE_UPDATED: "USER_NOTE_UPDATE",
-		NOTE: "USER_NOTE_UPDATE", CALL: "CALL_CREATE", CALL_STARTED: "CALL_CREATE",
-		CALL_UPDATED: "CALL_UPDATE", CALL_ENDED: "CALL_DELETE",
-		RECIPIENT: "CHANNEL_RECIPIENT_ADD", RECIPIENT_ADD: "CHANNEL_RECIPIENT_ADD",
-		RECIPIENT_ADDED: "CHANNEL_RECIPIENT_ADD",
-		NEW_RECIPIENT: "CHANNEL_RECIPIENT_ADD",
-		RECIPIENT_REMOVE: "CHANNEL_RECIPIENT_REMOVE",
-		RECIPIENT_REMOVED: "CHANNEL_RECIPIENT_REMOVE", RELATIONSHIP: "RELATIONSHIP_ADD",
-		NEW_RELATIONSHIP: "RELATIONSHIP_ADD", RELATIONSHIP_ADDED: "RELATIONSHIP_ADD",
-		RELATIONSHIP_REMOVED: "RELATIONSHIP_REMOVE"]
-	static List knownDiscordEvents = ["READY", "MESSAGE_ACK", "GUILD_INTEGRATIONS_UPDATE",
-		"GUILD_EMOJIS_UPDATE", "VOICE_STATE_UPDATE", "VOICE_SERVER_UPDATE", "USER_UPDATE",
-		"USER_GUILD_SETTINGS_UPDATE", "USER_SETTINGS_UPDATE", "GUILD_MEMBERS_CHUNK",
-		"GUILD_SYNC", "CHANNEL_PINS_UPDATE", "CHANNEL_PINS_ACK",
-		"MESSAGE_REACTION_REMOVE_ALL", "WEBHOOKS_UPDATE", "RESUMED"] +
+	static Map eventAliases = [MESSAGE: 'MESSAGE_CREATE',
+		NEW_MESSAGE: 'MESSAGE_CREATE', MESSAGE_DELETED: 'MESSAGE_DELETE',
+		MESSAGE_BULK_DELETE: 'MESSAGE_DELETE_BULK',
+		MESSAGE_BULK_DELETED: 'MESSAGE_DELETE_BULK',
+		MESSAGE_UPDATED: 'MESSAGE_UPDATE', CHANNEL: 'CHANNEL_CREATE',
+		NEW_CHANNEL: 'CHANNEL_CREATE', CHANNEL_UPDATED: 'CHANNEL_UPDATE',
+		CHANNEL_DELETED: 'CHANNEL_DELETE', BAN: 'GUILD_BAN_ADD',
+		UNBAN: 'GUILD_BAN_REMOVE', GUILD: 'GUILD_CREATE', SERVER: 'GUILD_CREATE',
+		SERVER_CREATE: 'GUILD_CREATE', GUILD_CREATED: 'GUILD_CREATE',
+		SERVER_CREATED: 'GUILD_CREATE', GUILD_UPDATED: 'GUILD_UPDATE',
+		SERVER_UPDATED: 'GUILD_UPDATE', SERVER_UPDATE: 'GUILD_UPDATE',
+		SERVER_DELETE: 'GUILD_DELETE', SERVER_DELETED: 'GUILD_DELETE',
+		GUILD_DELETED: 'GUILD_DELETE', MEMBER: 'GUILD_MEMBER_ADD',
+		MEMBER_JOINED: 'GUILD_MEMBER_ADD', NEW_MEMBER: 'GUILD_MEMBER_ADD',
+		MEMBER_UPDATE: 'GUILD_MEMBER_UPDATE',
+		MEMBER_UPDATED: 'GUILD_MEMBER_UPDATE', MEMBER_LEFT: 'GUILD_MEMBER_REMOVE',
+		MEMBER_KICKED: 'GUILD_MEMBER_REMOVE', MEMBER_REMOVED: 'GUILD_MEMBER_REMOVE',
+		MEMBER_LEAVE: 'GUILD_MEMBER_REMOVE',
+		MEMBER_KICK: 'GUILD_MEMBER_REMOVE', MEMBER_REMOVE: 'GUILD_MEMBER_REMOVE',
+		ROLE: 'GUILD_ROLE_CREATE', NEW_ROLE: 'GUILD_ROLE_CREATE',
+		ROLE_UPDATE: 'GUILD_ROLE_UPDATE', ROLE_UPDATED: 'GUILD_ROLE_UPDATE',
+		GUILD_ROLE_UPDATE: 'GUILD_ROLE_UPDATE', ROLE_DELETE: 'GUILD_ROLE_DELETE',
+		ROLE_DELETED: 'GUILD_ROLE_DELETE', PRESENCE: 'PRESENCE_UPDATE',
+		TYPING: 'TYPING_START', REACTION: 'MESSAGE_REACTION_ADD',
+		REACTION_ADD: 'MESSAGE_REACTION_ADD', NEW_REACTION: 'MESSAGE_REACTION_ADD',
+		REACTION_REMOVED: 'MESSAGE_REACTION_REMOVE',
+		REACTION_DELETED: 'MESSAGE_REACTION_REMOVE',
+		REACTION_REMOVE: 'MESSAGE_REACTION_REMOVE',
+		REACTION_DELETE: 'MESSAGE_REACTION_REMOVE',
+		MESSAGE_REACTION_REMOVED: 'MESSAGE_REACTION_REMOVE',
+		MESSAGE_REACTION_DELETED: 'MESSAGE_REACTION_REMOVE',
+		MESSAGE_REACTION_DELETE: 'MESSAGE_REACTION_REMOVE',
+		NOTE_UPDATE: 'USER_NOTE_UPDATE', NOTE_UPDATED: 'USER_NOTE_UPDATE',
+		NOTE: 'USER_NOTE_UPDATE', CALL: 'CALL_CREATE', CALL_STARTED: 'CALL_CREATE',
+		CALL_UPDATED: 'CALL_UPDATE', CALL_ENDED: 'CALL_DELETE',
+		RECIPIENT: 'CHANNEL_RECIPIENT_ADD', RECIPIENT_ADD: 'CHANNEL_RECIPIENT_ADD',
+		RECIPIENT_ADDED: 'CHANNEL_RECIPIENT_ADD',
+		NEW_RECIPIENT: 'CHANNEL_RECIPIENT_ADD',
+		RECIPIENT_REMOVE: 'CHANNEL_RECIPIENT_REMOVE',
+		RECIPIENT_REMOVED: 'CHANNEL_RECIPIENT_REMOVE', RELATIONSHIP: 'RELATIONSHIP_ADD',
+		NEW_RELATIONSHIP: 'RELATIONSHIP_ADD', RELATIONSHIP_ADDED: 'RELATIONSHIP_ADD',
+		RELATIONSHIP_REMOVED: 'RELATIONSHIP_REMOVE']
+	static List knownDiscordEvents = ['READY', 'MESSAGE_ACK', 'GUILD_INTEGRATIONS_UPDATE',
+		'GUILD_EMOJIS_UPDATE', 'VOICE_STATE_UPDATE', 'VOICE_SERVER_UPDATE', 'USER_UPDATE',
+		'USER_GUILD_SETTINGS_UPDATE', 'USER_SETTINGS_UPDATE', 'GUILD_MEMBERS_CHUNK',
+		'GUILD_SYNC', 'CHANNEL_PINS_UPDATE', 'CHANNEL_PINS_ACK',
+		'MESSAGE_REACTION_REMOVE_ALL', 'WEBHOOKS_UPDATE', 'RESUMED'] +
 			(eventAliases.values() as ArrayList).unique()
-	static List knownEvents = ["INITIAL_GUILD_CREATE", "UNRECOGINZED", "ALL"] + knownDiscordEvents
-
+	static List knownEvents = ['INITIAL_GUILD_CREATE', 'UNRECOGINZED', 'ALL'] + knownDiscordEvents
+	static Map defaultEventDataCalls = [
+		CHANNEL_CREATE: { client, data ->
+			Map c = data
+			c = Channel.construct(client, c)
+			Channel ass = new Channel(client, c)
+			server { ass.server }
+			channel { ass }
+			constructed { c }
+		},
+		CHANNEL_RECIPIENT_ADD: { client, data ->
+			channel { client.privateChannel(data.channel_id) }
+			recipient { new User(client, data.user) }
+			alias 'recipient', 'user'
+		},
+		GUILD_BAN_ADD: { client, data ->
+			server { client.server(data.guild_id) }
+			user { new User(client, data.user) }
+		},
+		GUILD_CREATE: { client, data ->
+			Map s = data
+			s = Server.construct(client, s)
+			server { new Server(client, s) }
+			constructed { s }
+		},
+		GUILD_DELETE: { client, data ->
+			server client.server(data.id)
+		},
+		GUILD_INTEGRATIONS_UPDATE: { client, data ->
+			server { client.server(data.guild_id) }
+		},
+		GUILD_EMOJIS_UPDATE: { client, data ->
+			server { client.server(data.guild_id) }
+			emojis {
+				new DiscordListCache(data.emojis
+					.collect { it + [guild_id: data.guild_id] }
+					, client, Emoji)
+			}
+		},
+		GUILD_MEMBER_ADD: { client, data ->
+			server { client.server(data.guild_id) }
+			member { new Member(client, data) }
+		},
+		GUILD_MEMBER_REMOVE: { client, data ->
+			server { client.server(data.guild_id) }
+			user(client.server(data.guild_id)?.member(data.user) ?:
+					new User(client, data.user))
+			alias 'user', 'member'
+		},
+		GUILD_ROLE_CREATE: { client, data ->
+			server { client.server(data.guild_id) }
+			role { new Role(client, data.role << [guild_id: data.guild_id]) }
+		},
+		GUILD_ROLE_DELETE: { client, data ->
+			server { client.server(data.guild_id) }
+			role client.serverMap[data.guild_id].roleMap[data.role_id]
+		},
+		GUILD_UPDATE: { client, data ->
+			Map s = data
+			Map oldObject = client.server(s).object.clone()
+			s = oldObject << s.clone().with {
+				remove 'roles'
+				remove 'members'
+				remove 'presences'
+				remove 'emojis'
+				remove 'voice_states'
+				it
+			}
+			server { new Server(client, s) }
+			constructed { s }
+		},
+		MESSAGE_CREATE: { client, data ->
+			def msg = new Message(client, data)
+			message { msg }
+			delegate.content { msg.content }
+			sendMessage { msg.channel.&sendMessage }
+			sendFile { msg.channel.&sendFile }
+			respond { msg.channel.&sendMessage }
+			author { msg.author }
+			member { msg.author(true) }
+			channel { msg.channel }
+			server { msg.server }
+			serverId { msg.serverId }
+		},
+		MESSAGE_DELETE: { client, data ->
+			bulk { data.bulk as boolean }
+			channel { client.channelMap[data.channel_id] }
+			message(client.cache.messages[data.channel_id] ?
+				client.channel(data.channel_id).cachedLogMap[data.id]
+				?: data.id : data.id)
+		},
+		MESSAGE_UPDATE: { client, data ->
+			if (data.containsKey("content")){
+				message { new Message(client, data) }
+			}else{
+				channel { client.channel(data.channel_id) }
+				message { client.cache.messages[data.channel_id] ? client.channel(data.channel_id).cachedLogMap[data.id] ?: data.id : data.id }
+				embeds { data.embeds }
+			}
+		},
+		MESSAGE_REACTION_ADD: { client, data ->
+			channel { client.channel(data.channel_id) }
+			user { client.user(data.user_id) }
+			message { client.cache.messages[data.channel_id]?.containsKey(data.message_id) ?
+				client.cache.messages[data.channel_id][data.message_id] :
+				data.message_id }
+			emoji { data.emoji }
+		},
+		MESSAGE_REACTION_REMOVE_ALL: { client, data ->
+			channel { client.channel(data.channel_id) }
+			message { client.cache.messages[data.channel_id].containsKey(data.message_id) ?
+				client.cache.messages[data.channel_id][data.message_id] :
+				data.message_id }
+		},
+		PRESENCE_UPDATE: { client, data ->
+			server { client.server(data.guild_id) }
+			game { data.game ? new Game(client, data.game) : null }
+			status { data.status }
+			lastModified { data.last_modified }
+			if (data.guild_id)
+				member { client.server(data.guild_id).member(data.user) }
+			else
+				user { client.user(data.user.id) ?: new User(client, data.user) }
+			isNew { data.user != client.user(data.user.id) }
+		},
+		TYPING_START: { client, data ->
+			channel { client.channel(data.channel_id) }
+			user { def c = client.channel(data.channel_id)
+				c.private ? c.user : c.server.member(data.user_id) }
+		},
+		VOICE_STATE_UPDATE: { client, data ->
+			Map v = data
+			v << [id: data.user_id]
+			VoiceState ase = new VoiceState(client, v)
+			voiceState { ase }
+			server { ase.server }
+			channel { ase.channel }
+			member { ase.member }
+			constructed { v }
+		},
+		VOICE_SERVER_UPDATE: { client, data ->
+			token { data.token }
+			server { client.server(data.guild_id) }
+			endpoint { data.endpoint }
+		},
+		USER_UPDATE: { client, data ->
+			user { new User(client, data) }
+		}
+	]
+	
+	static {
+		defaultEventDataCalls.CHANNEL_DELETE = defaultEventDataCalls.CHANNEL_UPDATE = defaultEventDataCalls.CHANNEL_CREATE
+		defaultEventDataCalls.CHANNEL_RECIPIENT_REMOVE = defaultEventDataCalls.CHANNEL_RECIPIENT_ADD
+		defaultEventDataCalls.GUILD_BAN_REMOVE = defaultEventDataCalls.GUILD_BAN_ADD
+		defaultEventDataCalls.GUILD_MEMBER_UPDATE = defaultEventDataCalls.GUILD_MEMBER_ADD
+		defaultEventDataCalls.GUILD_ROLE_UPDATE = defaultEventDataCalls.GUILD_ROLE_CREATE
+		defaultEventDataCalls.MESSAGE_REACTION_REMOVE = defaultEventDataCalls.MESSAGE_REACTION_ADD
+	}
+	
 	String customUserAgent = ""
 	String getFullUserAgent(){ "$DiscordG.USER_AGENT $customUserAgent" }
 
@@ -89,6 +248,7 @@ class Client extends User {
 	String password
 	boolean confirmedBot
 
+	Map eventDataCalls = defaultEventDataCalls
 	// if the key is a string, it calls .replace
 	// if the key is a pattern, it calls .replaceAll
 	Map messageFilters = [
@@ -687,6 +847,7 @@ class Client extends User {
 
 	void addGuildMemberRemoveListener(){
 		addListener("MEMBER_REMOVED"){ Map d ->
+			if (!cache.guilds[d.json.guild_id]) return
 			cache["guilds"][d.json.guild_id]["members"].remove(d.json.user.id)
 			cache["guilds"][d.json.guild_id]["member_count"]--
 		}
@@ -1510,33 +1671,62 @@ class Client extends User {
 	}
 
 	List<Message> requestChannelLogs(c, int max = 100, boundary = null,
-		boolean after = false){
+		boundaryType = 'before'){
 		def cached = cache.messages[id(c)]
 		if (!boundary && cached?.size() > max) return cached.values().sort {
 			it.id }[-1..-max].collect { new Message(this, it) }
-		def l = rawRequestChannelLogs(c, max, boundary, after)
+		def l = rawRequestChannelLogs(c, max, boundary, boundaryType)
+		if (boundaryType in ['around', 'after']) l = l.reverse()
 		if (cached) l.each(cache.messages[id(c)].&add)
 		else cache.messages[id(c)] = new DiscordListCache(l, this, Message)
 		l.collect { new Message(this, it) }
 	}
 
 	List<Message> forceRequestChannelLogs(c, int m = 100, b = null,
-		boolean a = false){ rawRequestChannelLogs(c, m, b, a).collect { new Message(this, it) } }
+		bt = 'before'){ rawRequestChannelLogs(c, m, b, bt).collect { new Message(this, it) } }
 
-	List rawRequestChannelLogs(c, int max, boundary = null, boolean after = false){
+	// after and around sorted old-new
+	// before sorted new-old
+	List rawRequestChannelLogs(c, int max, boundary = null, boundaryType = 'before'){
 		Map params = [limit: max > 100 ? 100 : max]
 		if (boundary){
-			if (after) params.after = id(boundary)
-			else params.before = id(boundary)
+			if (boundaryType && !(boundaryType in ['before', 'after', 'around']))
+				throw new IllegalArgumentException('Boundary type has to be before, after or around')
+			params[boundaryType ?: 'before'] = id(boundary)
 		}
 		List messages = rawRequestChannelLogs(params, c)
 		if (max > 100){
-			for (int m = 1; m < Math.floor(max / 100); m++){
-				messages += rawRequestChannelLogs(c,
-					before: messages.last().id, limit: 100)
+			if (boundaryType == 'after'){
+				for (int m = 1; m < Math.floor(max / 100); m++) {
+					messages += rawRequestChannelLogs(c,
+							after: messages.last().id, limit: 100)
+				}
+				if (max % 100) messages += rawRequestChannelLogs(c,
+						after: messages.last().id, limit: max % 100)
+			}else if (boundaryType == 'around'){
+				def age = max - 100
+				def af = age.intdiv(2)
+				def bef = age.intdiv(2) + (age % 2)
+				for (int m = 1; m < Math.floor(bef / 100); m++) {
+					messages = rawRequestChannelLogs(c, before: messages.first().id,
+							limit: 100).reverse() + messages
+				}
+				if (bef % 100) messages = rawRequestChannelLogs(c, before: messages.first().id,
+						limit: bef % 100).reverse() + messages
+				for (int m = 1; m < Math.floor(af / 100); m++) {
+					messages += rawRequestChannelLogs(c, after: messages.last().id,
+							limit: 100)
+				}
+				if (af % 100) messages += rawRequestChannelLogs(c, before: messages.last().id,
+						limit: af % 100)
+			}else{
+				for (int m = 1; m < Math.floor(max / 100); m++) {
+					messages += rawRequestChannelLogs(c,
+							before: messages.last().id, limit: 100)
+				}
+				if (max % 100) messages += rawRequestChannelLogs(c,
+						before: messages.last().id, limit: max % 100)
 			}
-			messages += rawRequestChannelLogs(c,
-				before: messages.last().id, limit: max % 100 ?: 100)
 		}
 		messages
 	}

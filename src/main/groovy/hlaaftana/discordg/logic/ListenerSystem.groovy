@@ -38,7 +38,7 @@ abstract class ListenerSystem {
 	}
 
 	def removeListener(event, Closure closure) {
-		listeners[parseEvent(event)].remove(closure)
+		listeners[parseEvent(event)]?.remove(closure)
 	}
 
 	def removeListenersFor(event){

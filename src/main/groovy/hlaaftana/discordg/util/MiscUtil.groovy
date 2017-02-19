@@ -90,14 +90,14 @@ class MiscUtil {
 	}
 
 	static dump(list, newItem, Closure doto = Closure.IDENTITY){
-		List mock = list
+		def mock = list
 		mock += newItem
 		mock = mock.collect { doto(it) }
 		mock
 	}
 
 	static undump(list, newItem, Closure doto = Closure.IDENTITY){
-		List mock = list
+		def mock = list
 		mock -= newItem
 		mock = mock.collect { doto(it) }
 		mock
@@ -207,8 +207,8 @@ class MiscUtil {
 
 abstract class CasingType {
 	static final CasingType CAMEL = [
-		toWords: { MiscUtil.splitWhen(it.toString().toCharArray()){ Character.isUpperCase((char) it) }
-			*.join().collect(MiscUtil.&uncapitalize) },
+		toWords: { MiscUtil.splitWhen(it.toString().toCharArray()){ Character.isUpperCase((char)
+			it) }*.join().collect(MiscUtil.&uncapitalize) },
 		fromWords: { it[0] + it.drop(1)*.capitalize().join() }
 	] as CasingType
 	static final CasingType SNAKE = [

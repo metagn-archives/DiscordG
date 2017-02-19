@@ -32,6 +32,7 @@ class CommandBot implements Triggerable {
 	boolean loggedIn = false
 	public Closure commandListener
 	public Closure commandRunnerListener
+	public Closure exceptionListener
 	ListenerSystem listenerSystem = new BasicListenerSystem()
 
 	CommandBot(Map config = [:]){
@@ -96,13 +97,15 @@ class CommandBot implements Triggerable {
 	 * @param password - the password to log in with.
 	 */
 	def initialize(){
+		exceptionListener = listenerSystem.addListener(Events.EXCEPTION){ d ->
+			d.exception.printStackTrace()
+			log.error "Command threw exception"
+		}
 		commandRunnerListener = listenerSystem.addListener(Events.COMMAND){ d ->
 			try{
 				d["command"](d)
 			}catch (ex){
 				listenerSystem.dispatchEvent(Events.EXCEPTION, d.clone() + [exception: ex])
-				ex.printStackTrace()
-				log.error "Command threw exception"
 			}
 		}
 		commandListener = client.listen("message"){ d ->
@@ -110,7 +113,7 @@ class CommandBot implements Triggerable {
 				if (!acceptOwnCommands && json.author.id == this.client.id) return
 			}catch (ex){}
 			boolean anyPassed = false
-			for (Command c in commands){
+			for (Command c in commands.clone()){
 				if (c.match(message)){
 					anyPassed = true
 					def clone = d.clone()
@@ -182,76 +185,83 @@ class CommandType {
 trait Restricted {
 	boolean black = false
 	boolean white = false
-	Set blacklist = []
-	Set whitelist = []
+	Map blacklist = [(Type.SERVER): [] as Set, (Type.CHANNEL): [] as Set,
+		(Type.AUTHOR): [] as Set, (Type.ROLE): [] as Set]
+	Map whitelist = [(Type.SERVER): [] as Set, (Type.CHANNEL): [] as Set,
+		(Type.AUTHOR): [] as Set, (Type.ROLE): [] as Set]
 
 	def whitelist(){ white = true; this }
 	def blacklist(){ black = true; this }
 	def greylist(){ black = white = true; this }
 
-	def whitelist(thing){ whitelist(); allow(thing); this }
-	def blacklist(thing){ blacklist(); disallow(thing); this }
+	def whitelist(Type type, thing){ whitelist(); allow(type, thing); this }
+	def blacklist(Type type, thing){ blacklist(); disallow(type, thing); this }
 
-	def allow(...thing){ allow(thing as Set) }
+	def allow(Type type, ...thing){ allow(type, thing as Set) }
 
-	def allow(thing){
+	def allow(Type type, thing){
 		if (thing instanceof Collection || thing.class.array)
-			thing.each { allow(it) }
+			thing.each { allow(type, it) }
 		if (white){
 			if (thing instanceof Closure) whitelist += thing
-			else whitelist += DiscordObject.resolveId(thing)
+			else whitelist[type] += DiscordObject.resolveId(thing)
 		}
 		if (black){
 			if (thing instanceof Closure) blacklist -= thing
-			else blacklist -= DiscordObject.resolveId(thing)
+			else blacklist[type] -= DiscordObject.resolveId(thing)
 		}
 		this
 	}
 
-	def disallow(...thing){ disallow(thing as Set) }
+	def disallow(Type type, ...thing){ disallow(type, thing as Set) }
 
-	def disallow(thing){
+	def disallow(Type type, thing){
 		if (thing instanceof Collection || thing.class.array)
-			thing.each { disallow(it) }
+			thing.each { disallow(type, it) }
 		if (white){
 			if (thing instanceof Closure) whitelist -= thing
-			else whitelist -= DiscordObject.resolveId(thing)
+			else whitelist[type] -= DiscordObject.resolveId(thing)
 		}
 		if (black){
 			if (thing instanceof Closure) blacklist += thing
-			else blacklist += DiscordObject.resolveId(thing)
+			else blacklist[type] += DiscordObject.resolveId(thing)
 		}
 		this
 	}
 
-	def deny(...thing){ disallow(thing as Set) }
+	def deny(Type type, ...thing){ disallow(type, thing as Set) }
 
-	def deny(thing){
-		disallow(thing)
+	def deny(Type type, thing){
+		disallow(type, thing)
 	}
 
 	boolean allows(Message msg){
-		(black ? !associatedIds(msg).any { inList(blacklist, it) } : true) && (white ? associatedIds(msg).any { inList(whitelist, it) } : true)
+		(white ? Type.values().any { !Collections.disjoint(it.id(msg), whitelist[it]) } : true) &&
+			!(black ? Type.values().any { !Collections.disjoint(it.id(msg), blacklist[it]) } : false)
 	}
-
-	static List associatedIds(Message msg){
-		// i have no idea why i'm including the message id
-		List a = [msg?.id, msg?.channel?.id, msg?.author?.id, msg?.server?.id]
-		def b = msg?.author(true)
-		if (b instanceof Member) a += b?.roles?.id
-		(a - null).unique()
-	}
-
-	static boolean inList(list, thing){
-		DiscordObject.resolveId(thing) in list.collect { it instanceof Closure ? DiscordObject.resolveId(it(thing)) : it }
+	
+	static enum Type {
+		SERVER({ [it.serverId] }),
+		CHANNEL({ [it.channelId] }),
+		AUTHOR({ [it.object.author.id] }),
+		ROLE({ it.member.object.roles })
+		
+		Closure id
+		Type(Closure i){ id = i }
 	}
 }
 
 trait Triggerable {
-	List triggers = []
+	private Set triggers = [] as Set
 
+	def addTrigger(Triggerable trigger){
+		addTrigger(trigger.triggers)
+	}
+	
 	def addTrigger(trigger){
-		triggers = dump(triggers, trigger instanceof Triggerable ? trigger.triggers : trigger){ new Trigger(it) }
+		triggers.addAll(trigger instanceof Collection ?
+			trigger.collect { new Trigger(it) } : new Trigger(it))
+		triggers = triggers.unique()
 	}
 
 	Trigger getTrigger(){
@@ -259,17 +269,22 @@ trait Triggerable {
 	}
 
 	def addTriggers(trigger){ addTrigger(trigger) }
-
-	def convertTriggers(List old){
-		old.collect { new Trigger(it) }
-	}
+	
+	def getTriggers(){ triggers.clone() }
+	def clearTriggers(){ triggers.clear() }
 }
 
 trait Aliasable {
-	List aliases = []
+	private Set aliases = [] as Set
 
+	def addAlias(Aliasable alias){
+		addAlias(alias.aliases)
+	}
+	
 	def addAlias(alias){
-		aliases = dump(aliases, alias instanceof Aliasable ? alias.aliases : alias){ new Alias(it) }
+		aliases.addAll(alias instanceof Collection ? 
+			alias.collect { new Alias(it) } : new Alias(alias))
+		aliases = aliases.unique()
 	}
 
 	def addAliases(alias){ addAlias(alias) }
@@ -277,10 +292,9 @@ trait Aliasable {
 	Alias getAlias(){
 		aliases[0]
 	}
-
-	def convertAliases(List old){
-		old.collect { new Alias(it) }
-	}
+	
+	def getAliases(){ aliases.clone() }
+	def clearAliases(){ aliases.clear() }
 }
 
 @InheritConstructors
