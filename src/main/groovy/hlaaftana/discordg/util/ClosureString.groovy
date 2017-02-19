@@ -6,8 +6,8 @@ class ClosureString implements CharSequence {
 	Closure closure
 	boolean regex
 
-	ClosureString(Closure closure){
-		closure = closure
+	ClosureString(Closure c){
+		closure = c
 	}
 
 	ClosureString(Pattern pattern){
@@ -32,7 +32,7 @@ class ClosureString implements CharSequence {
 	}
 
 	boolean equals(other){
-		is other || closure.is(other.closure) || toString() == other.toString()
+		is(other) || closure.is(other.closure) || toString() == other.toString()
 	}
 
 	String toString(){

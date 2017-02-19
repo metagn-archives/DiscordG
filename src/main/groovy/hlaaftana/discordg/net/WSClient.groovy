@@ -148,225 +148,15 @@ class WSClient extends WebSocketAdapter {
 					return
 				while (!canDispatch(type));
 				EventData eventData = new EventData(type, [:])
-				Closure edm = EventData.&create.curry(type)
-				Closure a = {
+				whatis(type){
 					when("RESUMED"){
 						client.log.info "Successfully resumed."
-						eventData << data
 						client.cache << data
 					}
 					when("HEARTBEAT_ACK"){
 						unackedHeartbeats--
 					}
-					when(["CHANNEL_CREATE", "CHANNEL_DELETE", "CHANNEL_UPDATE"]){
-						Map c = data
-						c = Channel.construct(client, c)
-						Channel ass = new Channel(client, c)
-						eventData = edm {
-							server { ass.server }
-							channel { ass }
-							constructed { c }
-						}
-					}
-					when(["CHANNEL_RECIPIENT_ADD", "CHANNEL_RECIPIENT_REMOVE"]){
-						eventData = edm {
-							channel { client.privateChannel(data["channel_id"]) }
-							recipient { new User(client, data["user"]) }
-							alias "recipient", "user"
-						}
-					}
-					when(["GUILD_BAN_ADD", "GUILD_BAN_REMOVE"]){
-						eventData = edm {
-							server { client.server(data["guild_id"]) }
-							user { new User(client, data["user"]) }
-						}
-					}
-					when("GUILD_CREATE"){
-						Map s = data
-						s = Server.construct(client, s)
-						eventData = edm {
-							server { new Server(client, s) }
-							constructed { s }
-						}
-					}
-					when("GUILD_DELETE"){
-						eventData = edm {
-							server client.server(data["id"])
-						}
-					}
-					when("GUILD_INTEGRATIONS_UPDATE"){
-						eventData = edm {
-							server { client.server(data["guild_id"]) }
-						}
-					}
-					when("GUILD_EMOJIS_UPDATE"){
-						eventData = edm {
-							server { client.server(data["guild_id"]) }
-							emojis {
-								new DiscordListCache(data["emojis"]
-									.collect { it + ["guild_id": data["guild_id"]] }
-									, client, Emoji)
-							}
-						}
-					}
-					when(["GUILD_MEMBER_ADD", "GUILD_MEMBER_UPDATE"]){
-						eventData = edm {
-							server { client.server(data["guild_id"]) }
-							member { new Member(client, data) }
-						}
-					}
-					when("GUILD_MEMBER_REMOVE"){
-						eventData = edm {
-							server { client.server(data["guild_id"]) }
-							user(client.server(data["guild_id"])?.member(data["user"]) ?:
-									new User(client, data["user"]))
-							alias "user", "member"
-						}
-					}
-					when(["GUILD_ROLE_CREATE", "GUILD_ROLE_UPDATE"]){
-						eventData = edm {
-							server { client.server(data["guild_id"]) }
-							role { new Role(client, data["role"] << [guild_id: data["guild_id"]]) }
-						}
-					}
-					when("GUILD_ROLE_DELETE"){
-						eventData = edm {
-							server { client.server(data["guild_id"]) }
-							role client.serverMap[data["guild_id"]].roleMap[data["role_id"]]
-						}
-					}
-					when("GUILD_UPDATE"){
-						Map s = data
-						Map oldObject = client.server(s).object.clone()
-						s = oldObject << s.clone().with {
-							remove "roles"
-							remove "members"
-							remove "presences"
-							remove "emojis"
-							remove "voice_states"
-							it
-						}
-						eventData = edm {
-							server { new Server(client, s) }
-							constructed { s }
-						}
-					}
-					when("MESSAGE_CREATE"){
-						eventData = edm {
-							def msg = new Message(client, data)
-							message { msg }
-							delegate.content { msg.content }
-							sendMessage { msg.channel.&sendMessage }
-							sendFile { msg.channel.&sendFile }
-							respond { msg.channel.&sendMessage }
-							author { msg.author }
-							member { msg.author(true) }
-							channel { msg.channel }
-							server { msg.server }
-							serverId { msg.serverId }
-						}
-					}
-					when("MESSAGE_DELETE"){
-						eventData = edm {
-							bulk { data["bulk"] as boolean }
-							channel { client.channelMap[data["channel_id"]] }
-							message(client.cache.messages[data["channel_id"]] ?
-								client.channel(data["channel_id"]).cachedLogMap[data["id"]]
-								?: data["id"] : data["id"])
-						}
-					}
-					when("MESSAGE_UPDATE"){
-						if (data.containsKey("content")){
-							eventData = edm {
-								message { new Message(client, data) }
-							}
-						}else{
-							eventData = edm {
-								channel { client.channel(data["channel_id"]) }
-								message { client.cache.messages[data["channel_id"]] ? client.channel(data["channel_id"]).cachedLogMap[data["id"]] ?: data["id"] : data["id"] }
-								embeds { data["embeds"] }
-							}
-						}
-					}
-					when(["MESSAGE_REACTION_ADD", "MESSAGE_REACTION_REMOVE"]){
-						eventData = edm {
-							channel { client.channel(data["channel_id"]) }
-							user { client.user(data["user_id"]) }
-							message { client.cache.messages[data.channel_id]
-								?.containsKey(data.message_id) ?
-								client.cache.messages[data.channel_id][data.message_id] :
-								data.message_id }
-							emoji { data.emoji }
-						}
-					}
-					when("MESSAGE_REACTION_REMOVE_ALL"){
-						eventData = edm {
-							channel { client.channel(data["channel_id"]) }
-							message { client.cache.messages[data.channel_id]
-								?.containsKey(data.message_id) ?
-								client.cache.messages[data.channel_id][data.message_id] :
-								data.message_id }
-						}
-					}
-					when("PRESENCE_UPDATE"){
-						if (data.guild_id){
-							eventData = edm {
-								server { client.server(data.guild_id) }
-								member { client.server(data.guild_id).member(data.user) }
-								game { data.game ? new Game(client, data.game) : null }
-								status { data.status }
-								if (data.user.avatar){
-									newUser { new User(client, data.user) }
-								}
-							}
-						}else{
-							eventData = edm {
-								user { new User(client, data.user) }
-								game { data.game ? new Game(client, data.game) : null }
-								status { data.status }
-								lastModified { data.last_modified }
-								isNew {
-									def old = client.user(data.user.id)
-									!data.user.every { k, v ->
-										old[k] == data.user[k]
-									}
-								}
-							}
-						}
-					}
-					when("TYPING_START"){
-						eventData = edm {
-							channel { client.channel(data["channel_id"]) }
-							user { def c = client.channel(data["channel_id"])
-								c.private ? c.user : c.server.member(data["user_id"]) }
-						}
-					}
-					when("VOICE_STATE_UPDATE"){
-						Map v = data
-						v << [id: data["user_id"]]
-						VoiceState ase = new VoiceState(client, v)
-						eventData = edm {
-							voiceState { ase }
-							server { ase.server }
-							channel { ase.channel }
-							member { ase.member }
-							constructed { v }
-						}
-					}
-					when("VOICE_SERVER_UPDATE"){
-						eventData = edm {
-							token { data.token }
-							server { client.server(data.guild_id) }
-							endpoint { data.endpoint }
-						}
-					}
-					when("USER_UPDATE"){
-						eventData = edm {
-							user { new User(client, data) }
-						}
-					}
 					when("MESSAGE_DELETE_BULK"){
-						eventData << data
 						if (client.spreadBulkDelete){
 							data.ids.each {
 								onWebSocketText(JSONUtil.json([
@@ -382,13 +172,13 @@ class WSClient extends WebSocketAdapter {
 							}
 						}
 					}
-					otherwise {
-						eventData << data
-					}
-					returnedValue = 1
 				}
 				try{
-					if (whatis(type, a) != 1 || !eventData) return
+					if (client.eventDataCalls.containsKey(type))
+						eventData = EventData.create(type,
+							client.eventDataCalls[type].curry(client, data))
+					else
+						eventData << data
 				}catch (ex){
 					ex.printStackTrace()
 					client.log.info "Ignoring exception from $type object registering", client.log.name + "WS"

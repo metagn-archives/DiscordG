@@ -9,22 +9,14 @@ import hlaaftana.discordg.DiscordG
  * @author Hlaaftana
  */
 class JSONUtil {
-	/**
-	 * Parses JSON from a string.
-	 * @param string - The string.
-	 * @return a Map or a List containing the object.
-	 */
+	static slurper = new JsonSlurperClassic()
+
 	static parse(String string){
-		new JsonSlurper().parseText(string)
+		slurper.parseText(string)
 	}
 
 	static parse(File file, charset = "UTF-8"){ parse(file.getText(charset)) }
 
-	/**
-	 * Converts an object to JSON. Can be a Map, List, or anything JsonOutput.toJson can convert.
-	 * @param thing - The thing to convert.
-	 * @return a JSON string.
-	 */
 	static String json(thing){
 		JsonOutput.toJson(thing instanceof JSONable ? thing.json() : thing)
 	}
@@ -121,7 +113,7 @@ class JSONPath {
 		}
 
 		Expression removeLastChar(){
-			raw = raw[0..(raw.size() - 1)]
+			raw = raw[0..-1]
 			this
 		}
 
@@ -130,7 +122,7 @@ class JSONPath {
 		}
 
 		Closure getAction(){
-			{ thing -> raw == "" ? thing.flatten() : raw == "*" ? thing.collect() : thing[raw.asType(type.accessor)] }
+			{ thing -> raw == "" ? thing : raw == "*" ? thing.collect() : thing[raw.asType(type.accessor)] }
 		}
 
 		def act(thing){

@@ -56,13 +56,22 @@ class DiscordObject implements Comparable, JSONable {
 		((ms - 1420070400000L) << 22) + (raised ? 1 << 22 : 0)
 	}
 
-	static isId(x){
+	static String mentionToId(String mention){
+		mention.substring(Character.isDigit(mention[2] as char) ? 2 : 3, mention.length() - 1)
+	}
+	
+	static boolean isId(x){
 		try{
-			def a = x.toString().toLong()
-			a > 21154535154122752
+			x.toString().toCharArray().every(Character.&isDigit)
 		}catch (ex){
 			false
 		}
+	}
+	
+	static boolean isMention(x){
+		def y = x.toString()
+		y[0] == '<' && y[1] in ['@', '#'] && (Character.isDigit(y[2] as char) ||
+			y[2] in ['&', '!', ]) && y[y.length() - 1] == '>'
 	}
 	
 	static forId(String id){
@@ -156,10 +165,16 @@ class DiscordObject implements Comparable, JSONable {
 	}
 
 	static String resolveId(thing){
-		try {
-			thing?.id
-		}catch (ex){
-			thing.toString()
+		if (null == thing) null
+		else if (thing instanceof String){
+			if (isMention(thing)) mentionToId(thing)
+			else thing
+		}else{
+			try{
+				thing.id
+			}catch (ex){
+				thing.toString()
+			}
 		}
 	}
 

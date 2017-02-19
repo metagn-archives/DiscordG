@@ -91,6 +91,10 @@ class Message extends DiscordObject {
 	List<Channel> getChannelMentions(){
 		channelIdMentions.collect(server.&channel) - null
 	}
+	
+	Permissions getAuthorPermissions(){
+		channel.permissionsFor(author)
+	}
 
 	boolean isMentioned(thing = client.user){
 		id(thing) in mentions.collect(this.&id) ||
@@ -148,7 +152,7 @@ class Attachment extends DiscordObject {
 	int getHeight(){ object["height"] }
 	String getProxyUrl(){ object["proxy_url"] }
 	String getUrl(){ object["url"] }
-	InputStream getInputStream(){ inputStreamFromDiscord(url) }
+	InputStream newInputStream(){ inputStreamFromDiscord(url) }
 	File download(file){ downloadFileFromDiscord(url, file) }
 }
 
@@ -161,7 +165,7 @@ class Embed extends DiscordObject {
 	String getType(){ object["type"] }
 	String getDescription(){ object["description"] }
 	String getUrl(){ object["url"] }
-	InputStream getInputStream(){ inputStreamFromDiscord(url) }
+	InputStream newInputStream(){ inputStreamFromDiscord(url) }
 	File download(file){ downloadFileFromDiscord(url, file) }
 	int getColor(){ object["color"] }
 	String getTimestamp(){ object["timestamp"] }
@@ -181,7 +185,7 @@ class Embed extends DiscordObject {
 		String getUrl(){ object["url"] }
 		int getWidth(){ object["width"] }
 		int getHeight(){ object["height"] }
-		InputStream getInputStream(){ inputStreamFromDiscord(url) }
+		InputStream newInputStream(){ inputStreamFromDiscord(url) }
 		File download(file){ downloadFileFromDiscord(url, file) }
 	}
 
@@ -189,7 +193,7 @@ class Embed extends DiscordObject {
 	static class Provider extends DiscordObject {
 		String getName(){ url }
 		String getUrl(){ object["url"] }
-		InputStream getInputStream(){ inputStreamFromDiscord(url) }
+		InputStream newInputStream(){ inputStreamFromDiscord(url) }
 		File download(file){ downloadFileFromDiscord(url, file) }
 	}
 
@@ -199,7 +203,7 @@ class Embed extends DiscordObject {
 		String getUrl(){ object["url"] }
 		int getWidth(){ object["width"] }
 		int getHeight(){ object["height"] }
-		InputStream getInputStream(){ inputStreamFromDiscord(url) }
+		InputStream newInputStream(){ inputStreamFromDiscord(url) }
 		File download(file){ downloadFileFromDiscord(url, file) }
 	}
 
@@ -236,7 +240,7 @@ class Reaction extends DiscordObject {
 	String getName(){ object.emoji.name }
 	int getCount(){ object.count }
 	String getUrl(){ "https://cdn.discordapp.com/emojis/${id}.png" }
-	InputStream getInputStream(){ inputStreamFromDiscord(url) }
+	InputStream newInputStream(){ inputStreamFromDiscord(url) }
 	File download(file){ downloadFileFromDiscord(url, file) }
 	boolean isCustom(){ name ==~ /\w+/ }
 	boolean isByMe(){ object.me }
