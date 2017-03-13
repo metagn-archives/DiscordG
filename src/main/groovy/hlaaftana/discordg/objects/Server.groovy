@@ -29,7 +29,7 @@ class Server extends DiscordObject {
 		iconHash ? "https://cdn.discordapp.com/icons/$id/${iconHash}.jpg" : ""
 	}
 	boolean hasIcon(){ object["icon"] }
-	InputStream getIconInputStream(){ inputStreamFromDiscord(icon) }
+	InputStream newIconInputStream(){ inputStreamFromDiscord(icon) }
 	File downloadIcon(file){ downloadFileFromDiscord(icon, file) }
 
 	String getOwnerId(){ object["owner_id"] }

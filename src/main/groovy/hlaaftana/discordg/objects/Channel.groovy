@@ -40,8 +40,8 @@ class Channel extends DiscordObject {
 	List<User> getUsers(){
 		inServer ? members : (recipients + client.user)
 	}
-	List<User> getRecipients(){ object.recipients.list }
-	Map<String, User> getRecipientMap(){ object.recipients.map }
+	List<User> getRecipients(){ object.recipients?.list }
+	Map<String, User> getRecipientMap(){ object.recipients?.map }
 	User getUser(){ recipients[0] }
 	User getRecipient(){ user }
 	String getName(){
@@ -70,7 +70,7 @@ class Channel extends DiscordObject {
 	Map<String, PermissionOverwrite> getOverwriteMap(){ permissionOverwriteMap }
 
 	PermissionOverwrite permissionOverwrite(ass){
-		find(object.permission_overwrites, client, ass)
+		find(object.permission_overwrites, ass)
 	}
 
 	PermissionOverwrite overwrite(ass){
@@ -299,7 +299,7 @@ class Channel extends DiscordObject {
 		if (c["guild_id"]){
 			def po = c["permission_overwrites"]
 			if (po instanceof List) c["permission_overwrites"] = new DiscordListCache(po.collect { it << [channel_id: c["id"]] }, client, PermissionOverwrite)
-		}else{
+		}else if (c.recipients != null){
 			c["recipients"] = new DiscordListCache(c["recipients"], client, User)
 		}
 		c

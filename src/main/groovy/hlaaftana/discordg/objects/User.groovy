@@ -35,7 +35,7 @@ class User extends DiscordObject{
 	int getDefaultAvatarType(){ Integer.parseInt(discriminator) % 5 }
 	String getAvatar(){ hasAvatar() ?
 		"https://cdn.discordapp.com/avatars/${id}/${avatarHash}.jpg" : "" }
-	InputStream getAvatarInputStream(){ inputStreamFromDiscord(avatar) }
+	InputStream newAvatarInputStream(){ inputStreamFromDiscord(avatar) }
 	File downloadAvatar(file){ downloadFileFromDiscord(avatar, file) }
 	String getDiscriminator(){ object["discriminator"] }
 	String getDiscrim(){ object["discriminator"] }
@@ -120,7 +120,7 @@ class Application extends DiscordObject {
 			: ""
 	}
 	boolean hasIcon(){ object["icon"] }
-	InputStream getIconInputStream(){ inputStreamFromDiscord(icon) }
+	InputStream newIconInputStream(){ inputStreamFromDiscord(icon) }
 	File downloadIcon(file){ downloadFileFromDiscord(icon, file) }
 
 	Application edit(Map data){
@@ -135,13 +135,13 @@ class Application extends DiscordObject {
 		client.createApplicationBotAccount(this, oldAccountToken)
 	}
 
-	String getApplicationLink(app, perms = null){
-		Client.getApplicationLink(app, perms)
+	String getApplicationLink(perms = null){
+		Client.getApplicationLink(this, perms)
 	}
 
-	String getAppLink(app, perms = null){ getApplicationLink(app, perms) }
-	String applicationLink(app, perms = null){ getApplicationLink(app, perms) }
-	String appLink(app, perms = null){ getApplicationLink(app, perms) }
+	String getAppLink(perms = null){ getApplicationLink(perms) }
+	String applicationLink(perms = null){ getApplicationLink(perms) }
+	String appLink(perms = null){ getApplicationLink(perms) }
 }
 
 @InheritConstructors

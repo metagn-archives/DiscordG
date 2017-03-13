@@ -66,7 +66,7 @@ class Message extends DiscordObject {
 		if (ass && member) ass
 		else new User(client, object)
 	}
-	Member getMember(){ author(true) }
+	User getMember(){ author(true) }
 	boolean isByWebhook(){ webhookId }
 	String getWebhookId(){ object.webhook_id }
 	Webhook requestWebhook(){ client.requestWebhook(webhookId) }
@@ -104,7 +104,7 @@ class Message extends DiscordObject {
 
 	boolean isPinned(){ object["pinned"] }
 	def pin(){ client.pinMessage(channelId, id) }
-	def unpin(){ channel.unpinMessage(channelId, id) }
+	def unpin(){ client.unpinMessage(channelId, id) }
 
 	List<Reaction> getReactions(){ object.reactions.collect { new Reaction(client, it) } }
 
@@ -212,7 +212,7 @@ class Embed extends DiscordObject {
 		String getName(){ object["name"] }
 		String getIconUrl(){ object["icon_url"] }
 		String getProxyIconUrl(){ object["proxy_icon_url"] }
-		InputStream getIconInputStream(){ inputStreamFromDiscord(iconUrl) }
+		InputStream newIconInputStream(){ inputStreamFromDiscord(iconUrl) }
 		File downloadIcon(file){ downloadFileFromDiscord(iconUrl, file) }
 	}
 
@@ -222,7 +222,7 @@ class Embed extends DiscordObject {
 		String getText(){ object["text"] }
 		String getIconUrl(){ object["icon_url"] }
 		String getProxyIconUrl(){ object["proxy_icon_url"] }
-		InputStream getIconInputStream(){ inputStreamFromDiscord(iconUrl) }
+		InputStream newIconInputStream(){ inputStreamFromDiscord(iconUrl) }
 		File downloadIcon(file){ downloadFileFromDiscord(iconUrl, file) }
 	}
 
