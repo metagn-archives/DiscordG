@@ -104,6 +104,7 @@ class CommandBot implements Triggerable {
 		commandRunnerListener = listenerSystem.addListener(Events.COMMAND){ d ->
 			try{
 				d["command"](d)
+				++d["command"].uses
 			}catch (ex){
 				listenerSystem.dispatchEvent(Events.EXCEPTION, d.clone() + [exception: ex])
 			}
@@ -305,6 +306,7 @@ class Trigger extends ClosureString implements Restricted {}
 class Command implements Triggerable, Aliasable, Restricted {
 	static CommandType defaultCommandType = CommandType.PREFIX
 	CommandType type = defaultCommandType
+	int uses = 0
 
 	Command(Triggerable parentT, alias, trigger = []){
 		addAlias alias
@@ -376,10 +378,6 @@ class Command implements Triggerable, Aliasable, Restricted {
 
 	def call(Map d){ run(d); run(d.message) }
 	def call(Message msg){ run(msg) }
-
-	int hashCode(){
-		aliases.hashCode() ^ triggers.hashCode()
-	}
 }
 
 /**

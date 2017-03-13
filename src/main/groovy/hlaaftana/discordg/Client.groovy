@@ -887,8 +887,12 @@ class Client extends User {
 
 	void addChannelUpdateListener(){
 		addListener("CHANNEL_UPDATE"){ Map d ->
-			cache["guilds"][d.constructed.guild_id]["channels"][d.constructed.id] <<
-				d.constructed
+			if (d.constructed.guild_id) {
+				cache["guilds"][d.constructed.guild_id]["channels"][d.constructed.id] <<
+						d.constructed
+			}else{
+				cache["private_channels"][d.constructed.id] << d.constructed
+			}
 		}
 	}
 
@@ -1135,7 +1139,7 @@ class Client extends User {
 
 	void addCallDeleteListener(){
 		addListener("call delete"){ Map d ->
-			calls.remove(d.json.channel_id)
+			cache.calls.remove(d.json.channel_id)
 		}
 	}
 
