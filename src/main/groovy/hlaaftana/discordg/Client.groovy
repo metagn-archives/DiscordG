@@ -299,6 +299,7 @@ class Client extends User {
 	
 	Log log
 	Map<String, Object> fields = [:]
+	Map<String, Object> extraIdentifyData = [:]
 	List<String> mutedChannels = []
 	Map<String, ActionPool> pools = [
 		sendMessages: newPool(5, 5_000),

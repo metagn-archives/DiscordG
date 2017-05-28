@@ -330,10 +330,11 @@ class PermissionOverwrite extends DiscordObject {
 	void delete(){ client.deleteChannelOverwrite(channelId, id) }
 	String getName(){ affected.name }
 	boolean involves(DiscordObject involved){
-		if (involved instanceof User){
+		if (id == channel.serverId) true
+		else if (involved instanceof User){
 			if (affected instanceof Role) involved in affected.members
 			else involved == affected
-		}else if (involed instanceof Role){
+		}else if (involved instanceof Role){
 			involved == affected
 		}
 	}

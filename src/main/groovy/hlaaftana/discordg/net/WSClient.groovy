@@ -322,7 +322,7 @@ class WSClient extends WebSocketAdapter {
 					browser: "DiscordG",
 					device: "DiscordG"
 				]
-			]
+			] + client.extraIdentifyData
 		]
 		if (client.shardTuple) a.d.shard = client.shardTuple
 		this.send(a)
