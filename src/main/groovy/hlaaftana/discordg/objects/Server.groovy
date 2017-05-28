@@ -403,9 +403,12 @@ class Role extends DiscordObject{
 	String getMentionRegex(){ MENTION_REGEX(id) }
 
 	List<Member> getMembers(){
+		memberIds.collect { new Member(client, it) }
+	}
+
+	List<String> getMemberIds(){
 		client.cache.guilds[serverId].members.values()
 			.findAll { it.roles.contains(id) }
-			.collect { new Member(client, it) }
 	}
 
 	List<PermissionOverwrite> getPermissionOverwrites(){
