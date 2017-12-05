@@ -12,10 +12,10 @@ class Permissions {
 	static final Permissions VOICE_ALL_TRUE = new Permissions(0b0000011111100000000000000011001)
 	static final Permissions ROLE_ALL_TRUE = new Permissions(0b1111111111101111111110001111111)
 	static final Permissions PRIVATE_CHANNEL = new Permissions(0b0000000000000011101110000000000)
-	long value
+	int value
 
 	Permissions(Map<String, Boolean> defaults) { for (e in defaults) each { set(e.key, e.value) } }
-	Permissions(v = 0){ value = v as long }
+	Permissions(v = 0){ value = v as int }
 
 	Map<BitOffsets, Boolean> getOffsetMap(){
 		Map<BitOffsets, Boolean> r = new HashMap<>()
@@ -94,17 +94,17 @@ class Permissions {
 		switch (target){
 			case int:
 			case Integer:
-				return value as int
+				return value
 			case long:
 			case Long:
-				return value
+				return (long) value
 			default:
 				super.asType(target)
 		}
 	}
 
 	String toString(){ map.toString() }
-	int toInteger(){ value as int }
+	int toInteger() { value }
 
 	static enum BitOffsets {
 		CREATE_INSTANT_INVITE('createInstantInvite', 0),

@@ -4,7 +4,7 @@ import groovy.transform.CompileStatic
 
 @CompileStatic
 class BasicListenerSystem extends ListenerSystem {
-	def parseEvent(param){ param }
+	def parseEvent(param) { param }
 
 	def listenerError(event, Throwable ex, Closure closure, data){
 		throw new ListenerException(event, ex, closure, data)

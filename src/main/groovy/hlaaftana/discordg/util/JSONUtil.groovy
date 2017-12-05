@@ -14,7 +14,7 @@ import java.nio.charset.Charset
  */
 @CompileStatic
 class JSONUtil {
-	static JsonSlurper slurper = new JsonSlurper().setType(JsonParserType.INDEX_OVERLAY)
+	static JsonSlurper slurper = new JsonSlurper()
 
 	static parse(String string){
 		slurper.parseText(string)

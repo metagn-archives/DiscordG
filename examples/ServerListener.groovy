@@ -1,16 +1,15 @@
-import hlaaftana.discordg.objects.*
 import hlaaftana.discordg.*
 
-Client client = DiscordG.withToken("token")
+Client client = DiscordG.withToken args[0]
 
-client.listener(Events.SERVER){
-	server.sendMessage("Hello there, new server!")
+client.listener 'guild', {
+	guild.sendMessage("Hello there, new guild!")
 }
 
-client.listener(Events.SERVER_DELETE){
-	println "It seems I left or was banned in/kicked out of $server.name."
+client.listener 'guild deleted', {
+	println "It seems I left or was banned in/kicked out of $guild.name."
 }
 
-client.listener(Events.SERVER_UPDATE){
-	server.sendMessage("Seems this server updated.")
+client.listener 'guild changed', {
+	guild.sendMessage("Seems this guild updated.")
 }

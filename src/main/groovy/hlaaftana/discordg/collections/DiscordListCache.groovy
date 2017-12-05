@@ -46,7 +46,7 @@ class DiscordListCache<T extends DiscordObject> extends Cache<String, Map<String
 	}
 
 	T at(id) {
-		class_.newInstance(client, DiscordObject.id(id))
+		class_.newInstance(client, get(DiscordObject.id(id)))
 	}
 
 	List<Map<String, Object>> rawList() {

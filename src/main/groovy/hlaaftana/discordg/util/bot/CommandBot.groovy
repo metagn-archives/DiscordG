@@ -1,45 +1,43 @@
 package hlaaftana.discordg.util.bot
 
 import groovy.transform.*
-
 import hlaaftana.discordg.Client
+import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.logic.BasicListenerSystem
-import hlaaftana.discordg.logic.EventData;
 import hlaaftana.discordg.logic.ListenerSystem
 import hlaaftana.discordg.objects.Message
-import hlaaftana.discordg.DiscordObject
-import hlaaftana.discordg.util.ClosureString
 import hlaaftana.discordg.util.Log
 
+import java.util.regex.Matcher
 import java.util.regex.Pattern
 
 /**
  * A simple bot implementation.
  * @author Hlaaftana
  */
+@CompileStatic
 class CommandBot implements Triggerable {
-	String logName = 'DiscordG|CommandBot'
+	String logName = 'CommandBot'
 	Log log
 	CommandType defaultCommandType = CommandType.PREFIX
-	volatile Client client
-	List commands = []
+	Client client
+	List<Command> commands = []
 	Map<String, Closure> extraCommandArgs = [:]
 	boolean acceptOwnCommands = false
 	boolean loggedIn = false
-	public Closure commandListener
-	public Closure commandRunnerListener
-	public Closure exceptionListener
+	Closure commandListener
+	Closure commandRunnerListener
+	Closure exceptionListener
+	Closure<String> formatter
 	ListenerSystem listenerSystem = new BasicListenerSystem()
 
-	CommandBot(Map<String, Object> config = [:]){
-		config.each { String k, v ->
-			if (k.startsWith('trigger'))
-				this.addTrigger(v)
-			else
-				this[k] = v
-		}
+	CommandBot(Map<String, Object> config){
+		for (e in config)
+			if (e.key == 'trigger') addTrigger(e.value)
+			else if (e.key == 'triggers') addTriggers(e.value as Collection)
+			else setProperty(e.key, e.value)
 		if (!log) log = new Log(logName)
-		if (!client) client = new Client()
+		if (!client) client = new Client(bot: true)
 	}
 
 	def addCommand(Command command){
@@ -47,44 +45,44 @@ class CommandBot implements Triggerable {
 	}
 
 	def addCommands(List<Command> commands){
-		commands.addAll(commands)
+		this.commands.addAll(commands)
 	}
 
-	DSLCommand command(Map info, alias, trigger = [], Closure closure){
-		DSLCommand hey = DSLCommand.new(info, this, alias, trigger, closure)
+	void setTriggers(Collection s) { for (a in s) addTrigger(a) }
+
+	DSLCommand command(Map info, alias, trigger = [],
+	                   @DelegatesTo(value = CommandEventData, strategy = Closure.DELEGATE_FIRST) Closure closure){
+		DSLCommand hey = new DSLCommand(info, closure, this, alias, trigger)
 		commands.add(hey)
 		hey
 	}
 
-	DSLCommand command(alias, trigger = [], Closure closure){
+	DSLCommand command(alias, trigger = [],
+	                   @DelegatesTo(value = CommandEventData, strategy = Closure.DELEGATE_FIRST) Closure closure){
 		command([:], alias, trigger, closure)
 	}
 
-	Command command(Class<? extends Command> commandClass, ...args){
-		commandClass.&newInstance([this] + (args as List))
+	Command command(Class<? extends Command> commandClass, ...arguments){
+		Object[] arr = new Object[arguments.length + 1]
+		arr[0] = this
+		System.arraycopy(arguments, 0, arr, 1, arguments.length)
+		commandClass.newInstance(arr)
 	}
 
-	Command command(Class<? extends Command> commandClass, List args){
-		commandClass.&newInstance([this] + args)
+	Command command(Class<? extends Command> commandClass, List arguments){
+		Object[] arr = new Object[arguments.size() + 1]
+		arr[0] = this
+		System.arraycopy(arguments, 0, arr, 1, arguments.size())
+		commandClass.newInstance(arr)
 	}
 
 	Closure commandBuilder(Class<? extends Command> commandClass){
 		this.&command.curry(commandClass)
 	}
 
-	def login(String token, boolean bot = true){
+	void login(String token, boolean bot = true, boolean threaded = true){
 		loggedIn = true
-		client.login(token, bot)
-	}
-
-	def login(String botName, String token){
-		loggedIn = true
-		client.login(botName){ token }
-	}
-
-	def login(String botName, Closure tokenGetter){
-		loggedIn = true
-		client.login(botName, tokenGetter)
+		client.login(token, bot, threaded)
 	}
 
 	/**
@@ -92,35 +90,42 @@ class CommandBot implements Triggerable {
 	 * @param email - the email to log in with.
 	 * @param password - the password to log in with.
 	 */
-	def initialize(){
-		exceptionListener = listenerSystem.addListener(Events.EXCEPTION){ d ->
-			d.exception.printStackTrace()
+	void initialize(){
+		exceptionListener = listenerSystem.addListener(Events.EXCEPTION) { CommandEventData d ->
+			((Exception) d.getProperty('exception')).printStackTrace()
 			log.error 'Command threw exception'
 		}
-		commandRunnerListener = listenerSystem.addListener(Events.COMMAND){ d ->
-			try{
-				d['command'](d)
-				++d['command'].uses
-			}catch (ex){
-				listenerSystem.dispatchEvent(Events.EXCEPTION, d.clone() + [exception: ex])
+		commandRunnerListener = listenerSystem.addListener(Events.COMMAND) { CommandEventData d ->
+			try {
+				d.command.call(d)
+				d.command.uses += 1
+			} catch (ex) {
+				CommandEventData c = d.clone()
+				c.setProperty('exception', ex)
+				listenerSystem.dispatchEvent(Events.EXCEPTION, c)
 			}
 		}
-		commandListener = client.listen('message'){ d ->
-			try{
-				if (!acceptOwnCommands && json.author.id == this.client.id) return
-			}catch (ex){}
+		commandListener = client.addListener('message') { Map data ->
+			if (!acceptOwnCommands && ((Map) data.author).id == client.id) return
 			boolean anyPassed = false
-			for (Command c in commands.clone()){
-				if (c.match(message)){
+			Message msg = (Message) data.message
+			for (c in new ArrayList<Command>(commands)){
+				Tuple2<CommandPattern, CommandPattern> match
+				if ((match = c.match(msg))){
 					anyPassed = true
-					def clone = d.clone()
-					clone['command'] = c
-					listenerSystem.dispatchEvent(Events.COMMAND, clone)
+
+					CommandEventData ced = new CommandEventData(c, match.second, match.first,
+							c.arguments(msg), msg)
+					ced.captures = c.captures(msg)
+					ced.allCaptures = c.allCaptures(msg)
+
+					listenerSystem.dispatchEvent(Events.COMMAND, ced)
 				}
 			}
-			if (!anyPassed) listenerSystem.dispatchEvent(Events.NO_COMMAND, d.clone())
+
+			if (!anyPassed) listenerSystem.dispatchEvent(Events.NO_COMMAND, data)
 		}
-		listenerSystem.dispatchEvent(Events.INITIALIZE, [:])
+		listenerSystem.dispatchEvent(Events.INITIALIZE, null)
 	}
 
 	def initialize(String token){
@@ -128,19 +133,9 @@ class CommandBot implements Triggerable {
 		login(token)
 	}
 
-	def initialize(String botName, String token){
-		initialize()
-		login(botName){ token }
-	}
-
-	def initialize(String botName, Closure tokenGetter){
-		initialize()
-		login(botName, tokenGetter)
-	}
-
 	def uninitialize(){
 		listenerSystem.removeListener(Events.COMMAND, commandRunnerListener)
-		client.listenerSystem.removeListener('MESSAGE_CREATE', commandListener)
+		client.removeListener('message', commandListener)
 	}
 
 	static enum Events {
@@ -151,30 +146,31 @@ class CommandBot implements Triggerable {
 	}
 }
 
+@CompileStatic
 class CommandType {
-	private static quote(aot){
-		def g = aot.toString().toLowerCase()
+	private static quote(CommandPattern aot){
+		String g = aot.toString()
 		aot.regex ? g : Pattern.quote(g)
 	}
 	// These have IDs for convenience sake
-	static final CommandType PREFIX = CommandType.new { Trigger trigger, Alias alias ->
+	static final CommandType PREFIX = de { CommandPattern trigger, CommandPattern alias ->
 		/(?i)(/ + quote(trigger) + quote(alias) + /)(?:\s+(?:.|\n)*)?/
 	}
-	static final CommandType SUFFIX = CommandType.new { Trigger trigger, Alias alias ->
+	static final CommandType SUFFIX = de { CommandPattern trigger, CommandPattern alias ->
 		/(?i)(/ + quote(alias) + quote(trigger) + /)(?:\s+(?:.|\n)*)?/
 	}
-	static final CommandType REGEX = CommandType.new { Trigger trigger, Alias alias ->
+	static final CommandType REGEX = de { CommandPattern trigger, CommandPattern alias ->
 		/(/ + trigger.toString() + alias.toString() + /)(?:\s+(?:.|\n)*)?/
 	}
-	static final CommandType REGEX_SUFFIX = CommandType.new { Trigger trigger, Alias alias ->
+	static final CommandType REGEX_SUFFIX = de { CommandPattern trigger, CommandPattern alias ->
 		/(/ + alias.toString() + trigger.toString() + /)(?:\s+(?:.|\n)*)?/
 	}
 
-	Closure customCaptures = { it.drop(1) }
-	Closure commandMatcher
-	CommandType(Closure commandMatcher){ this.commandMatcher = commandMatcher }
+	Closure<List> customCaptures = { List it -> it.drop(1) }
+	Closure<String> commandMatcher
+	CommandType(Closure<String> commandMatcher){ this.commandMatcher = commandMatcher }
 
-	static CommandType 'new'(Closure commandMatcher){
+	static CommandType 'de'(Closure<String> commandMatcher){
 		new CommandType(commandMatcher)
 	}
 }
@@ -182,162 +178,168 @@ class CommandType {
 trait Restricted {
 	boolean black = false
 	boolean white = false
-	Map blacklist = [(Type.GUILD): [] as Set, (Type.CHANNEL): [] as Set,
-		(Type.AUTHOR): [] as Set, (Type.ROLE): [] as Set]
-	Map whitelist = [(Type.GUILD): [] as Set, (Type.CHANNEL): [] as Set,
-		(Type.AUTHOR): [] as Set, (Type.ROLE): [] as Set]
+	Map<String, Set> blacklist = [guild: [], channel: [], author: [], role: []]
+	Map<String, Set> whitelist = [guild: [], channel: [], author: [], role: []]
 
 	def whitelist(){ white = true; this }
 	def blacklist(){ black = true; this }
 	def greylist(){ black = white = true; this }
 
-	def whitelist(Type type, thing){ whitelist(); allow(type, thing); this }
-	def blacklist(Type type, thing){ blacklist(); disallow(type, thing); this }
+	def whitelist(String type, thing){ whitelist(); allow(type, thing); this }
+	def blacklist(String type, thing){ blacklist(); disallow(type, thing); this }
 
-	def allow(Type type, ...thing){ allow(type, thing as Set) }
+	def allow(String type, ...thing){ allow(type, thing as Set) }
 
-	def allow(Type type, thing){
+	def allow(String type, thing){
 		if (thing instanceof Collection || thing.class.array)
 			thing.each { allow(type, it) }
-		if (white){
-			if (thing instanceof Closure) whitelist += thing
-			else whitelist[type] += DiscordObject.resolveId(thing)
-		}
-		if (black){
-			if (thing instanceof Closure) blacklist -= thing
-			else blacklist[type] -= DiscordObject.resolveId(thing)
-		}
+		if (white)
+			whitelist[type].add(DiscordObject.id(thing))
+		if (black)
+			blacklist[type].remove(DiscordObject.id(thing))
 		this
 	}
 
-	def disallow(Type type, ...thing){ disallow(type, thing as Set) }
+	def disallow(String type, ...thing){ disallow(type, thing as Set) }
 
-	def disallow(Type type, thing){
+	def disallow(String type, thing){
 		if (thing instanceof Collection || thing.class.array)
 			thing.each { disallow(type, it) }
-		if (white){
-			if (thing instanceof Closure) whitelist -= thing
-			else whitelist[type] -= DiscordObject.resolveId(thing)
-		}
-		if (black){
-			if (thing instanceof Closure) blacklist += thing
-			else blacklist[type] += DiscordObject.resolveId(thing)
-		}
+		if (white)
+			whitelist[type].remove(DiscordObject.id(thing))
+		if (black)
+			blacklist[type].add(DiscordObject.id(thing))
 		this
 	}
 
-	def deny(Type type, ...thing){ disallow(type, thing as Set) }
+	def deny(String type, ...thing){ disallow(type, thing as Set) }
 
-	def deny(Type type, thing){
+	def deny(String type, thing){
 		disallow(type, thing)
 	}
 
 	boolean allows(Message msg){
-		(white ? Type.values().any { !Collections.disjoint(it.id(msg), whitelist[it]) } : true) &&
-			!(black ? Type.values().any { !Collections.disjoint(it.id(msg), blacklist[it]) } : false)
-	}
-	
-	static enum Type {
-		GUILD({ [it.guildId] }),
-		CHANNEL({ [it.channelId] }),
-		AUTHOR({ [it.object.author.id] }),
-		ROLE({ it.member.object.roles })
-		
-		Closure id
-		Type(Closure i){ id = i }
+		boolean wh = true
+		boolean bl = false
+		if (white) {
+			for (e in whitelist)
+				wh |= !Collections.disjoint(e.value, e.key == 'role' ?
+						msg.member.roles : [msg."$e.key".id])
+		}
+		if (black) {
+			for (e in whitelist)
+				bl |= !Collections.disjoint(e.value, e.key == 'role' ?
+						msg.member.roles : [msg."$e.key".id])
+		}
+		wh && !bl
 	}
 }
 
 trait Triggerable {
-	private Set triggers = [] as Set
-
-	def addTrigger(Triggerable trigger){
-		addTrigger(trigger.triggers)
-	}
+	Set<CommandPattern> triggers = []
 	
-	def addTrigger(trigger){
-		triggers.addAll(trigger instanceof Collection ?
-			trigger.collect { new Trigger(it) } : new Trigger(it))
-		triggers = triggers.unique()
+	def addTrigger(trigger) {
+		triggers.add(new CommandPattern(trigger))
 	}
 
-	Trigger getTrigger(){
-		triggers[0]
+	def addTrigger(CommandPattern trigger) {
+		triggers.add(trigger)
 	}
 
-	def addTriggers(trigger){ addTrigger(trigger) }
-	
-	def getTriggers(){ triggers.clone() }
-	def clearTriggers(){ triggers.clear() }
+	def addTrigger(Triggerable triggers){
+		addTriggers(triggers.triggers)
+	}
+
+	def addTriggers(Collection trigger) {
+		for (t in trigger)
+			addTrigger(t)
+	}
+
+	CommandPattern getTrigger(){ triggers[0] }
 }
 
 trait Aliasable {
-	private Set aliases = [] as Set
+	Set<CommandPattern> aliases = []
 
-	def addAlias(Aliasable alias){
-		addAlias(alias.aliases)
+	def addAlias(alias) {
+		aliases.add(new CommandPattern(alias))
 	}
 	
-	def addAlias(alias){
-		aliases.addAll(alias instanceof Collection ? 
-			alias.collect { new Alias(it) } : new Alias(alias))
-		aliases = aliases.unique()
+	def addAlias(CommandPattern alias) {
+		aliases.add(alias)
 	}
 
-	def addAliases(alias){ addAlias(alias) }
-
-	Alias getAlias(){
-		aliases[0]
+	def addAlias(Aliasable aliases){
+		addAliases(aliases.aliases)
 	}
-	
-	def getAliases(){ aliases.clone() }
-	def clearAliases(){ aliases.clear() }
+
+	def addAliases(Collection alias) {
+		for (t in alias)
+			addAlias(t)
+	}
+
+	CommandPattern getAlias(){ aliases[0] }
 }
 
-@InheritConstructors
-class Alias extends ClosureString implements Restricted {}
-@InheritConstructors
-class Trigger extends ClosureString implements Restricted {}
+@CompileStatic
+class CommandPattern<T> implements Restricted, CharSequence {
+	boolean regex = false
+	T inner
 
-class Command implements Triggerable, Aliasable, Restricted {
-	static CommandType defaultCommandType = CommandType.PREFIX
-	CommandType type = defaultCommandType
-	int uses = 0
-
-	Command(Triggerable parentT, alias, trigger = []){
-		addAlias alias
-		addTrigger trigger
-		addTrigger parentT
-		if (parentT instanceof CommandBot) type = parentT.defaultCommandType
+	CommandPattern(T inner) {
+		if (inner instanceof Pattern) regex = true
+		this.inner = inner
 	}
 
-	static Command 'new'(Triggerable parentT, alias, trigger = []){
-		new Command(parentT, alias, trigger)
+	CharSequence getCharSequence() {
+		if (inner instanceof CharSequence) (CharSequence) inner
+		else if (inner instanceof Pattern) ((Pattern) inner).pattern()
+		else if (inner instanceof Closure) ((Closure) inner).call(this)
+		else throw new IllegalArgumentException('Unknown char sequence for command pattern class ' + inner.class)
+	}
+
+	@Override int length() { charSequence.length() }
+	@Override char charAt(int index) { charSequence.charAt(index) }
+	@Override CharSequence subSequence(int start, int end) { charSequence.subSequence(start, end) }
+	@Override String toString() { charSequence.toString() }
+}
+
+@CompileStatic
+class Command implements Triggerable, Aliasable, Restricted {
+	CommandBot parent
+	CommandType type
+	int uses = 0
+
+	Command(CommandBot parent, alias, trigger = []) {
+		this(alias, trigger)
+		addTrigger(parent)
+		this.parent = parent
+		type = parent.defaultCommandType
+	}
+	
+	Command(alias, trigger){
+		if (alias instanceof Collection || alias.class.array) addAliases(alias)
+		else addAlias(alias)
+		if (trigger instanceof Collection || trigger.class.array) addTriggers(trigger)
+		else addTrigger(trigger)
 	}
 
 	/// null if no match
-	List match(Message msg){
+	Tuple2<CommandPattern, CommandPattern> match(Message msg){
 		if (!allows(msg)) return null
-		[triggers, aliases].combinations().find { Trigger trigger, Alias alias ->
-			trigger.allows(msg) && alias.allows(msg) && msg.content ==~ type.commandMatcher(trigger, alias)
-		}
+		for (List<CommandPattern> x in (List<List<CommandPattern>>) [triggers, aliases].combinations())
+			if (x[0].allows(msg) && x[1].allows(msg) && msg.content ==~ type.commandMatcher.call(x[0], x[1]))
+				return new Tuple2(x[0], x[1])
+		null
 	}
 
-	Alias usedAlias(Message msg){
-		(match(msg) ?: [])[1]
-	}
+	CommandPattern hasAlias(ahh){ for (x in aliases) if (ahh.toString() == x.toString()) return x; null }
+	CommandPattern hasTrigger(ahh){ for (x in triggers) if (ahh.toString() == x.toString()) return x; null }
 
-	Trigger usedTrigger(Message msg){
-		(match(msg) ?: [])[0]
-	}
-
-	boolean hasAlias(ahh){ aliases.any { it.toString() == ahh.toString() } }
-	boolean hasTrigger(ahh){ triggers.any { it.toString() == ahh.toString() } }
-
-	def matcher(Message msg){
-		List pair = this.match(msg)
+	Matcher matcher(Message msg){
+		Tuple2 pair = match(msg)
 		if (!pair) return null
-		msg.content =~ type.commandMatcher(pair)
+		msg.content =~ type.commandMatcher.call(pair)
 	}
 
 	/**
@@ -345,34 +347,42 @@ class Command implements Triggerable, Aliasable, Restricted {
 	 * @param d - the event data.
 	 * @return the arguments as a string.
 	 */
-	def args(Message msg){
+	String arguments(Message msg){
 		try{
-			msg.content.substring(allCaptures(msg)[0].size()).trim()
-		}catch (ex){
+			msg.content.substring(allCaptures(msg)[0].length()).trim()
+		}catch (ignored){
 			''
 		}
 	}
 
 	// only for regex
 	List captures(Message msg){
-		type.customCaptures(allCaptures(msg))
+		type.customCaptures.call(allCaptures(msg))
 	}
 
 	// only for regex
-	List allCaptures(Message msg){
-		def aa = this.matcher(msg).collect()
-		(aa instanceof String ? [aa] : aa[0] != null ?
-			aa[0] instanceof String ? [aa[0]] : aa[0] : []).collect { it ?: '' }.drop(1)
+	List<String> allCaptures(Message msg){
+		def aa = matcher(msg).collect()
+		String[] rid = []
+		if (aa instanceof String) rid = [aa]
+		else if (null != aa[0])
+			if (aa[0] instanceof String) rid = [aa[0]]
+			else rid = aa[0] as String[]
+		List<String> res = []
+		for (int i = 1; i < rid.size(); ++i) {
+			res[i - 1] = rid[i] ?: ''
+		}
+		res
 	}
 
 	/**
 	 * Runs the command.
 	 * @param d - the event data.
 	 */
-	def run(Map d){}
+	def run(CommandEventData d){}
 	def run(Message msg){}
 
-	def call(Map d){ run(d); run(d.message) }
+	def call(CommandEventData d){ run(d); run(d.message) }
 	def call(Message msg){ run(msg) }
 }
 
@@ -380,6 +390,7 @@ class Command implements Triggerable, Aliasable, Restricted {
  * An implementation of Command with a string response.
  * @author Hlaaftana
  */
+@CompileStatic
 class ResponseCommand extends Command {
 	Closure response
 
@@ -387,18 +398,14 @@ class ResponseCommand extends Command {
 	 * @param response - a string to respond with to this command. <br>
 	 * The rest of the parameters are Command's parameters.
 	 */
-	ResponseCommand(Triggerable parentT, alias, trigger = [], response){
+	ResponseCommand(CommandBot parentT, alias, trigger = [], response){
 		super(parentT, alias, trigger)
-		this.response = (response instanceof Closure) ? response : { Map d -> "$response" }
+		this.response = response instanceof Closure ? (Closure) response : { CommandEventData d -> "$response" }
 		this.response.delegate = this
 	}
 
-	static ResponseCommand 'new'(Triggerable parentT, alias, trigger = [], response){
-		new ResponseCommand(parentT, alias, trigger, response)
-	}
-
-	def run(Map d){
-		d.sendMessage(response(d))
+	def run(CommandEventData d){
+		d.invokeMethod('sendMessage', response(d))
 	}
 }
 
@@ -406,42 +413,38 @@ class ResponseCommand extends Command {
  * An implementation of Command with a closure response.
  * @author Hlaaftana
  */
+@CompileStatic
 class ClosureCommand extends Command {
 	Closure response
 
 	/**
 	 * @param response - a closure to respond with to this command. Can take one parameter, which is the data of the event.
 	 */
-	ClosureCommand(Triggerable parentT, alias, trigger = [], Closure response){
+	ClosureCommand(CommandBot parentT, alias, trigger = [], Closure response){
 		super(parentT, alias, trigger)
 		response.delegate = this
 		this.response = response
 	}
 
-	static ClosureCommand 'new'(Triggerable parentT, alias, trigger = [], Closure response){
-		new ResponseCommand(parentT, alias, trigger, response)
-	}
-
-	def run(Map d){
+	def run(CommandEventData d){
 		response(d)
 	}
 }
 
+@CompileStatic
 class DSLCommand extends Command {
 	Closure response
 	Map<String, Closure> extraArgs = [:]
-	Map info = [:]
+	Map<String, Object> info = [:]
 
-	DSLCommand(Map info = [:], Closure response, Triggerable parentT, alias, trigger = []){
+	DSLCommand(Map info = [:],
+	           @DelegatesTo(value = CommandEventData, strategy = Closure.DELEGATE_FIRST) Closure response,
+	           CommandBot parentT, alias, trigger = []){
 		super(parentT, alias, trigger)
-		this.response = response
+		this.response = (Closure) response.clone()
 		info.each(this.&putAt)
 		if (parentT instanceof CommandBot && parentT.extraCommandArgs)
 			extraArgs << parentT.extraCommandArgs
-	}
-
-	static DSLCommand 'new'(Map info = [:], Triggerable parentT, alias, trigger = [], Closure response){
-		new DSLCommand(info, response, parentT, alias, trigger)
 	}
 
 	def propertyMissing(String name){
@@ -450,24 +453,14 @@ class DSLCommand extends Command {
 	}
 
 	def propertyMissing(String name, value){
-		info[name] = value
+		info.put name, value
 	}
 
-	def run(Map d){
-		EventData aa = d
-		aa['args'] = args(d.message)
-		aa['captures'] = captures(d.message)
-		aa['allCaptures'] = allCaptures(d.message)
-		aa['match'] = match(d.message)
-		aa['matcher'] = matcher(d.message)
-		aa['usedAlias'] = usedAlias(d.message)
-		aa['usedTrigger'] = usedTrigger(d.message)
-		aa['command'] = this
-		extraArgs.each { k, v ->
-			aa[k] = v
-		}
-		aa << this.properties
-		Closure copy = response.clone()
+	def run(CommandEventData d){
+		CommandEventData aa = (CommandEventData) d.clone()
+		for (a in extraArgs)
+			aa.setProperty(a.key, a.value.call(d))
+		Closure copy = (Closure) response.clone()
 		copy.delegate = aa
 		copy.resolveStrategy = Closure.DELEGATE_FIRST
 		copy(aa)

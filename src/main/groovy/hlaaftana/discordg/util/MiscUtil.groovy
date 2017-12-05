@@ -210,7 +210,7 @@ abstract class CasingType {
 				if (Character.isUpperCase(c)) {
 					result.add(last.toString())
 					last = new StringBuilder()
-					last.append(Character.toUpperCase(c))
+					last.append(Character.toLowerCase(c))
 				} else last.append(c)
 			}
 			result.add(last.toString())

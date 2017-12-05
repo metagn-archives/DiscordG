@@ -1,16 +1,15 @@
-import hlaaftana.discordg.objects.*
 import hlaaftana.discordg.*
 
-Client client = DiscordG.withToken("token")
+Client client = DiscordG.withToken args[0]
 
-client.listener(Events.MEMBER){
-	server.sendMessage("Welcome to the server, $member.mention!")
+client.listener('member') {
+	guild.sendMessage("Welcome to the guild, $member.mention!")
 }
 
-client.listener(Events.MEMBER_LEFT){
-	server.sendMessage("Aww, $member.mention left the server.")
+client.listener('member left') {
+	guild.sendMessage("Aww, $member.mention left the guild.")
 }
 
-client.listener(Events.MEMBER_UPDATE){
-	server.sendMessage("I see your roles changed, $member.mention.")
+client.listener('member changed') {
+	guild.sendMessage("I see you changed, $member.mention.")
 }
