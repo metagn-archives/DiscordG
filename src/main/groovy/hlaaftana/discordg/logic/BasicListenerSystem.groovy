@@ -1,5 +1,8 @@
 package hlaaftana.discordg.logic
 
+import groovy.transform.CompileStatic
+
+@CompileStatic
 class BasicListenerSystem extends ListenerSystem {
 	def parseEvent(param){ param }
 
@@ -8,6 +11,7 @@ class BasicListenerSystem extends ListenerSystem {
 	}
 }
 
+@CompileStatic
 class ListenerException extends Exception {
 	def event, data, closure
 	ListenerException(e, Throwable ex, c, d){

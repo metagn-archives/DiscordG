@@ -1,79 +1,90 @@
 package hlaaftana.discordg.collections
 
+import groovy.transform.CompileDynamic
+import groovy.transform.CompileStatic
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.objects.DiscordObject
+import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.objects.Member
 
-class DiscordListCache extends Cache { // DO stands for DiscordObject
-	Class<? extends DiscordObject> class_
+@CompileStatic
+class DiscordListCache<T extends DiscordObject> extends Cache<String, Map<String, Object>> {
+	Class<T> class_
 	Client client
-	DiscordListCache(List list, Client client, Class<? extends DiscordObject> class_ = DiscordObject){
-		super(list.collectEntries { it instanceof DiscordObject ? [(it.id): it.object] : [(it.id): it] }, client)
+	DiscordListCache(List list, Client client, Class<T> class_ = (Class<T>) DiscordObject){
+		super(superlister(list), client)
 		this.client = client
 		this.class_ = class_
 	}
 
-	Map getMap(){
-		Map map = [:]
-		list.each {
-			map[it.id] = it instanceof Map ? class_.newInstance(client, it) : it
+	private static Map superlister(List list) {
+		def r = new HashMap(list.size())
+		for (a in list) {
+			if (a instanceof DiscordObject) r.put(((DiscordObject) a).id, ((DiscordObject) a).object)
+			else r.put(getIdProperty(a), a)
 		}
+		r
+	}
+
+	@CompileDynamic
+	private static String getIdProperty(it) { it.id.toString() }
+
+	Class<T> 'class'() { class_ }
+	Client client() { client }
+
+	Map<String, T> map() {
+		def l = list()
+		Map<String, T> map = new HashMap<>(l.size())
+		for (it in l) map.put(it.id, it instanceof Map ? class_.newInstance(client, it) : it)
 		map
 	}
 
-	List getList(){
-		mapList.collect { class_.newInstance(client, it) }
+	List<T> list() {
+		def m = rawList()
+		def a = new ArrayList<T>(m.size())
+		for (x in m) a.add(class_.newInstance(client, x))
+		a
 	}
 
-	List getMapList(){
+	T at(id) {
+		class_.newInstance(client, DiscordObject.id(id))
+	}
+
+	List<Map<String, Object>> rawList() {
 		try{
 			store.values().collect()
-		}catch (ConcurrentModificationException ex){
+		}catch (ConcurrentModificationException ignored){
+			println 'inform me'
 			Thread.sleep 250
-			mapList
+			rawList()
 		}
 	}
 
-	DynamicList getModifiableList(){
-		DynamicList ass = mapList
-		ass.on("set"){ element, index ->
-			store[element.id] = element
+	List<Map<String, Object>> rawList(List newList){
+		for (it in newList) {
+			if (it instanceof DiscordObject) put(((DiscordObject) it).id, ((DiscordObject) it).object)
+			else if (it instanceof Map) put(((Map) it).id.toString(), it)
+			else throw new UnsupportedOperationException("Unknown type in raw list ${it.class}")
 		}
-		ass.on("add"){ element, index ->
-			add(element)
-		}
-		ass.on("remove"){ uhh ->
-			if (uhh instanceof Integer) remove(ass[uhh])
-			else remove(uhh)
-		}
-		ass
+		newList
 	}
 
-	List setRawList(List newList){
-		newList.each { store[it.id] = it instanceof DiscordObject ? it.object : it }
-	}
-
-	List getRawList(){
-		store.values().collect()
-	}
-
-	def get(key){
-		store[DiscordObject.id(key)]
+	Map get(key){
+		super.get(DiscordObject.id(key))
 	}
 
 	DiscordListCache plus(DiscordListCache other){
-		new DiscordListCache(mapList + other.mapList, client, class_)
+		new DiscordListCache(rawList() + other.rawList(), client, class_)
 	}
 
 	def add(Map object){
-		store[class_ == Member ? object.user.id : object.id] = object
+		put((class_ == Member ? ((Map<String, Object>) object.user).id : object.id).toString(), object)
 	}
 
 	def add(DiscordObject uh){
 		store[uh.id] = uh.object
 	}
 
-	def remove(key){
+	Map<String, Object> remove(key){
 		store.remove(DiscordObject.id(key))
 	}
 }

@@ -1,16 +1,16 @@
 package hlaaftana.discordg.logic
 
+import groovy.transform.CompileStatic
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.collections.LazyClosureMap;
+import hlaaftana.discordg.collections.LazyClosureMap
 
-import org.codehaus.groovy.runtime.InvokerHelper
-
+@CompileStatic
 class EventData extends LazyClosureMap {
 	String type
 	EventData(type, Map data){ super(data); this.type = Client.parseEvent(type) }
 
-	static EventData create(type, Map initial = [:], Closure ass){
-		new EventData(type, LazyClosureMap.create(initial, ass))
+	static EventData build(type, Map initial = [:], Closure ass){
+		new EventData(type, create(initial, ass))
 	}
 
 	EventData clone(){
@@ -28,21 +28,21 @@ class EventData extends LazyClosureMap {
 	}*/
 
 	def getProperty(String name){
-		String methodName = "get" + name.capitalize()
-		if (methodName in getMetaClass().methods*.name) this."$methodName"()
+		String methodName = 'get' + name.capitalize()
+		if (methodName in getMetaClass().methods*.name) this.invokeMethod(methodName, null)
 		else if (containsKey(name)) this[name]
 		else throw new MissingPropertyException(name, this.class)//propertyMissing(name)
 	}
 
 	void setProperty(String name, value){
-		String methodName = "set" + name.capitalize()
-		if (methodName in getMetaClass().methods*.name) this."$methodName"(value)
+		String methodName = 'set' + name.capitalize()
+		if (methodName in getMetaClass().methods*.name) this.invokeMethod(methodName, value)
 		else if (containsKey(name)) this[name] = value
 		else throw new MissingPropertyException(name, this.class)//propertyMissing(name, value)
 	}
 
 	def methodMissing(String name, args){
-		if (containsKey(this)) this[name].call(args)
-		else throw new MissingMethodException(name, EventData, args)
+		if (containsKey(this)) this[name].invokeMethod('call', args)
+		else throw new MissingMethodException(name, EventData, args as Object[])
 	}
 }

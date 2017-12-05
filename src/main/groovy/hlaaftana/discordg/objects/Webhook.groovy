@@ -1,34 +1,28 @@
 package hlaaftana.discordg.objects
 
-import java.io.File;
-import java.io.InputStream;
-
-import com.mashape.unirest.http.Unirest
-import groovy.transform.InheritConstructors
+import groovy.transform.CompileStatic
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.exceptions.MessageInvalidException
-import hlaaftana.discordg.net.HTTPClient
-import hlaaftana.discordg.util.ConversionUtil
-import hlaaftana.discordg.util.JSONUtil
+import hlaaftana.discordg.DiscordObject
 
+@CompileStatic
 class Webhook extends DiscordObject {
 	Webhook(Client client, Map object){
 		super(client, object)
 	}
 
-	String getName(){ object.name ?: object.user.username }
-	String getAvatarHash(){ object.avatar ?: object.user.avatar }
-	boolean hasAvatar(){ object["avatar"] }
+	String getName(){ object.name ?: ((Map) object.user).username }
+	String getAvatarHash(){ object.avatar ?: ((Map) object.user).avatar }
+	boolean hasAvatar(){ object.avatar }
 	String getAvatar(){ hasAvatar() ?
-		"https://cdn.discordapp.com/avatars/${id}/${avatarHash}.jpg" : "" }
+		"https://cdn.discordapp.com/avatars/$id/${avatarHash}.jpg" : '' }
 	InputStream getAvatarInputStream(){ inputStreamFromDiscord(avatar) }
 	File downloadAvatar(file){ downloadFileFromDiscord(avatar, file) }
-	User getUser(){ object.user ? new User(client, object.user) : null }
-	String getChannelId(){ object.channel_id }
-	String getServerId(){ object.guild_id }
-	Server getServer(){ client.server(serverId) }
-	Channel getChannel(){ server.channel(channelId) }
-	String getToken(){ object.token }
+	User getUser(){ object.user ? new User(client, (Map) object.user) : null }
+	String getChannelId() { (String) object.channel_id }
+	String getGuildId() { (String) object.guild_id }
+	Guild getGuild(){ client.guild(guildId) }
+	Channel getChannel(){ guild.channel(channelId) }
+	String getToken() { (String) object.token }
 
 	Webhook edit(Map data){
 		client.editWebhook(data, this)

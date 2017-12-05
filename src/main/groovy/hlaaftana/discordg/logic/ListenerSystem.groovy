@@ -1,36 +1,33 @@
 package hlaaftana.discordg.logic
 
-import java.util.Map;
+import groovy.transform.CompileStatic
 
-import groovy.lang.Closure
-import hlaaftana.discordg.util.Log
-
+@CompileStatic
 abstract class ListenerSystem {
-	Map listeners = [:]
+	Map<Object, List<Closure>> listeners = [:]
 
 	abstract parseEvent(param)
 
 	abstract listenerError(event, Throwable ex, Closure closure, data)
 
-	def submit(event, boolean temporary = false, Closure closure){
+	Closure submit(event, boolean temporary = false, Closure closure){
 		addListener(event, temporary, closure)
 	}
 
-	def addListener(event, boolean temporary = false, Closure closure) {
+	Closure addListener(event, boolean temporary = false, Closure closure) {
 		event = parseEvent(event)
-		Closure ass = closure.clone()
-		if (temporary) ass = { Map d -> ass(d); listeners[event].remove(ass) }
-		if (listeners.containsKey(event)) listeners[event] += ass
-		else listeners[event] = [ass]
-		ass
+		if (temporary) closure = { Map d -> closure(d); listeners.get(event).remove(closure) }
+		if (listeners.containsKey(event)) listeners[event] = listeners[event] + closure
+		else listeners[event] = [closure]
+		closure
 	}
 	
 	Closure listen(event, boolean temporary = false, Closure closure){
 		Closure ass
 		ass = { Map d, Closure internal ->
-			//d["rawClosure"] = closure
-			//d["closure"] = ass
-			Closure copy = closure.clone()
+			//d['rawClosure'] = closure
+			//d['closure'] = ass
+			Closure copy = (Closure) closure.clone()
 			copy.delegate = d
 			copy.parameterTypes.size() == 2 ? copy(copy.delegate, internal) : copy(copy.delegate)
 		}
@@ -51,10 +48,10 @@ abstract class ListenerSystem {
 
 	def dispatchEvent(type, data){
 		for (l in listeners[parseEvent(type)]){
-			def a = l.clone()
+			def a = (Closure) l.clone()
 			try{
-				if (a.parameterTypes.length > 1) a(data, l)
-				else a(data)
+				if (a.parameterTypes.length > 1) a.call(data, l)
+				else a.call(data)
 			}catch (ex){
 				listenerError(parseEvent(type), ex, l, data)
 			}

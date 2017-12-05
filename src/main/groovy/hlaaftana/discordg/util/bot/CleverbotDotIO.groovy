@@ -4,12 +4,10 @@ import com.mashape.unirest.http.Unirest
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.util.JSONUtil
 
-import static hlaaftana.discordg.util.JSONSimpleHTTP.*
-
 /// A wrapper for https://cleverbot.io/
 /// API documentation: https://docs.cleverbot.io/docs/querying-cleverbot
 class CleverbotDotIO {
-	String baseUrl = "https://cleverbot.io/1.0/"
+	String baseUrl = 'https://cleverbot.io/1.0/'
 	String user
 	String key
 	String nick
@@ -21,12 +19,12 @@ class CleverbotDotIO {
 	}
 
 	def startSession(){
-		nick = request("post", "create", [:]).nick
+		nick = request('post', 'create', [:]).nick
 	}
 
 	String ask(text){
 		if (!nick) startSession()
-		request("post", "ask", [nick: nick, text: text]).response
+		request('post', 'ask', [nick: nick, text: text]).response
 	}
 
 	Map request(String method, String path, Map body = null){
@@ -52,12 +50,12 @@ class CleverbotDotIO {
 	}
 
 	private static noAuth(){
-		throw new IllegalArgumentException("User or key not set." +
-			"Go to https://cleverbot.io/keys to get your user and key")
+		throw new IllegalArgumentException('User or key not set.' +
+			'Go to https://cleverbot.io/keys to get your user and key')
 	}
 
 	private static checkResponse(Map response){
-		if (response.status != "success")
+		if (response.status != 'success')
 			throw new APIException("Something messed up: $response.status")
 		else response
 	}

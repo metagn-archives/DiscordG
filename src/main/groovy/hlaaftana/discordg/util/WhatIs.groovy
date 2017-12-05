@@ -1,5 +1,8 @@
 package hlaaftana.discordg.util
 
+import groovy.transform.CompileStatic
+
+@CompileStatic
 class WhatIs {
 	boolean guessed
 	def value
@@ -7,27 +10,25 @@ class WhatIs {
 
 	WhatIs(gay){ value = gay }
 
-	static whatis(value, Closure tf){
+	static whatis(value, @DelegatesTo(WhatIs) Closure tf){
 		WhatIs g = new WhatIs(value)
-		Closure wa = tf.clone()
-		wa.delegate = g
-		wa.resolveStrategy = Closure.DELEGATE_FIRST
-		wa()
+		tf.delegate = g
+		tf.resolveStrategy = Closure.DELEGATE_FIRST
+		tf()
 		g.returnedValue
 	}
 
-	def when(match, Closure d){
-		if (match.isCase(value)){
+	def when(match, @DelegatesTo(WhatIs) Closure d){
+		if (value in match){
 			guessed = true
-			Closure wt = d.clone()
-			wt.delegate = this
-			wt.resolveStrategy = Closure.DELEGATE_FIRST
-			returnedValue = wt()
+			d.delegate = this
+			d.resolveStrategy = Closure.DELEGATE_FIRST
+			returnedValue = d()
 		}
 	}
 
 	def when(match, val){
-		if (match.isCase(value)){
+		if (value in match){
 			guessed = true
 			returnedValue = val
 		}
@@ -38,11 +39,10 @@ class WhatIs {
 	}
 
 	def otherwise(Closure c){
-		if (!guessed){
-			Closure a = c.clone()
-			a.delegate = this
-			a.resolveStrategy = Closure.DELEGATE_FIRST
-			returnedValue = a()
+		if (!guessed) {
+			c.delegate = this
+			c.resolveStrategy = Closure.DELEGATE_FIRST
+			returnedValue = c()
 		}
 	}
 

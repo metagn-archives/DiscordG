@@ -1,17 +1,13 @@
 package hlaaftana.discordg.util.bot
 
-import static hlaaftana.discordg.util.MiscUtil.dump
-
 import groovy.transform.*
 
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.DiscordG
 import hlaaftana.discordg.logic.BasicListenerSystem
 import hlaaftana.discordg.logic.EventData;
 import hlaaftana.discordg.logic.ListenerSystem
-import hlaaftana.discordg.objects.Member
 import hlaaftana.discordg.objects.Message
-import hlaaftana.discordg.objects.DiscordObject
+import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.util.ClosureString
 import hlaaftana.discordg.util.Log
 
@@ -22,7 +18,7 @@ import java.util.regex.Pattern
  * @author Hlaaftana
  */
 class CommandBot implements Triggerable {
-	String logName = "DiscordG|CommandBot"
+	String logName = 'DiscordG|CommandBot'
 	Log log
 	CommandType defaultCommandType = CommandType.PREFIX
 	volatile Client client
@@ -35,9 +31,9 @@ class CommandBot implements Triggerable {
 	public Closure exceptionListener
 	ListenerSystem listenerSystem = new BasicListenerSystem()
 
-	CommandBot(Map config = [:]){
-		config.each { k, v ->
-			if (k.startsWith("trigger"))
+	CommandBot(Map<String, Object> config = [:]){
+		config.each { String k, v ->
+			if (k.startsWith('trigger'))
 				this.addTrigger(v)
 			else
 				this[k] = v
@@ -99,17 +95,17 @@ class CommandBot implements Triggerable {
 	def initialize(){
 		exceptionListener = listenerSystem.addListener(Events.EXCEPTION){ d ->
 			d.exception.printStackTrace()
-			log.error "Command threw exception"
+			log.error 'Command threw exception'
 		}
 		commandRunnerListener = listenerSystem.addListener(Events.COMMAND){ d ->
 			try{
-				d["command"](d)
-				++d["command"].uses
+				d['command'](d)
+				++d['command'].uses
 			}catch (ex){
 				listenerSystem.dispatchEvent(Events.EXCEPTION, d.clone() + [exception: ex])
 			}
 		}
-		commandListener = client.listen("message"){ d ->
+		commandListener = client.listen('message'){ d ->
 			try{
 				if (!acceptOwnCommands && json.author.id == this.client.id) return
 			}catch (ex){}
@@ -118,7 +114,7 @@ class CommandBot implements Triggerable {
 				if (c.match(message)){
 					anyPassed = true
 					def clone = d.clone()
-					clone["command"] = c
+					clone['command'] = c
 					listenerSystem.dispatchEvent(Events.COMMAND, clone)
 				}
 			}
@@ -144,7 +140,7 @@ class CommandBot implements Triggerable {
 
 	def uninitialize(){
 		listenerSystem.removeListener(Events.COMMAND, commandRunnerListener)
-		client.listenerSystem.removeListener("MESSAGE_CREATE", commandListener)
+		client.listenerSystem.removeListener('MESSAGE_CREATE', commandListener)
 	}
 
 	static enum Events {
@@ -178,7 +174,7 @@ class CommandType {
 	Closure commandMatcher
 	CommandType(Closure commandMatcher){ this.commandMatcher = commandMatcher }
 
-	static CommandType "new"(Closure commandMatcher){
+	static CommandType 'new'(Closure commandMatcher){
 		new CommandType(commandMatcher)
 	}
 }
@@ -186,9 +182,9 @@ class CommandType {
 trait Restricted {
 	boolean black = false
 	boolean white = false
-	Map blacklist = [(Type.SERVER): [] as Set, (Type.CHANNEL): [] as Set,
+	Map blacklist = [(Type.GUILD): [] as Set, (Type.CHANNEL): [] as Set,
 		(Type.AUTHOR): [] as Set, (Type.ROLE): [] as Set]
-	Map whitelist = [(Type.SERVER): [] as Set, (Type.CHANNEL): [] as Set,
+	Map whitelist = [(Type.GUILD): [] as Set, (Type.CHANNEL): [] as Set,
 		(Type.AUTHOR): [] as Set, (Type.ROLE): [] as Set]
 
 	def whitelist(){ white = true; this }
@@ -242,7 +238,7 @@ trait Restricted {
 	}
 	
 	static enum Type {
-		SERVER({ [it.serverId] }),
+		GUILD({ [it.guildId] }),
 		CHANNEL({ [it.channelId] }),
 		AUTHOR({ [it.object.author.id] }),
 		ROLE({ it.member.object.roles })
@@ -315,7 +311,7 @@ class Command implements Triggerable, Aliasable, Restricted {
 		if (parentT instanceof CommandBot) type = parentT.defaultCommandType
 	}
 
-	static Command "new"(Triggerable parentT, alias, trigger = []){
+	static Command 'new'(Triggerable parentT, alias, trigger = []){
 		new Command(parentT, alias, trigger)
 	}
 
@@ -353,7 +349,7 @@ class Command implements Triggerable, Aliasable, Restricted {
 		try{
 			msg.content.substring(allCaptures(msg)[0].size()).trim()
 		}catch (ex){
-			""
+			''
 		}
 	}
 
@@ -366,7 +362,7 @@ class Command implements Triggerable, Aliasable, Restricted {
 	List allCaptures(Message msg){
 		def aa = this.matcher(msg).collect()
 		(aa instanceof String ? [aa] : aa[0] != null ?
-			aa[0] instanceof String ? [aa[0]] : aa[0] : []).collect { it ?: "" }.drop(1)
+			aa[0] instanceof String ? [aa[0]] : aa[0] : []).collect { it ?: '' }.drop(1)
 	}
 
 	/**
@@ -397,7 +393,7 @@ class ResponseCommand extends Command {
 		this.response.delegate = this
 	}
 
-	static ResponseCommand "new"(Triggerable parentT, alias, trigger = [], response){
+	static ResponseCommand 'new'(Triggerable parentT, alias, trigger = [], response){
 		new ResponseCommand(parentT, alias, trigger, response)
 	}
 
@@ -422,7 +418,7 @@ class ClosureCommand extends Command {
 		this.response = response
 	}
 
-	static ClosureCommand "new"(Triggerable parentT, alias, trigger = [], Closure response){
+	static ClosureCommand 'new'(Triggerable parentT, alias, trigger = [], Closure response){
 		new ResponseCommand(parentT, alias, trigger, response)
 	}
 
@@ -444,7 +440,7 @@ class DSLCommand extends Command {
 			extraArgs << parentT.extraCommandArgs
 	}
 
-	static DSLCommand "new"(Map info = [:], Triggerable parentT, alias, trigger = [], Closure response){
+	static DSLCommand 'new'(Map info = [:], Triggerable parentT, alias, trigger = [], Closure response){
 		new DSLCommand(info, response, parentT, alias, trigger)
 	}
 
@@ -459,14 +455,14 @@ class DSLCommand extends Command {
 
 	def run(Map d){
 		EventData aa = d
-		aa["args"] = args(d.message)
-		aa["captures"] = captures(d.message)
-		aa["allCaptures"] = allCaptures(d.message)
-		aa["match"] = match(d.message)
-		aa["matcher"] = matcher(d.message)
-		aa["usedAlias"] = usedAlias(d.message)
-		aa["usedTrigger"] = usedTrigger(d.message)
-		aa["command"] = this
+		aa['args'] = args(d.message)
+		aa['captures'] = captures(d.message)
+		aa['allCaptures'] = allCaptures(d.message)
+		aa['match'] = match(d.message)
+		aa['matcher'] = matcher(d.message)
+		aa['usedAlias'] = usedAlias(d.message)
+		aa['usedTrigger'] = usedTrigger(d.message)
+		aa['command'] = this
 		extraArgs.each { k, v ->
 			aa[k] = v
 		}

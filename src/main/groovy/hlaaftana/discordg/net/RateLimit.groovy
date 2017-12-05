@@ -1,13 +1,20 @@
 package hlaaftana.discordg.net
 
-import hlaaftana.discordg.objects.DiscordObject;
+import groovy.transform.CompileStatic
+import groovy.transform.InheritConstructors
+import hlaaftana.discordg.DiscordObject;
 
-@groovy.transform.InheritConstructors
+@InheritConstructors
+@CompileStatic
 class RateLimit extends DiscordObject {
-	List requests = []
+	List<Integer> requests = []
 	
-	int newRequest(){ (requests.size() + 1).with { requests.add(it); it } }
-	String getMessage(){ object["message"] }
-	long getRetryTime(){ object["retry_after"] }
-	boolean isGlobal(){ object["global"] }
+	int newRequest(){
+		int x = requests.size() + 1
+		requests.add(x)
+		x
+	}
+	String getMessage(){ (String) object.message }
+	long getRetryTime(){ (long) object.retry_after }
+	boolean isGlobal(){ (boolean) object.global }
 }

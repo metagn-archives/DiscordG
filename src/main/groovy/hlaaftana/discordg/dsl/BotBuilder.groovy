@@ -1,6 +1,5 @@
 package hlaaftana.discordg.dsl
 
-import hlaaftana.discordg.Client;
 import hlaaftana.discordg.util.bot.CommandBot
 
 class BotBuilder {

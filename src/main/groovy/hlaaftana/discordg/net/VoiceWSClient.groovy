@@ -1,13 +1,12 @@
 package hlaaftana.discordg.net
 
-import java.nio.*
+class VoiceWSClient {}
+
+/*import java.nio.*
 import static java.nio.ByteBuffer.allocate as bytebuf
 
 import org.eclipse.jetty.websocket.api.Session
-
-import hlaaftana.discordg.Client;
 import hlaaftana.discordg.VoiceClient
-import hlaaftana.discordg.objects.*
 import hlaaftana.discordg.util.*
 
 import org.eclipse.jetty.websocket.api.*
@@ -40,14 +39,14 @@ class VoiceWSClient extends WebSocketAdapter {
 
 	void onWebSocketMessage(String message){
 		Map content = JSONUtil.parse(message)
-		def data = content["d"]
-		int op = content["op"]
+		def data = content['d']
+		int op = content['op']
 		def o = { it == op }
 		def event = data
 		if (op == 2){
-			vc.ssrc = data["ssrc"]
-			vc.port = data["port"]
-			vc.heartbeatInterval = data["heartbeat_interval"]
+			vc.ssrc = data['ssrc']
+			vc.port = data['port']
+			vc.heartbeatInterval = data['heartbeat_interval']
 			udpSocket = new DatagramSocket()
 			udpSocket.bind(new InetSocketAddress(vc.endpoint, vc.port))
 			udpSend bytebuf(70).with { putInt(Integer.parseUnsignedInt(
@@ -74,14 +73,14 @@ class VoiceWSClient extends WebSocketAdapter {
 				user: vc.client.user(data.user_id)]
 		}else{
 			vc.log.info "Unhandled voice op code $op. " +
-				"Full content (please report to Hlaaftana):\n$content", vc.log.name + "WS"
+				"Full content (please report to Hlaaftana):\n$content', vc.log.name + 'WS"
 		}
 		vc.dispatchEvent(op, event << [json: data])
 	}
 
 	void onWebSocketClose(int code, String reason){
-		vc.log.info "Connection closed. Reason: $reason, code: $code", vc.log.name + "WS"
-		Thread.start { vc.dispatchEvent("CLOSE", [code: code, reason: reason, json: [code: code, reason: reason]]) }
+		vc.log.info "Connection closed. Reason: $reason, code: $code', vc.log.name + 'WS"
+		Thread.start { vc.dispatchEvent('CLOSE', [code: code, reason: reason, json: [code: code, reason: reason]]) }
 		if (keepAliveThread){
 			keepAliveThread.interrupt()
 			keepAliveThread = null
@@ -102,7 +101,7 @@ class VoiceWSClient extends WebSocketAdapter {
 	void identify(){
 		send op: 0, d: [
 			token: vc.client.token,
-			server_id: vc.id,
+			guild_id: vc.id,
 			user_id: vc.client.user.id,
 			session_id: vc.client.sessionId
 		]
@@ -110,7 +109,7 @@ class VoiceWSClient extends WebSocketAdapter {
 
 	void selectProtocol(String ip, int port){
 		send op: 1, d: [
-			protocol: "udp",
+			protocol: 'udp',
 			data: [
 				address: ip,
 				port: port,
@@ -187,3 +186,4 @@ class VoiceWSClient extends WebSocketAdapter {
 		udpSend(x.array() + bytes)
 	}
 }
+*/
