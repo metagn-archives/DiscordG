@@ -67,7 +67,7 @@ class Message extends DiscordObject {
 		if (ass && member) ass
 		else new User(client, object)
 	}
-	User getMember(){ author(true) }
+	Member getMember() { (Member) author(true) }
 	boolean isByWebhook(){ webhookId }
 	String getWebhookId() { (String) object.webhook_id }
 	Webhook requestWebhook(){ client.requestWebhook(webhookId) }

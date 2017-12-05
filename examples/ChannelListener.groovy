@@ -1,21 +1,18 @@
-import hlaaftana.discordg.objects.*
 import hlaaftana.discordg.*
 
-Client client = DiscordG.withToken("token")
+client = DiscordG.withToken args[0]
 
-client.listener(Events.CHANNEL){
+client.listener('channel') {
 	if (channel.text && !channel.private)
 		channel.sendMessage("Hello there, new channel!")
 }
 
-client.listener(Events.CHANNEL_DELETE){
-	if (server)
-		server.sendMessage("Looks like $channel.type channel \"$channel.name\" was deleted.")
+client.listener('channel deleted') {
+	if (guild) guild.sendMessage("Looks like $channel.type channel \"$channel.name\" was deleted.")
 }
 
-client.listener(Events.CHANNEL_UPDATE){
+client.listener('channel changed') {
 	if (channel.text)
 		channel.sendMessage("Seems this channel changed. I like it.")
-	if (channel.voice)
-		server.sendMessage("Seems $channel.mention changed. I like it.")
+	else guild.sendMessage("Seems $channel.mention changed. I like it.")
 }

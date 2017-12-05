@@ -49,7 +49,7 @@ class Log {
 
 	List<Message> messages = []
 
-	List<Closure> listeners = [{ Message it -> if (it.level.enabled) println formatter(it) }]
+	List<Closure> listeners = [{ Message it -> if (it.level.enabled) println formatter.call(it) }]
 
 	String name
 	Log(String name){ this.name = name }
@@ -120,5 +120,9 @@ class Log {
 
 	def debug(content, String by = name) {
 		log(level('debug'), content, by)
+	}
+
+	def error(content, String by = name) {
+		log(level('error'), content, by)
 	}
 }

@@ -83,11 +83,6 @@ class WSClient extends WebSocketAdapter {
 				Map data = (Map<String, Object>) content.d
 				if (type == 'READY'){
 					readyingState = LoadState.LOADING
-					long heartbeat = (long) data.heartbeat_interval
-					if (!keepAliveThread){
-						if (client.gatewayVersion >= 5) while (!keepAliveThread) { Thread.sleep 10 }
-						else threadKeepAlive(heartbeat)
-					}
 					if (!messageCounts[7]){
 						cachingState = LoadState.LOADING
 						guildCreate = client.confirmedBot || ((Map<String, Object>) data.user).bot ||
@@ -185,21 +180,40 @@ class WSClient extends WebSocketAdapter {
 				data.rawType = type
 				data.timeReceived = receiveTime
 				data.seq = content.s
+				if (data.channel_id) data.channel = client.channel(data.channel_id)
+				if (data.guild_id) data.guild = client.guild(data.guild_id)
+				if (data.user_id) data.user = client.user(data.user_id)
+				if (data.message_id) data.message = ((Channel) data.channel).message(data.message_id)
+				if (data.user) data.user = client.user(data.user) ?: new User(client, (Map) data.user)
+				if (data.id) {
+					if (type.contains('MEMBER')) data.member = ((Guild) data.guild).member(data.id)
+					else if (type.contains('GUILD')) data.guild = client.guild(data.id) ?: new Guild(client, data)
+					else if (type.contains('USER') && !data.user)
+						data.user = client.user(data.id) ?: new User(client, data)
+					else if (type.contains('CHANNEL'))
+						data.channel = client.channel(data.id) ?: new Channel(client, data)
+					else if (type.contains('MESSAGE'))
+						data.message = ((Channel) data.channel).message(data.id, false) ?: new Message(client, data)
+				}
+				if (type.contains('MESSAGE')) {
+					data.respond = data.sendMessage = ((Channel) data.channel).&sendMessage
+					data.sendFile = ((Channel) data.channel).&sendFile
+				}
+				if (type.startsWith('PRESENCE')) data.presence = ((Guild) data.guild).presence(data.user)
 				Map event = new HashMap(data)
 				Thread.start("$type-${messageCounts[op][type]}"){
 					client.dispatchEvent(type == 'GUILD_CREATE' && guildCreatingState ==
 						LoadState.LOADING ? 'INITIAL_GUILD_CREATE' : type, event) }
 				Thread.start("ALL-${((Map<String, Integer>) messageCounts[op]).values().sum()}"){
 					client.dispatchEvent('ALL', event) }
-			}else if (op == 1){
-				seq = (int) content.s
-			}else if (op == 7){
-				reconnect()
-			}else if (op == 9){
+			}
+			else if (op == 1) seq = (int) content.s
+			else if (op == 7) reconnect()
+			else if (op == 9) {
 				seq = 0
 				heartbeats = 0
 				identify()
-			}else if (op == 10){
+			} else if (op == 10) {
 				client.readyData.putAll((Map) content.d)
 				if (justReconnected){
 					dispatch = true
@@ -232,7 +246,7 @@ class WSClient extends WebSocketAdapter {
 	}
 
 	void onWebSocketClose(int code, String reason){
-		client.log.info "Connection closed. Reason: $reason, code: $code', client.log.name + 'WS"
+		client.log.info "Connection closed. Reason: $reason, code: $code", client.log.name + 'WS'
 		Thread.start { client.dispatchEvent('CLOSE', [code: code, reason: reason, json: [code: code, reason: reason]]) }
 		if (keepAliveThread){
 			keepAliveThread.interrupt()

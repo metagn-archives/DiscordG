@@ -88,6 +88,7 @@ class Client extends User {
 	String getEmail(){ userObject.getOrDefault('email', this.@email) }
 	String password
 	boolean confirmedBot
+	void setBot(boolean x) { if (x && !confirmedBot) confirmedBot = true }
 	
 	// if the key is a string, it calls .replace
 	// if the key is a pattern, it calls .replaceAll

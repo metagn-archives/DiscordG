@@ -1,5 +1,8 @@
 package hlaaftana.discordg
 
+import groovy.transform.CompileStatic
+
+@CompileStatic
 class DiscordG {
 	static final String VERSION = '4.2.0'
 	static final String GITHUB = 'https://github.com/hlaaftana/DiscordG'

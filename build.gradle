@@ -25,6 +25,6 @@ dependencies {
 	compile 'org.abstractj.kalium:kalium:0.4.0'*/
 }
 
-version = "4.2.0"
+version = "5.0.0"
 group = "com.github.hlaaftana"
 archivesBaseName = "DiscordG"
