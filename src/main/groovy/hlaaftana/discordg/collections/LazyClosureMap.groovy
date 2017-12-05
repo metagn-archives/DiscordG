@@ -1,135 +1,129 @@
 package hlaaftana.discordg.collections
 
+import groovy.transform.CompileDynamic
+import groovy.transform.CompileStatic
+
 import java.util.concurrent.Future
 import java.util.concurrent.FutureTask
 
-class LazyClosureMap implements Map {
-	List entries = Collections.synchronizedList([])
+@CompileStatic
+class LazyClosureMap<K, V> implements Map<K, V> {
+	List<LazyEntry<K, V>> entries = Collections.synchronizedList([])
 
 	LazyClosureMap(){}
-	LazyClosureMap(Map map){ putAll(map) }
+	LazyClosureMap(Map<K, V> map){ putAll(map) }
 
-	static LazyClosureMap create(Map initial = [:], Closure ass){
-		Closure copy = ass.clone()
-		copy.delegate = new LazyClosureMapBuilder(initial)
-		copy.resolveStrategy = Closure.OWNER_FIRST
-		copy()
-		copy.delegate.result
+	static LazyClosureMap create(Map<K, V> initial = [:], Closure c){
+		c.delegate = new LazyClosureMapBuilder(initial)
+		c.resolveStrategy = Closure.OWNER_FIRST
+		c()
+		((LazyClosureMapBuilder) c.delegate).result
 	}
 
-	LazyEntry addEntry(LazyEntry entry){
-		def ass = entries.withIndex().find { it, int i -> it.key == entry.key }
-		if (ass){
-			entries[ass[1]] = entry
-		}else{
-			entries.add entry
+	LazyEntry<K, V> addEntry(LazyEntry<K, V> entry){
+		int a = -1
+		def k = entry.key
+		def khc = k.hashCode()
+		for (int i = 0; i < entries.size(); ++i) {
+			def e = entries[i].key
+			if (e.hashCode() == khc && e == k) {
+				a = i
+				break
+			}
 		}
+		if (a >= 0) entries[a] = entry
+		else entries.add entry
 		entry
 	}
 
-	def put(key, boolean lazy = true, Closure value){
-		addEntry(new LazyEntry(this, key, lazy ? value : { value })).rawValue
+	Closure<V> put(K key, boolean lazy = true, Closure<V> value){
+		addEntry(new LazyEntry(this, key, lazy ? value : { (V) value })).rawValue
 	}
 
-	def put(key, boolean lazy = true, value){
-		put(key){ value }
+	Closure<V> put(K key, boolean lazy = true, V value){
+		put(key, Closure.IDENTITY.curry(value))
 	}
 
-	Closure putClosure(key, Closure value){
+	Closure<V> putClosure(K key, Closure<V> value){
 		put(key, false, value)
 	}
 
-	Closure putAt(key, boolean lazy = true, Closure value){
+	Closure<V> putAt(K key, boolean lazy = true, Closure<V> value){
 		put(key, lazy, value)
 	}
 
-	Closure putAt(key, boolean lazy = true, ass){
+	Closure<V> putAt(K key, boolean lazy = true, V ass){
 		put(key, lazy, ass)
 	}
 
-	Closure putAt(String key, boolean lazy = true, Closure value){
-		put(key, lazy, value)
+	Closure<V> putAt(String key, boolean lazy = true, Closure<V> value){
+		put((K) key, lazy, value)
 	}
 
-	Closure putAt(String key, boolean lazy = true, ass){
-		put(key, lazy, ass)
+	Closure<V> putAt(String key, boolean lazy = true, V ass){
+		put((K) key, lazy, ass)
 	}
 
 	void putAll(Map m) {
-		m.each { k, v ->
-			put(k, false, v)
-		}
+		for (e in m) put((K) e.key, false, (V) e.value)
 	}
 
-	void putAll(LazyClosureMap map){
-		map.rawEach { k, Closure v ->
-			put(k, true, v)
-		}
+	void putAll(LazyClosureMap<K, V> map){
+		for (e in map.getEntries()) put(e.key, true, e.rawValue)
 	}
 
-	def alias(key, ...otherKeys){
-		otherKeys.each { this[it] = this.getRaw(key) }
+	def alias(K key, K... otherKeys){
+		for (int i = 0; i < otherKeys.length; ++i)
+			this[otherKeys[i]] = getRaw(key)
 	}
 
-	LazyClosureMap rawEach(Closure closure){
-		if (closure.maximumNumberOfParameters == 2){
-			this.rawEntryTuples().each { closure(it) }
-		}else{
-			this.entrySet().each { closure(it) }
-		}
+	LazyClosureMap<K, V> rawEach(Closure closure){
+		if (closure.maximumNumberOfParameters == 2) rawEntryTuples().each(closure)
+		else entrySet().each(closure)
 		this
 	}
 
-	List rawCollect(Closure closure){
-		if (closure.maximumNumberOfParameters == 2){
-			rawEntryTuples().collect { closure(it) }
-		}else{
-			entrySet().collect { closure(it) }
-		}
+	def <T> List<T> rawCollect(Closure<T> closure){
+		if (closure.maximumNumberOfParameters == 2) rawEntryTuples().collect(closure)
+		else entrySet().collect(closure)
 	}
 
 	boolean rawAny(Closure closure){
-		if (closure.maximumNumberOfParameters == 2){
-			rawEntryTuples().any { closure(it) }
-		}else{
-			entrySet().any { closure(it) }
-		}
+		if (closure.maximumNumberOfParameters == 2) rawEntryTuples().any(closure)
+		else entrySet().any(closure)
 	}
 
 	boolean rawEvery(Closure closure){
-		if (closure.maximumNumberOfParameters == 2){
-			rawEntryTuples().every { closure(it) }
-		}else{
-			entrySet().every { closure(it) }
-		}
+		if (closure.maximumNumberOfParameters == 2) rawEntryTuples().every(closure)
+		else entrySet().every(closure)
 	}
 
-	LazyEntry rawFind(Closure closure){
-		if (closure.maximumNumberOfParameters == 2){
+	LazyEntry<K, V> rawFind(Closure closure){
+		if (closure.maximumNumberOfParameters == 2) {
 			entrySet().find { closure([it.key, it.rawValue]) }
-		}else{
-			entrySet().find { closure(it) }
-		}
+		} else entrySet().find(closure)
 	}
 
-	List rawFindAll(Closure closure){
-		if (closure.maximumNumberOfParameters == 2){
+	Set<LazyEntry<K, V>> rawFindAll(Closure closure){
+		if (closure.maximumNumberOfParameters == 2) {
 			entrySet().findAll { closure([it.key, it.rawValue]) }
-		}else{
-			entrySet().findAll { closure(it) }
-		}
+		} else entrySet().findAll(closure)
 	}
 
 	boolean containsKey(key){
-		key in entries*.key
+		int hash = key.hashCode()
+		for (e in entries) if (e.key.hashCode() == hash && e.key == key) return true
+		false
 	}
 
-	boolean containsRawValue(Closure value){
-		value in entries*.rawValue
+	boolean containsRawValue(Closure<V> value){
+		for (e in entries) if (e.rawValue == value) return true
+		false
 	}
 
 	boolean containsValue(value) {
-		value in entries*.value
+		for (e in entries) if (e.value == value) return true
+		false
 	}
 
 	int size() {
@@ -140,69 +134,76 @@ class LazyClosureMap implements Map {
 		entries.empty
 	}
 
-	Set entrySet(){
-		entries as Set
+	Set<LazyEntry<K, V>> entrySet(){
+		new HashSet<>(entries)
 	}
 
-	List entryTuples(){
+	List<Tuple2<K, V>> entryTuples(){
 		entrySet().collect { [it.key, it.value] as Tuple2 }
 	}
 
-	List rawEntryTuples(){
+	List<Tuple2<K, Closure<V>>> rawEntryTuples(){
 		entrySet().collect { [it.key, it.rawValue] as Tuple2 }
 	}
 
-	Set keySet(){
-		entrySet()*.key
+	Set<K> keySet(){
+		entrySet()*.key as Set<K>
 	}
 
-	Collection values(){
+	List<V> values(){
 		entries*.value
 	}
 
-	Collection rawValues(){
+	List<Closure<V>> rawValues(){
 		entries*.rawValue
 	}
 
-	LazyEntry getEntry(key){
-		entries.find { it.key == key }
+	LazyEntry<K, V> getEntry(K key){
+		int hash = key.hashCode()
+		for (e in entries) if (e.key.hashCode() == hash && e.key == key) return e
+		null
 	}
 
-	def get(key){
-		getEntry(key)?.value
+	V get(key){
+		getEntry((K) key)?.value
 	}
 
-	def getAt(key){
+	V getAt(K key){
 		get(key)
 	}
 
-	def getAt(String key){
-		get(key)
+	V getAt(String key){
+		get((K) key)
 	}
 
-	def getProperty(String key){
-		get(key)
+	V getProperty(String key){
+		get((K) key)
 	}
 
+	@CompileDynamic
 	void setProperty(String key, value){
-		put(key, value)
+		put((K) key, (V) value)
 	}
 
-	Closure getRaw(key){
+	void setProperty(String key, Closure<V> value){
+		put((K) key, (V) value)
+	}
+
+	Closure<V> getRaw(K key){
 		getEntry(key)?.rawValue
 	}
 
-	LazyEntry removeEntry(key){
+	LazyEntry<K, V> removeEntry(K key){
 		LazyEntry entry = getEntry(key)
 		entries.remove(entry)
 		entry
 	}
 
-	def remove(key){
-		removeEntry(key)?.value
+	V remove(key){
+		removeEntry((K) key)?.value
 	}
 
-	Closure removeRaw(key){
+	Closure<V> removeRaw(K key){
 		removeEntry(key)?.rawValue
 	}
 
@@ -216,8 +217,8 @@ class LazyClosureMap implements Map {
 	}
 
 	LazyClosureMap buildSelf(){
-		this.refreshAll()
-		this.evaluateAll()
+		refreshAll()
+		evaluateAll()
 		this
 	}
 
@@ -229,35 +230,35 @@ class LazyClosureMap implements Map {
 		new FutureTask(this.&build)
 	}
 
-	def evaluate(key){
+	V evaluate(K key){
 		getEntry(key).value
 	}
 
-	def evaluateAll(){
+	List<V> evaluateAll(){
 		entries*.value
 	}
 
-	def refresh(key){
+	V refresh(K key){
 		getEntry(key).refresh()
 	}
 
-	def refreshAll(){
+	List<V> refreshAll(){
 		entries*.refresh()
 	}
 
-	static class LazyEntry implements Map.Entry {
-		LazyClosureMap map
-		private key
-		private Closure value
-		private evaluatedValue
+	static class LazyEntry<K, V> implements Map.Entry<K, V> {
+		LazyClosureMap<K, V> map
+		private K key
+		private Closure<V> value
+		private V evaluatedValue
 		boolean evaluated
-		LazyEntry(LazyClosureMap map, key, Closure value){ this.map = map; this.key = key; this.value = value }
+		LazyEntry(LazyClosureMap<K, V> map, K key, Closure<V> value){ this.map = map; this.key = key; this.value = value }
 
-		Closure getRawValue(){
+		Closure<V> getRawValue() {
 			this.@value
 		}
 
-		def getValue(){
+		V getValue() {
 			if (!evaluated){
 				evaluatedValue = this.@value(map)
 				evaluated = true
@@ -265,35 +266,39 @@ class LazyClosureMap implements Map {
 			evaluatedValue
 		}
 
-		Closure setValue(boolean lazy = true, Closure newValue){
+		Closure<V> setValue(boolean lazy = true, Closure<V> newValue){
 			map.put(key, lazy, newValue)
 		}
 
-		Closure setValue(newValue){
+		Closure<V> setValue(V newValue){
 			map.put(key, newValue)
 		}
 
-		def getKey(){
+		K getKey() {
 			this.@key
 		}
 
-		def refresh(){
+		V refresh() {
 			evaluated = false
 			evaluatedValue
 		}
 
-		boolean equals(Map.Entry other){
+		boolean equals(Map.Entry<K, V> other){
 			other.key == this.key && (
 				(other instanceof LazyEntry ?
-					other.rawValue == this.rawValue :
+					((LazyEntry) other).rawValue == this.rawValue :
 					false)
 				|| other.value == this.value)
 		}
 
-		boolean equals(other){ false }
+		boolean equals(other){
+			other instanceof Map.Entry<K, V> &&
+					equals((Map.Entry<K, V>) other)
+		}
 	}
 }
 
+@CompileStatic
 class LazyClosureMapBuilder {
 	LazyClosureMap result = [:]
 	LazyClosureMapBuilder(){}
@@ -304,11 +309,12 @@ class LazyClosureMapBuilder {
 	}
 
 	def methodMissing(String name, args){
-		if (args.class.array || args instanceof Collection){
+		if (args.class.array) args = ((Object[]) args).toList()
+		if (args instanceof Collection){
 			if (args[0] instanceof Closure){
 				result[name] = args[0]
 			}else if (args[0] instanceof Boolean && args[1] instanceof Closure){
-				result.put(name, args[0], args[1])
+				result.put(name, (boolean) args[0], (Closure) args[1])
 			}else if (args[0] instanceof Closure){
 				result.put(name, true, args[0])
 			}else{

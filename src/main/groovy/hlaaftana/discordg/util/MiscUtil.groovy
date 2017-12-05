@@ -1,18 +1,15 @@
 package hlaaftana.discordg.util
 
+import org.codehaus.groovy.runtime.StringGroovyMethods
+
 import java.awt.*
 import java.util.List
 import java.awt.datatransfer.*
-import java.text.SimpleDateFormat
 import java.time.LocalDateTime
 import java.time.ZoneId
 
-import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
 import groovy.transform.Memoized
-import groovy.transform.InheritConstructors
-import hlaaftana.discordg.objects.DiscordObject
-import hlaaftana.discordg.Client
 
 /**
  * Utilities unrelated to the actual API itself. In fact, most are not even used.
@@ -180,7 +177,7 @@ class MiscUtil {
 	static String code(String s){ surround(s, '`') }
 	@CompileStatic
 	@Memoized
-	static String block(String s, String language = ""){ "```$language\n$s```" }
+	static String block(String s, String language = ''){ "```$language\n$s```" }
 
 	/**
 	 * Registers a bunch of methods to help you with Discord formatting to the String meta class.
@@ -188,54 +185,100 @@ class MiscUtil {
 	static registerStringMethods(){
 		MiscUtil.metaClass.methods.findAll {
 			it.declaringClass.theClass == MiscUtil &&
-				!(it.name in ["getProperty", "invokeMethod", "setProperty"]) &&
+				!(it.name in ['getProperty', 'invokeMethod', 'setProperty']) &&
 				String in it.parameterTypes*.theClass }.each { a ->
 			String.metaClass."$a.name" = { ...args -> MiscUtil."$a.name"(delegate, *args) }
 		}
 	}
 
 	static registerCollectionMethods(){
-		Collection.metaClass.allAreEqual = {
-			def a = delegate[0]
-			delegate.every(a.&equals)
-		}
 		Collection.metaClass.sample = { Random random = listRandom ->
-			delegate[random.nextInt(delegate.size())]
+			((Collection) delegate)[random.nextInt(((Collection) delegate).size())]
 		}
 	}
 }
 
 abstract class CasingType {
-	static final CasingType CAMEL = [
-		toWords: { MiscUtil.splitWhen(it.toString().toCharArray()){ Character.isUpperCase((char)
-			it) }*.join().collect(MiscUtil.&uncapitalize) },
-		fromWords: { it[0] + it.drop(1)*.capitalize().join() }
-	] as CasingType
-	static final CasingType SNAKE = [
-		toWords: { it.split('_') },
-		fromWords: { it.join('_') }
-	] as CasingType
-	static final CasingType CONSTANT = [
-		toWords: { it.toLowerCase().split('_') },
-		fromWords: { it.join('_').toUpperCase() }
-	] as CasingType
+	static final CasingType CAMEL = new CasingType() {
+		@CompileStatic
+		List<String> toWords(String words) {
+			List<String> result = []
+			StringBuilder last = new StringBuilder()
+			char[] x = words.toCharArray()
+			for (int i = 0; i < x.length; ++i) {
+				char c = x[i]
+				if (Character.isUpperCase(c)) {
+					result.add(last.toString())
+					last = new StringBuilder()
+					last.append(Character.toUpperCase(c))
+				} else last.append(c)
+			}
+			result.add(last.toString())
+			result
+		}
+
+		@CompileStatic
+		String fromWords(List<String> words) {
+			StringBuilder result = new StringBuilder()
+			boolean flop = false
+			for (s in words) {
+				String r
+				if (flop) r = s.capitalize()
+				else {
+					r = s
+					flop = true
+				}
+				result.append(r)
+			}
+			result.toString()
+		}
+	}
+	static final CasingType SNAKE = new CasingType() {
+		@CompileStatic
+		List<String> toWords(String words) {
+			words.tokenize((char) '_')
+		}
+
+		@CompileStatic
+		String fromWords(List<String> words) {
+			words.join('_')
+		}
+	}
+	static final CasingType CONSTANT = new CasingType() {
+		@CompileStatic
+		List<String> toWords(String words) {
+			List<String> a = []
+			StringBuilder last = new StringBuilder()
+			char[] s = words.toCharArray()
+			for (int i = 0; i < s.length; ++i) {
+				if (s[i] == ((char) '_')) {
+					a.add(last.toString())
+					last = new StringBuilder()
+				} else last.append(Character.toLowerCase(s[i]))
+			}
+			a.add(last.toString())
+			a
+		}
+
+		@CompileStatic
+		String fromWords(List<String> words) {
+			words.join('_')
+		}
+	}
 	static final CasingType PASCAL = [
 		toWords: { MiscUtil.splitWhen(it.toString().toCharArray()){ Character.isUpperCase(it) }
-			.drop(1)*.join().collect(MiscUtil.&uncapitalize) },
+			.drop(1)*.join('').collect(StringGroovyMethods.&uncapitalize) },
 		fromWords: { it*.capitalize().join() }
 	] as CasingType
 	static final CasingType KEBAB = [
-		toWords: { it.split('-') },
+		toWords: { it.tokenize('-') },
 		fromWords: { it.join('-') }
 	] as CasingType
-
-	static Map defaultCases = [camel: CAMEL, snake: SNAKE,
-		constant: CONSTANT, pascal: PASCAL, kebab: KEBAB]
 	
-	abstract toWords(words)
-	abstract fromWords(words)
+	abstract List<String> toWords(String words)
+	abstract String fromWords(List<String> words)
 	
-	String convert(String text, CasingType casing){
+	String to(CasingType casing, String text){
 		casing.fromWords(toWords(text))
 	}
 }

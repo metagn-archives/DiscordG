@@ -1,24 +1,21 @@
 package hlaaftana.discordg
 
-import com.mashape.unirest.http.*
-
-import groovy.json.JsonOutput
-import groovy.json.JsonSlurper
-import groovy.lang.Closure
+import com.mashape.unirest.http.Unirest
+import com.mashape.unirest.request.body.MultipartBody
+import groovy.transform.CompileDynamic
+import groovy.transform.CompileStatic
 import hlaaftana.discordg.collections.Cache
-import hlaaftana.discordg.collections.DiscordListCache;
-import hlaaftana.discordg.collections.DynamicMap;
+import hlaaftana.discordg.collections.DiscordListCache
+
 import hlaaftana.discordg.exceptions.MessageInvalidException
 import hlaaftana.discordg.logic.ActionPool
-import hlaaftana.discordg.logic.ParentListenerSystem;
+import hlaaftana.discordg.logic.ListenerSystem
+import hlaaftana.discordg.logic.ParentListenerSystem
 import hlaaftana.discordg.net.*
 import hlaaftana.discordg.util.*
 import hlaaftana.discordg.objects.*
 
 import java.awt.Color
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern
 
 import org.eclipse.jetty.util.ssl.SslContextFactory
@@ -29,8 +26,10 @@ import org.eclipse.jetty.websocket.client.WebSocketClient
  * The Discord client.
  * @author Hlaaftana
  */
+@SuppressWarnings('GroovyUnusedDeclaration')
+@CompileStatic
 class Client extends User {
-	static Closure newPool = ActionPool.&new
+	private static final Closure<ActionPool> newPool = ActionPool.&new
 	static Map eventAliases = [MESSAGE: 'MESSAGE_CREATE',
 		NEW_MESSAGE: 'MESSAGE_CREATE', MESSAGE_DELETED: 'MESSAGE_DELETE',
 		MESSAGE_BULK_DELETE: 'MESSAGE_DELETE_BULK',
@@ -38,12 +37,11 @@ class Client extends User {
 		MESSAGE_UPDATED: 'MESSAGE_UPDATE', CHANNEL: 'CHANNEL_CREATE',
 		NEW_CHANNEL: 'CHANNEL_CREATE', CHANNEL_UPDATED: 'CHANNEL_UPDATE',
 		CHANNEL_DELETED: 'CHANNEL_DELETE', BAN: 'GUILD_BAN_ADD',
-		UNBAN: 'GUILD_BAN_REMOVE', GUILD: 'GUILD_CREATE', SERVER: 'GUILD_CREATE',
-		SERVER_CREATE: 'GUILD_CREATE', GUILD_CREATED: 'GUILD_CREATE',
-		SERVER_CREATED: 'GUILD_CREATE', GUILD_UPDATED: 'GUILD_UPDATE',
-		SERVER_UPDATED: 'GUILD_UPDATE', SERVER_UPDATE: 'GUILD_UPDATE',
-		SERVER_DELETE: 'GUILD_DELETE', SERVER_DELETED: 'GUILD_DELETE',
-		GUILD_DELETED: 'GUILD_DELETE', MEMBER: 'GUILD_MEMBER_ADD',
+		UNBAN: 'GUILD_BAN_REMOVE', GUILD: 'GUILD_CREATE',
+		GUILD_CREATE: 'GUILD_CREATE', GUILD_CREATED: 'GUILD_CREATE',
+		GUILD_UPDATED: 'GUILD_UPDATE', GUILD_UPDATE: 'GUILD_UPDATE',
+		GUILD_DELETE: 'GUILD_DELETE', GUILD_DELETED: 'GUILD_DELETE',
+		MEMBER: 'GUILD_MEMBER_ADD',
 		MEMBER_JOINED: 'GUILD_MEMBER_ADD', NEW_MEMBER: 'GUILD_MEMBER_ADD',
 		MEMBER_UPDATE: 'GUILD_MEMBER_UPDATE',
 		MEMBER_UPDATED: 'GUILD_MEMBER_UPDATE', MEMBER_LEFT: 'GUILD_MEMBER_REMOVE',
@@ -74,202 +72,44 @@ class Client extends User {
 		NEW_RELATIONSHIP: 'RELATIONSHIP_ADD', RELATIONSHIP_ADDED: 'RELATIONSHIP_ADD',
 		RELATIONSHIP_REMOVED: 'RELATIONSHIP_REMOVE']
 	static List knownDiscordEvents = ['READY', 'MESSAGE_ACK', 'GUILD_INTEGRATIONS_UPDATE',
-		'GUILD_EMOJIS_UPDATE', 'VOICE_STATE_UPDATE', 'VOICE_SERVER_UPDATE', 'USER_UPDATE',
+		'GUILD_EMOJIS_UPDATE', 'VOICE_STATE_UPDATE', 'VOICE_GUILD_UPDATE', 'USER_UPDATE',
 		'USER_GUILD_SETTINGS_UPDATE', 'USER_SETTINGS_UPDATE', 'GUILD_MEMBERS_CHUNK',
 		'GUILD_SYNC', 'CHANNEL_PINS_UPDATE', 'CHANNEL_PINS_ACK',
 		'MESSAGE_REACTION_REMOVE_ALL', 'WEBHOOKS_UPDATE', 'RESUMED'] +
-			(eventAliases.values() as ArrayList).unique()
+			(eventAliases.values() as ArrayList).toSet()
 	static List knownEvents = ['INITIAL_GUILD_CREATE', 'UNRECOGINZED', 'ALL'] + knownDiscordEvents
-	static Map defaultEventDataCalls = [
-		CHANNEL_CREATE: { client, data ->
-			Map c = data
-			c = Channel.construct(client, c)
-			Channel ass = new Channel(client, c)
-			server { ass.server }
-			channel { ass }
-			constructed { c }
-		},
-		CHANNEL_RECIPIENT_ADD: { client, data ->
-			channel { client.privateChannel(data.channel_id) }
-			recipient { new User(client, data.user) }
-			alias 'recipient', 'user'
-		},
-		GUILD_BAN_ADD: { client, data ->
-			server { client.server(data.guild_id) }
-			user { new User(client, data.user) }
-		},
-		GUILD_CREATE: { client, data ->
-			Map s = data
-			s = Server.construct(client, s)
-			server { new Server(client, s) }
-			constructed { s }
-		},
-		GUILD_DELETE: { client, data ->
-			server client.server(data.id)
-		},
-		GUILD_INTEGRATIONS_UPDATE: { client, data ->
-			server { client.server(data.guild_id) }
-		},
-		GUILD_EMOJIS_UPDATE: { client, data ->
-			server { client.server(data.guild_id) }
-			emojis {
-				new DiscordListCache(data.emojis
-					.collect { it + [guild_id: data.guild_id] }
-					, client, Emoji)
-			}
-		},
-		GUILD_MEMBER_ADD: { client, data ->
-			server { client.server(data.guild_id) }
-			member { new Member(client, data) }
-		},
-		GUILD_MEMBER_REMOVE: { client, data ->
-			server { client.server(data.guild_id) }
-			user(client.server(data.guild_id)?.member(data.user) ?:
-					new User(client, data.user))
-			alias 'user', 'member'
-		},
-		GUILD_ROLE_CREATE: { client, data ->
-			server { client.server(data.guild_id) }
-			role { new Role(client, data.role << [guild_id: data.guild_id]) }
-		},
-		GUILD_ROLE_DELETE: { client, data ->
-			server { client.server(data.guild_id) }
-			role client.serverMap[data.guild_id].roleMap[data.role_id]
-		},
-		GUILD_UPDATE: { client, data ->
-			Map s = data
-			Map oldObject = client.server(s).object.clone()
-			s = oldObject << s.clone().with {
-				remove 'roles'
-				remove 'members'
-				remove 'presences'
-				remove 'emojis'
-				remove 'voice_states'
-				it
-			}
-			server { new Server(client, s) }
-			constructed { s }
-		},
-		MESSAGE_CREATE: { client, data ->
-			def msg = new Message(client, data)
-			message { msg }
-			delegate.content { msg.content }
-			sendMessage { msg.channel.&sendMessage }
-			sendFile { msg.channel.&sendFile }
-			respond { msg.channel.&sendMessage }
-			author { msg.author }
-			member { msg.author(true) }
-			channel { msg.channel }
-			server { msg.server }
-			serverId { msg.serverId }
-		},
-		MESSAGE_DELETE: { client, data ->
-			bulk { data.bulk as boolean }
-			channel { client.channelMap[data.channel_id] }
-			message(client.cache.messages[data.channel_id] ?
-				client.channel(data.channel_id).cachedLogMap[data.id]
-				?: data.id : data.id)
-		},
-		MESSAGE_UPDATE: { client, data ->
-			if (data.containsKey("content")){
-				message { new Message(client, data) }
-			}else{
-				channel { client.channel(data.channel_id) }
-				message { client.cache.messages[data.channel_id] ? client.channel(data.channel_id).cachedLogMap[data.id] ?: data.id : data.id }
-				embeds { data.embeds }
-			}
-		},
-		MESSAGE_REACTION_ADD: { client, data ->
-			channel { client.channel(data.channel_id) }
-			user { client.user(data.user_id) }
-			message { client.cache.messages[data.channel_id]?.containsKey(data.message_id) ?
-				client.cache.messages[data.channel_id][data.message_id] :
-				data.message_id }
-			emoji { data.emoji }
-		},
-		MESSAGE_REACTION_REMOVE_ALL: { client, data ->
-			channel { client.channel(data.channel_id) }
-			message { client.cache.messages[data.channel_id].containsKey(data.message_id) ?
-				client.cache.messages[data.channel_id][data.message_id] :
-				data.message_id }
-		},
-		PRESENCE_UPDATE: { client, data ->
-			server { client.server(data.guild_id) }
-			game { data.game ? new Game(client, data.game) : null }
-			status { data.status }
-			lastModified { data.last_modified }
-			if (data.guild_id)
-				member { client.server(data.guild_id).member(data.user) }
-			else
-				user { client.user(data.user.id) ?: new User(client, data.user) }
-			isNew { data.user != client.user(data.user.id) }
-		},
-		TYPING_START: { client, data ->
-			channel { client.channel(data.channel_id) }
-			user { def c = client.channel(data.channel_id)
-				c.private ? c.user : c.server.member(data.user_id) }
-		},
-		VOICE_STATE_UPDATE: { client, data ->
-			Map v = data
-			v << [id: data.user_id]
-			VoiceState ase = new VoiceState(client, v)
-			voiceState { ase }
-			server { ase.server }
-			channel { ase.channel }
-			member { ase.member }
-			constructed { v }
-		},
-		VOICE_SERVER_UPDATE: { client, data ->
-			token { data.token }
-			server { client.server(data.guild_id) }
-			endpoint { data.endpoint }
-		},
-		USER_UPDATE: { client, data ->
-			user { new User(client, data) }
-		}
-	]
 	
-	static {
-		defaultEventDataCalls.CHANNEL_DELETE = defaultEventDataCalls.CHANNEL_UPDATE = defaultEventDataCalls.CHANNEL_CREATE
-		defaultEventDataCalls.CHANNEL_RECIPIENT_REMOVE = defaultEventDataCalls.CHANNEL_RECIPIENT_ADD
-		defaultEventDataCalls.GUILD_BAN_REMOVE = defaultEventDataCalls.GUILD_BAN_ADD
-		defaultEventDataCalls.GUILD_MEMBER_UPDATE = defaultEventDataCalls.GUILD_MEMBER_ADD
-		defaultEventDataCalls.GUILD_ROLE_UPDATE = defaultEventDataCalls.GUILD_ROLE_CREATE
-		defaultEventDataCalls.MESSAGE_REACTION_REMOVE = defaultEventDataCalls.MESSAGE_REACTION_ADD
-	}
-	
-	String customUserAgent = ""
+	String customUserAgent = ''
 	String getFullUserAgent(){ "$DiscordG.USER_AGENT $customUserAgent" }
 
 	String tokenPrefix
 	String rawToken
 	String email
-	String getEmail(){ cache["user"]?.getOrDefault("email", this.@email) }
+	String getEmail(){ userObject.getOrDefault('email', this.@email) }
 	String password
 	boolean confirmedBot
-
-	Map eventDataCalls = defaultEventDataCalls
+	
 	// if the key is a string, it calls .replace
 	// if the key is a pattern, it calls .replaceAll
 	Map messageFilters = [
-		"@everyone": "@\u200beveryone",
-		"@here": "@\u200bhere"
+		'@everyone': '@\u200beveryone',
+		'@here': '@\u200bhere'
 	]
 	// name in log
-	String logName = "DiscordG"
+	String logName = 'DiscordG'
 	// discord gateway version, dont change unless you know what it is and want to
 	int gatewayVersion = 6
 	// cache tokens from logins. dont turn this off.
 	boolean cacheTokens = true
 	// path to the token cache file
-	String tokenCachePath = "token.json"
+	String tokenCachePath = 'token.json'
 	// maximum amount of events that can be handled at the same time
 	// increasing might help with lag but takes up more CPU
 	int eventThreadCount = 3
-	// number of maximum members in a server until discord doesnt send offline members
+	// number of maximum members in a guild until discord doesnt send offline members
 	// set lower for a possible RAM decrease
 	int largeThreshold = 250 
-	// request offline members after discord gives us the online ones for large servers
+	// request offline members after discord gives us the online ones for large guilds
 	// set this to false if youre changing large threshold or if it uses too much RAM
 	boolean requestMembersOnReady = true
 	// adds the READY raw event data to the cache
@@ -281,26 +121,23 @@ class Client extends User {
 	// requests a member on PRESENCE_UPDATE for the joined_at data for a newly discovered member
 	// dont turn it on unless you need join dates and cant request offline members
 	boolean allowMemberRequesting = false
-	// cache reaction data from reaction events
-	// not something you can depend on but its left as an option
-	boolean cacheReactions = false
 	// spread message bulk delete events to separate message delete events
 	// true by default for easier handling by bots
 	boolean spreadBulkDelete = true
 	// timeout for waiting for guild_create events after the READY
-	// only for bots and accounts at or over 100 servers
-	long serverTimeout = 30_000
+	// only for bots and accounts at or over 100 guilds
+	long guildTimeout = 30_000
 	// whitelisted events
 	List includedEvents = []
 	// blacklisted events
-	List excludedEvents = ["TYPING"]
+	List excludedEvents = ['TYPING_START']
 	// for shards, [shardId, shardCount]
 	Tuple2 shardTuple
 	
 	Log log
 	Map<String, Object> fields = [:]
 	Map<String, Object> extraIdentifyData = [:]
-	List<String> mutedChannels = []
+	Set<String> mutedChannels = []
 	Map<String, ActionPool> pools = [
 		sendMessages: newPool(5, 5_000),
 		deleteMessages: newPool(5, 1_000),
@@ -314,14 +151,22 @@ class Client extends User {
 	]
 	// if you want to use global variables through the API object. mostly for utility
 	
-	@Delegate(excludes = ["parseEvent", "listenerError", "toString"])
-	ParentListenerSystem listenerSystem = new ParentListenerSystem(this)
+	List<DiscordRawWSListener> rawListeners = []
+	@Delegate(excludes = ['getClass', 'equals']) ListenerSystem listenerSystem = new ParentListenerSystem(this)
 	HTTPClient http
 	WSClient ws
-	DynamicMap voiceClients = new DynamicMap(keyConverter: DiscordObject.&id)
-	Cache cache = new Cache(this, messages: Cache.empty(this),
-		reactions: Cache.empty(this), calls: Cache.empty(this))
+	Cache<String, Object> readyData = Cache.empty(this)
+	Cache<String, DiscordListCache<Message>> messages = Cache.empty(this)
+	Cache<String, List<Map<String, Object>>> reactions = Cache.empty(this)
+	Cache<String, Map<String, Object>> calls = Cache.empty(this)
+	DiscordListCache<Guild> guildCache
+	DiscordListCache<Presence> presenceCache
+	DiscordListCache<Channel> privateChannelCache
+	DiscordListCache<Relationship> relationshipCache
+	Cache<String, Map<String, Object>> userGuildSettingCache
+	Map<String, Object> userObject
 	String gateway
+	String sessionId
 	boolean gatewayClosed
 
 	Client(Map config = [:]){
@@ -330,49 +175,12 @@ class Client extends User {
 		client = this
 
 		config.each { k, v ->
-			this[k] = v
+			this[k.toString()] = v
 		}
 
 		log = new Log(logName)
 
-		// oh boy am i gonna get hate for this
-		// check reason below where i define these
-		addChannelCreateListener()
-		addChannelDeleteListener()
-		addChannelUpdateListener()
-		addChannelRecipientAddListener()
-		addChannelRecipientRemoveListener()
-
-		addMessageCreateListener()
-		addMessageUpdateListener()
-		addMessageDeleteListener()
-
-		addGuildCreateListener()
-		addGuildDeleteListener()
-		addGuildUpdateListener()
-
-		addGuildMemberAddListener()
-		addGuildMemberRemoveListener()
-		addGuildMemberUpdateListener()
-
-		addGuildRoleCreateListener()
-		addGuildRoleDeleteListener()
-		addGuildRoleUpdateListener()
-
-		addPresenceUpdateListener()
-		addVoiceStateUpdateListener()
-		addVoiceServerUpdateListener()
-		addGuildEmojisUpdateListener()
-		addUserUpdateListener()
-		addGuildMemberChunkListener()
-		addGuildSyncListener()
-		addRelationshipAddListener()
-		addRelationshipRemoveListener()
-		addCallCreateListener()
-		addCallUpdateListener()
-		addCallDeleteListener()
-		addUserGuildSettingsUpdateListener()
-		addUserSettingsUpdateListener()
+		addCacher()
 
 		if (requestMembersOnReady) requestMembersOnReady()
 	}
@@ -385,57 +193,40 @@ class Client extends User {
 		rawToken = newToken
 	}
 	
-	void setCacheReactions(boolean x){
-		if (x){
-			addMessageReactionAddListener()
-			addMessageReactionRemoveListener()
-			addMessageReactionRemoveAllListener()
-		}
-		this.@cacheReactions = x
-	}
-	
 	void setConfirmedBot(boolean ass){
-		if (ass) tokenPrefix = "Bot"
-		else tokenPrefix = ""
+		if (ass) tokenPrefix = 'Bot'
+		else tokenPrefix = ''
 		this.@confirmedBot = ass
 	}
 	
 	boolean isBot(){
-		boolean ass = confirmedBot || object["bot"]
-		if (ass) tokenPrefix = "Bot"
-		else tokenPrefix = ""
+		boolean ass = confirmedBot || object.bot
+		if (ass) tokenPrefix = 'Bot'
+		else tokenPrefix = ''
 		ass
 	}
 
 	WSClient getWebSocketClient(){ ws }
 
-	Client startAnew(){
-		Client newApi = new Client()
-		def (sProps, tProps) = [this, newApi]*.properties*.keySet()
-		def commonProps = sProps.intersect(tProps) - ["class", "metaClass"]
-		commonProps.each { newApi[it] = !(it in ["http", "ws", "client", "cache", "loaded"]) ? this[it] : null }
-		newApi
-	}
-
 	void login(String email, String password, boolean threaded=true){
 		Closure a = {
-			log.info "Getting token..."
-			email = email
-			password = password
+			log.info 'Getting token...'
+			this.email = email
+			this.password = password
 			File tokenCache = new File(tokenCachePath)
 			if (!cacheTokens){
 				token = requestToken(email, password)
 			}else{
 				try{
-					token = JSONUtil.parse(tokenCache)[(email)]["token"]
-				}catch (ex){
+					token = ((Map) JSONUtil.parse(tokenCache)[(email)]).token
+				}catch (ignored){
 					JSONUtil.modify(tokenCache,
 						[(email): [token: requestToken(email, password)]])
-					token = JSONUtil.parse(tokenCache)[(email)]["token"]
+					token = ((Map) JSONUtil.parse(tokenCache)[(email)]).token
 				}
 			}
-			log.info "Got token."
-			login(token, false, false)
+			log.info 'Got token.'
+			login(token.toString(), false, false)
 		}
 		if (threaded) Thread.start(a)
 		else a()
@@ -444,7 +235,7 @@ class Client extends User {
 	void login(String token, boolean bot = true, boolean threaded=true){
 		Closure a = {
 			confirmedBot = bot
-			token = token
+			this.token = token
 			connectGateway(true, false)
 		}
 		if (threaded) Thread.start(a)
@@ -458,21 +249,21 @@ class Client extends User {
 			if (!tokenFile.exists()){
 				JSONUtil.dump(tokenFile, [bots: [:]])
 			}
-			Map original = JSONUtil.parse(tokenFile)
-			String originalToken
+			Map original = (Map<String, Map<String, Map<String, String>>>) JSONUtil.parse(tokenFile)
 			if (!original.bots) original.bots = [:]
 			if (!original.bots[customBotName]) original.bots[customBotName] = [:]
-			if (original.bots[customBotName].token){
+			def x = (Map<String, String>) original.bots[customBotName]
+			if (x.token){
 				try{
-					token = original.bots[customBotName].token
-				}catch (ex){
+					token = x.token
+				}catch (ignored){
 					String newToken = requestToken()
 					JSONUtil.dump(tokenFile, original)
 					token = newToken
 				}
 			}else{
 				String newToken = requestToken()
-				original.bots[customBotName].token = newToken
+				x.token = newToken
 				JSONUtil.dump(tokenFile, original)
 				token = newToken
 			}
@@ -491,26 +282,26 @@ class Client extends User {
 	void connectGateway(boolean requestGateway = true, boolean threaded = true){
 		Closure a = {
 			if (requestGateway){
-				log.info "Requesting gateway..."
-				gateway = http.jsonGet("gateway")["url"]
-				if (!gateway.endsWith("/")){ gateway += "/" }
+				log.info 'Requesting gateway...'
+				gateway = http.jsonGet('gateway').url
+				if (!gateway.endsWith('/')) gateway += '/'
 				gateway += "?encoding=json&v=$gatewayVersion"
 			}
-			WebSocketClient client = new WebSocketClient(new SslContextFactory())
+			WebSocketClient cl = new WebSocketClient(new SslContextFactory())
 			if (!ws) ws = new WSClient(this)
-			log.info "Starting websocket connection..."
+			log.info 'Starting websocket connection...'
 			gatewayClosed = false
-			client.start()
-			client.connect(ws, new URI(gateway), new ClientUpgradeRequest())
+			cl.start()
+			cl.connect(ws, new URI(gateway), new ClientUpgradeRequest())
 		}
-		askPool("connect"){
+		askPool('connect'){
 			if (threaded) Thread.start(a)
 			else a()
 		}
 	}
 
 	void logout(boolean exit = false){
-		if (!bot) http.post("auth/logout", ["token": token])
+		if (!bot) http.post('auth/logout', ['token': token])
 		closeGateway(false)
 		ws = null
 		if (exit) System.exit(0)
@@ -521,7 +312,7 @@ class Client extends User {
 			gatewayClosed = true
 			if (ws){
 				ws.keepAliveThread?.interrupt()
-				ws.session?.close(1000, "Close")
+				ws.session?.close(1000, 'Close')
 			}
 		}
 		if (threaded){ Thread.start(a) }
@@ -530,8 +321,8 @@ class Client extends User {
 
 	static String parseEvent(str){
 		def r = str.toString().toUpperCase().replaceAll(/\s+/, '_')
-			.replace("CHANGE", "UPDATE").replaceAll(/^(?!VOICE_)SERVER/, "GUILD")
-		knownEvents.contains(r) ? r : (eventAliases[r] ?: "UNRECOGNIZED")
+			.replace('CHANGE', 'UPDATE').replaceAll(/^(?!VOICE_)GUILD/, 'GUILD')
+		knownEvents.contains(r) ? r : (eventAliases[r] ?: 'UNRECOGNIZED')
 	}
 
 	def listenerError(String event, Throwable ex, Closure closure, data){
@@ -545,192 +336,63 @@ class Client extends User {
 	}
 
 	def propertyMissing(String name, value){
-		if (fields.containsKey(name)) fields[name] = value
+		if (fields.containsKey(name)) fields.put name, value
 		else throw new MissingPropertyException(name, Client)
 	}
 
 	boolean isLoaded(){
-		rawToken && ws && ws.loaded && !cache.empty &&
-			(!client.bot || !servers.any { it.unavailable })
+		rawToken && ws && ws.loaded && (null != guildCache && !guildCache.isEmpty()) &&
+			(!bot || !anyUnavailableGuilds())
 	}
 
+	boolean anyUnavailableGuilds() {
+		for (g in guildCache) if (g.value.unavailable) return true
+		false
+	}
 
 	String requestToken(String email, String password){
-		askPool("login"){
-			http.jsonPost("auth/login",
-				["email": email, "password": password])["token"]
+		askPool('login'){
+			http.jsonPost('auth/login',
+				['email': email, 'password': password]).token
 		}
 	}
 
-	User getUser(){ new User(this, cache["user"]) }
-
-	boolean isVerified(){ cache["user"]["verified"] }
-
-	def askPool(String name, String bucket = '$', Closure action){
-		pools[name].ask bucket, action
-	}
-
-	def sync(servers){
-		List guilds = servers instanceof Collection ?
-			servers.collect(DiscordObject.&id).collate(25) :
-			[[id(servers)]]
-		guilds.each {
-			ws.send op: 12, d: it
-			Thread.sleep 1000
-		}
-	}
-
-	def chunkMembersFor(servers, String query = "", int limit = 0){
-		List guilds = servers instanceof Collection ?
-			servers.collect(DiscordObject.&id).collate(25) :
-			[id(servers)]
-		guilds.each {
-			ws.send op: 8, d: [
-				guild_id: it,
-				query: query,
-				limit: limit
-			]
-			Thread.sleep 1000
-		}
-	}
-
-	def chunkMembersFor(servers, int limit, String query = ""){
-		chunkMembersFor(servers, query, limit)
-	}
-
-	String filterMessage(cnt){
-		String a = cnt.toString()
-		messageFilters.each { k, v ->
-			if (k instanceof Pattern)
-				a = a.replaceAll(k.pattern(), v)
-			// above is for groovy closure support
-			else
-				a = a.replace(k.toString(), v)
-		}
-		a
-	}
-
-	static String getApplicationLink(app, perms = null){
-		"https://discordapp.com/oauth2/authorize?client_id=${id(app)}&scope=bot" +
-			(perms ? "&permissions=$perms.value" : "")
-	}
-
-	static String getAppLink(app, perms = null){ getApplicationLink(app, perms) }
-	static String applicationLink(app, perms = null){ getApplicationLink(app, perms) }
-	static String appLink(app, perms = null){ getApplicationLink(app, perms) }
-
-	String mute(t){
-		def d = t.class.array || t instanceof Collection ? t.collect { id(it) } : id(t)
-		mutedChannels += d
-	}
-
-	String mute(...t){ mute(t as List) }
-
-	String getSessionId(){ cache["session_id"] }
-
-	List<Server> getServers() { cache["guilds"]?.list ?: [] }
-	Map<String, Server> getServerMap(){ cache["guilds"]?.map ?: [:] }
-
-	List<Presence> getGlobalPresences(){ cache.presences?.list ?: [] }
-	Map<String, Presence> getGlobalPresenceMap(){ cache.presences?.map ?: [:] }
-
-	List<User> getAllUsers() {
-		// This takes a long time to .unique() on so i found this faster method
-		(members + privateChannels*.user - null).groupBy { it.id }
-			.values()*.first()
-	}
-	List<Member> getAllMembers(){ servers*.members.flatten() }
-	List<Role> getAllRoles(){ servers*.roles.flatten() }
-	List<Emoji> getAllEmojis(){ servers*.emojis.flatten() }
-
-	List<User> getUsers(){ allUsers }
-	List<Member> getMembers(){ allMembers }
-	List<Role> getRoles(){ allRoles }
-	List<Emoji> getEmojis(){ allEmojis }
-
-	Map<String, User> getUserMap(){
-		servers*.memberMap.sum()
-	}
-
-	Map<String, Map<String, Member>> getMemberMap(){
-		Map doo = [:]
-		servers.each { doo[it.id] = it.memberMap }
-		doo
-	}
-
-	Map<String, Role> getRoleMap(){
-		servers*.roleMap.sum()
-	}
-
-	void changePresence(Map<String, Object> data) {
-		def oldPresence = presences.find { it.id == id }
-		def payload = [
-			status: data.status ?: oldPresence?.status ?: "online",
-			game: data.game != null ?
-				data.game instanceof String ? [name: data.game, type: 0] :
-				data.game instanceof DiscordObject ? data.game.object :
-				data.game instanceof Map ? data.game :
-				[name: data.game.toString()] :
-				oldPresence?.game?.object ?: null,
-			since: data.since ?: 0,
-			afk: data.afk ?: false,
-		]
-		askPool("changePresence"){
-			ws.send(3, payload)
-		}
-		for (s in servers){
-			cache.guilds[s.id].presences.add(
-				user: cache.user,
-				game: payload.game,
-				status: payload.status,
-				guild_id: s.id
-			)
-		}
-		cache.presences.add(
-			user: cache.user,
-			game: payload.game,
-			status: payload.status,
-			last_modified: System.currentTimeMillis()
-		)
-	}
-
-	void status(status){ changePresence(status: status) }
-	void play(game){ changePresence(game: game) }
-	void playGame(game){ changePresence(game: game) }
+	User getUser(){ new User(this, userObject) }
 
 	Region getOptimalRegion(){
 		requestRegions().find { it.optimal }
 	}
 
 	boolean isPrivateChannel(c){
-		cache["private_channels"].containsKey(id(c))
+		privateChannelCache.containsKey(id(c))
 	}
-	
+
 	List<Channel> getPrivateChannels(){
-		cache["private_channels"]?.list ?: []
+		(List<Channel>) (privateChannelCache?.list() ?: [])
 	}
 
 	Map<String, Channel> getPrivateChannelMap(){
-		cache["private_channels"]?.map ?: [:]
+		(Map<String, Channel>) (privateChannelCache?.map() ?: [:])
 	}
 
-	Channel privateChannel(c){ find(cache.private_channels, c) }
-	List<Channel> privateChannels(c){ findAll(cache.private_channels, c) }
+	Channel privateChannel(c){ find(privateChannelCache, c) }
+	List<Channel> privateChannels(c){ findAll(privateChannelCache, c) }
 
-	DiscordListCache getUserDmChannelCache(){
+	DiscordListCache<Channel> getUserDmChannelCache(){
 		DiscordListCache dlc = new DiscordListCache([], this, Channel)
-		dlc.store = (cache["private_channels"].values().findAll { it.type == 1 }
-			.collectEntries { [(it.recipients.keySet()[0]): it] })
+		for (e in privateChannelCache) if (e.value.type == 1)
+			dlc.put(((DiscordListCache<User>) e.value.recipients).keySet()[0], e.value)
 		dlc
 	}
 
 	Map<String, Channel> getUserDmChannelMap(){
-		userDmChannelCache.map
+		userDmChannelCache.map()
 	}
 
-	DiscordListCache getDmChannelCache(){
-		new DiscordListCache(cache.private_channels.values().findAll { it.type == 1 },
-			this, Channel)
+	DiscordListCache<Channel> getDmChannelCache(){
+		DiscordListCache dlc = new DiscordListCache([], this, Channel)
+		for (e in privateChannelCache) if (e.value.type == 1) dlc.add(e.value)
+		dlc
 	}
 
 	List<Channel> getDmChannels(){
@@ -756,428 +418,429 @@ class Client extends User {
 	Channel group(c){ channels(c).find { it.group } }
 	List<Channel> groups(c){ channels(c).findAll { it.group } }
 
-	List<Channel> getTextChannels(){
-		privateChannels + servers*.textChannels.flatten() ?: []
-	}
-
-	Map<String, Channel> getTextChannelMap(){
-		servers*.textChannelMap.sum() + privateChannelMap ?: [:]
-	}
-
-	List<Channel> getVoiceChannels(){
-		servers*.voiceChannels.sum() ?: []
-	}
-
-	Map<String, Channel> getVoiceChannelMap(){
-		servers*.voiceChannelMap.sum() ?: [:]
-	}
-
 	List<Channel> getChannels(){
-		serverChannels + privateChannels ?: []
+		(List<Channel>) (guildChannels + privateChannels ?: [])
 	}
 
 	Map<String, Channel> getChannelMap(){
-		serverChannelMap + privateChannelMap ?: [:]
+		(Map<String, Channel>) (guildChannelMap + privateChannelMap ?: [:])
 	}
-	
-	List<Channel> getServerChannels(){
-		cache.guilds.mapList*.channels*.list.flatten()
+
+	List<Channel> getGuildChannels(){
+		def result = new ArrayList<Channel>()
+		for (e in guildCache) {
+			def c = (DiscordListCache<Channel>) e.value.channels
+			result.addAll(c.list())
+		}
+		result
 	}
-	
-	Map<String, Channel> getServerChannelMap(){
-		cache.guilds.mapList*.channels*.map.sum()
+
+	Map<String, Channel> getGuildChannelMap(){
+		def result = new HashMap<String, Channel>()
+		for (e in guildCache) {
+			def c = (DiscordListCache<Channel>) e.value.channels
+			result.putAll(c.map())
+		}
+		result
 	}
-	
-	Map<String, String> getChannelServerIdMap(){
-		Map a = [:]
-		cache.guilds.each { x, y ->
-			y.channels.each { m, n ->
-				a[m] = x
-			}
+
+	Map<String, String> getChannelGuildIdMap(){
+		def result = new HashMap<String, String>()
+		for (e in guildCache) for (ce in (DiscordListCache<Channel>) e.value.channels) {
+			result.put ce.key, e.key
+		}
+		result
+	}
+
+	Member member(t){ (Member) findNested(guildCache, "members", t) }
+	List<Member> members(t){ findAllNested(guildCache, "members", t) }
+	Member member(s, u){ find((DiscordListCache<Member>) guildCache[id(s)].members, u) }
+	List<Member> members(s, u){ findAll((DiscordListCache<Member>) guildCache[id(s)].members, u) }
+
+	User user(u){ (User) (member(u)?.user ?:
+			findNested(privateChannelCache, 'recipients', u) ?:
+					relation(u)?.user) }
+	Relationship relationship(u){ find(relationshipCache, u) }
+	Relationship relation(u){ relationship(u) }
+
+	Guild guild(s){ find(guildCache, s) }
+
+	Channel textChannel(...args){ ((List<Channel>) invokeMethod('channels', args)).find { it.text } }
+	List<Channel> textChannels(...args){ ((List<Channel>) invokeMethod('channels', args)).findAll { it.text } }
+	Channel voiceChannel(...args){ ((List<Channel>) invokeMethod('channels', args)).find { it.voice } }
+	List<Channel> voiceChannels(...args){ ((List<Channel>) invokeMethod('channels', args)).findAll { it.voice } }
+
+	Channel channel(c){ guildChannel(c) ?: privateChannel(c) }
+	List<Channel> channels(c){ guildChannels(c) ?: privateChannels(c) }
+	Channel guildChannel(c){ (Channel) findNested(guildCache, "channels", c) }
+	List<Channel> guildChannels(c){ findAllNested(guildCache, "channels", c) }
+	Channel channel(s, c){ find((DiscordListCache<Channel>) guildCache[id(s)].channels, c) }
+	List<Channel> channels(s, c){ findAll((DiscordListCache<Channel>) guildCache[id(s)].channels, c) }
+
+	Role role(r){ (Role) findNested(guildCache, "roles", r) }
+	List<Role> roles(r){ findAllNested(guildCache, "roles", r) }
+	Role role(s, r){ find((DiscordListCache<Role>) guildCache[id(s)].roles, r) }
+	List<Role> roles(s, r){ findAll((DiscordListCache<Role>) guildCache[id(s)].roles, r) }
+
+	Call ongoingCall(c){ calls[id(c)] ? new Call(this, calls[id(c)]) : null }
+
+	List<Relationship> getRelationships(){ relationshipCache.list() }
+	Map<String, Relationship> getRelationshipMap(){ relationshipCache.map() }
+
+	List<Guild> getGuilds() { (List<Guild>) (guildCache?.list() ?: []) }
+	Map<String, Guild> getGuildMap(){ (Map<String, Guild>) (guildCache?.map() ?: [:]) }
+
+	List<Presence> getGlobalPresences(){ (List<Presence>) (presenceCache?.list() ?: []) }
+	Map<String, Presence> getGlobalPresenceMap(){ (Map<String, Presence>) (presenceCache?.map() ?: [:]) }
+
+	List<User> getAllUsers() { userMap.values().toList() }
+	List<Member> getAllMembers(){ (List<Member>) memberMap.values()*.values().flatten().toList() }
+	List<Role> getAllRoles(){ (List<Role>) roleMap.values().flatten().toList() }
+	List<Emoji> getAllEmojis(){ (List<Emoji>) emojiIdMap.values().flatten().toList() }
+
+	List<User> getUsers(){ allUsers }
+	List<Member> getMembers(){ allMembers }
+	List<Role> getRoles(){ allRoles }
+	List<Emoji> getEmojis(){ allEmojis }
+
+	Map<String, User> getUserMap(){
+		def result = new HashMap<String, User>()
+		for (e in guildCache) {
+			def m = (DiscordListCache<Member>) e.value.members
+			for (me in m) result.put(me.key, m.at(me.key).user)
+		}
+		for (e in privateChannelCache) {
+			def m = (DiscordListCache<User>) e.value.recipients
+			for (me in m) result.put(me.key, m.at(me.key))
+		}
+		if (null != relationshipCache) for (e in relationshipCache) {
+			def r = relationshipCache.at(e.key).user
+			result.put(r.id, r)
+		}
+		result
+	}
+
+	Map<String, Map<String, Member>> getMemberMap(){
+		Map doo = [:]
+		guilds.each { doo[it.id] = it.memberMap }
+		doo
+	}
+
+	Map<String, Role> getRoleMap(){
+		def result = new HashMap<String, Role>()
+		for (e in guilds) result.putAll(e.roleMap)
+		result
+	}
+
+	Map<String, Emoji> getEmojiIdMap(){
+		def result = new HashMap<String, Emoji>()
+		for (e in guilds) result.putAll(e.emojiIdMap)
+		result
+	}
+
+	Map<String, Emoji> getEmojiNameMap(){
+		def result = new HashMap<String, Emoji>()
+		for (e in guilds) result.putAll(e.emojiNameMap)
+		result
+	}
+
+	boolean isVerified(){ userObject.verified as boolean }
+
+	def <T> T askPool(String name, String bucket = '$', Closure<T> action){
+		pools[name].ask bucket, action
+	}
+
+	def syncGuilds(g){
+		g = g instanceof Collection ?
+			g.collect(DiscordObject.&id).collate(25) :
+			[[id(g)]]
+		for (c in g) {
+			ws.send op: 12, d: c
+			Thread.sleep 1000
+		}
+	}
+
+	def chunkMembersFor(guilds, String query = '', int limit = 0){
+		guilds = guilds instanceof Collection ?
+			guilds.collect(DiscordObject.&id).collate(25) :
+			[id(guilds)]
+		guilds.each {
+			ws.send op: 8, d: [
+				guild_id: it,
+				query: query,
+				limit: limit
+			]
+			Thread.sleep 1000
+		}
+	}
+
+	def chunkMembersFor(guilds, int limit, String query = ''){
+		chunkMembersFor(guilds, query, limit)
+	}
+
+	String filterMessage(cnt){
+		String a = cnt.toString()
+		messageFilters.each { k, v ->
+			if (k instanceof Pattern) a = a.invokeMethod('replaceAll', [((Pattern) k).pattern(), v]).toString()
+			else a = a.invokeMethod('replace', [k.toString(), v]).toString()
 		}
 		a
 	}
 
-	Member member(t){ findNested(cache.guilds, "members", t) }
-	List<Member> members(t){ findAllNested(cache.guilds, "members", t) }
-	Member member(s, u){ find(cache.guilds[s].members, u) }
-	List<Member> members(s, u){ findAll(cache.guilds[s].members, u) }
-
-	User user(u){ member(u)?.user ?:
-		findNested(cache.private_channels, 'recipients', u) ?:
-		relation(u)?.user }
-	Relationship relationship(u){ find(cache.relationships, u) }
-	Relationship relation(u){ relationship(u) }
-
-	Server server(s){ find(cache.guilds, s) }
-
-	Channel textChannel(...args){ channels(*args).find { it.text } }
-	List<Channel> textChannels(...args){ channels(*args).findAll { it.text } }
-	Channel voiceChannel(...args){ channels(*args).find { it.voice } }
-	List<Channel> voiceChannels(...args){ channels(*args).findAll { it.voice } }
-
-	Channel channel(c){ serverChannel(c) ?: privateChannel(c) }
-	List<Channel> channels(c){ serverChannels(c) ?: privateChannels(c) }
-	Channel serverChannel(c){ findNested(cache.guilds, "channels", c) }
-	List<Channel> serverChannels(c){ findAllNested(cache.guilds, "channels", c) }
-	Channel channel(s, c){ find(cache.guilds[s].channels, c) }
-	List<Channel> channels(s, c){ findAll(cache.guilds[s].channels, c) }
-
-	Role role(r){ findNested(cache.guilds, "roles", r) }
-	List<Role> roles(r){ findAllNested(cache.guilds, "roles", r) }
-	Role role(s, r){ find(cache.guilds[id(s)], r) }
-	List<Role> roles(s, r){ findAll(cache.guilds[id(s)], r) }
-
-	Call ongoingCall(c){ cache.calls[id(c)] ? new Call(this, cache.calls[id(c)]) : null }
-
-	List<Relationship> getRelationships(){ cache.relationships.list }
-	Map<String, Relationship> getRelationshipMap(){ cache.relationships.map }
-
-	List getEverything(){
-		servers + roles + members + channels
+	static String getApplicationLink(app, Permissions perms = null){
+		"https://discordapp.com/oauth2/authorize?client_id=${id(app)}&scope=bot" +
+			(perms ? "&permissions=$perms.value" : '')
 	}
+
+	static String getAppLink(app, Permissions perms = null){ getApplicationLink(app, perms) }
+	static String applicationLink(app, Permissions perms = null){ getApplicationLink(app, perms) }
+	static String appLink(app, Permissions perms = null){ getApplicationLink(app, perms) }
+
+	void mute(t){
+		if (t.class.array || t instanceof Collection) mutedChannels.addAll(t.collect(this.&id))
+		else mutedChannels.add(id(t))
+	}
+
+	void changePresence(Map<String, Object> data) {
+		def oldPresence = presences.find { it.id == id }
+		def dg = data.game
+		def payload = [
+			status: data.status ?: oldPresence?.status ?: 'online',
+			game: null != dg ?
+				dg instanceof String ? [name: dg, type: 0] :
+				dg instanceof DiscordObject ? ((DiscordObject) dg).object :
+				dg instanceof Map ? dg :
+				[name: dg.toString()] :
+				oldPresence?.game?.object ?: null,
+			since: data.since ?: 0,
+			afk: data.afk ?: false,
+		]
+		askPool('changePresence'){
+			ws.send(3, payload)
+		}
+		for (s in guildCache){
+			((DiscordListCache) s.value.presences).add(
+				user: userObject,
+				game: payload.game,
+				status: payload.status,
+				guild_id: s.key
+			)
+		}
+		presenceCache.add(
+			user: userObject,
+			game: payload.game,
+			status: payload.status,
+			last_modified: System.currentTimeMillis()
+		)
+	}
+
+	void status(status){ changePresence(status: status) }
+	void play(game){ changePresence(game: game) }
+	void playGame(game){ changePresence(game: game) }
 
 	// WEBSOCKET LISTENERS
 
-	void addGuildMemberAddListener(){
-		addListener("MEMBER"){ Map d ->
-			cache["guilds"][d.json.guild_id]["members"].add(d.json)
-			cache["guilds"][d.json.guild_id]["member_count"]++
-		}
-	}
+	void addListener(DiscordRawWSListener listener) { rawListeners.add(listener) }
 
-	void addGuildMemberRemoveListener(){
-		addListener("MEMBER_REMOVED"){ Map d ->
-			if (!cache.guilds[d.json.guild_id]) return
-			cache["guilds"][d.json.guild_id]["members"].remove(d.json.user.id)
-			cache["guilds"][d.json.guild_id]["member_count"]--
-		}
-	}
-
-	void addGuildRoleCreateListener(){
-		addListener("ROLE"){ Map d ->
-			cache["guilds"][d.json.guild_id]["roles"].add(d.json.role + [guild_id: d.json.guild_id])
-		}
-	}
-
-	void addGuildRoleDeleteListener(){
-		addListener("ROLE_DELETE"){ Map d ->
-			cache["guilds"][d.json.guild_id]["roles"].remove(d.json.role_id)
-		}
-	}
-
-	void addChannelCreateListener(){
-		addListener("CHANNEL_CREATE"){ Map d ->
-			if (d.constructed.guild_id){
-				cache["guilds"][d.constructed.guild_id]["channels"].add(d.constructed)
-			}else{
-				cache["private_channels"].add(d.constructed)
-			}
-		}
-	}
-
-	void addChannelDeleteListener(){
-		addListener("CHANNEL_DELETE"){ Map d ->
-			if (d.constructed.guild_id){
-				cache["guilds"][d.constructed.guild_id]["channels"].remove(d.constructed.id)
-			}else{
-				cache["private_channels"].remove(d.constructed.id)
-			}
-		}
-	}
-
-	void addChannelUpdateListener(){
-		addListener("CHANNEL_UPDATE"){ Map d ->
-			if (d.constructed.guild_id) {
-				cache["guilds"][d.constructed.guild_id]["channels"][d.constructed.id] <<
-						d.constructed
-			}else{
-				cache["private_channels"][d.constructed.id] << d.constructed
-			}
-		}
-	}
-
-	void addMessageCreateListener(){
-		addListener("MESSAGE"){ Map d ->
-			if (cache.messages[d.json.channel_id]){
-				cache.messages[d.json.channel_id].add(d.json)
-			}else{
-				def a = new DiscordListCache([d.json], this, Message)
-				a.root = channel(d.json.channel_id)
-				cache.messages[d.json.channel_id] = a
-			}
-		}
-	}
-
-	void addMessageUpdateListener(){
-		addListener("MESSAGE_UPDATE"){ Map d ->
-			if (cache.messages[d.json.channel_id]){
-				if (cache.messages[d.json.channel_id][d.json.id]){
-					cache.messages[d.json.channel_id][d.json.id] << d.json
-				}else{
-					cache.messages[d.json.channel_id].add(d.json)
-				}
-			}else{
-				def a = new DiscordListCache([d.json], this, Message)
-				a.root = channel(d.json.channel_id)
-				cache.messages[d.json.channel_id] = a
-			}
-		}
-	}
-
-	void addMessageDeleteListener(){
-		addListener("message delete") { Map d ->
-			cache.messages[d.json.channel_id]?.remove(d.json.id)
-		}
-	}
-
-	void addGuildCreateListener(){
-		addListener("SERVER"){ Map d ->
-			Map server = d.constructed
-			if (cache["guilds"][server["id"]]){
-				cache["guilds"][server["id"]] << server
-			}else{
-				cache["guilds"].add(server)
-			}
-		}
-	}
-
-	void addGuildDeleteListener(){
-		addListener("SERVER_DELETED"){ Map d ->
-			cache["guilds"].remove(d.server.id)
-		}
-	}
-
-	void addGuildMemberUpdateListener(){
-		addListener("MEMBER_UPDATED"){ Map d ->
-			cache["guilds"][d.json.guild_id]["members"][d.json.user.id]?.leftShift(d.json)
-		}
-	}
-
-	void addGuildRoleUpdateListener(){
-		addListener("ROLE_UPDATE"){ Map d ->
-			if (cache["guilds"][d.json.guild_id]["roles"][d.json.role.id])
-				cache["guilds"][d.json.guild_id]["roles"][d.json.role.id] << d.json.role
-			else cache["guilds"][d.json.guild_id]["roles"][d.json.role.id] = d.json.role + [guild_id: d.json.guild_id]
-		}
-	}
-
-	void addGuildUpdateListener(){
-		addListener("SERVER_UPDATED"){ Map d ->
-			cache["guilds"][d.json.id] = d.constructed
-		}
-	}
-
-	void addPresenceUpdateListener(){
-		addListener("presence change"){ Map d ->
-			if (d.json.guild_id){
-				if (cache.guilds[d.json.guild_id].unavailable) return
-				if (d.json.user.avatar){
-					if (cache.guilds[d.json.guild_id].members[d.json.user.id]){
-						cache.guilds[d.json.guild_id].members[d.json.user.id].user <<
-							d.json.user
-					}else{
-						cache.guilds[d.json.guild_id].members.add(d.json.with {
-							Map di = it.clone()
-							di.remove("status")
-							di.remove("game")
-							if (allowMemberRequesting)
-								di << requestMember(d.json.guild_id, d.json.user.id).object
-							di
-						})
+	void addCacher() {
+		addListener(new DiscordRawWSListener() {
+			@Override
+			@CompileStatic
+			void fire(String type, Map d) {
+				def g = (String) d.guild_id
+				if (type == 'GUILD_MEMBER_ADD') {
+					((DiscordListCache) guildCache[g].members).add(d)
+					((int) guildCache[g].member_count)++
+				} else if (type == 'GUILD_MEMBER_REMOVE') {
+					if (!guildCache[g]) return
+					((DiscordListCache<Member>) guildCache[g].members).remove((String) ((Map) d.user).id)
+					((int) guildCache[g].member_count)--
+				} else if (type == 'GUILD_ROLE_CREATE') {
+					((DiscordListCache<Role>) guildCache[g].roles).add((Map) d.role + [guild_id: g])
+				} else if (type == 'GUILD_ROLE_DELETE') {
+					((DiscordListCache<Role>) guildCache[g].roles).remove((String) d.role_id)
+				} else if (type == 'CHANNEL_CREATE') {
+					if (null != g) ((DiscordListCache<Channel>) guildCache[g].channels).add(d)
+					else privateChannelCache.add(d)
+				} else if (type == 'CHANNEL_DELETE') {
+					if (null != g) ((DiscordListCache<Channel>) guildCache[g].channels).remove((String) d.id)
+					else privateChannelCache.remove((String) d.id)
+				} else if (type == 'CHANNEL_UPDATE') {
+					if (null != g) ((DiscordListCache<Channel>) guildCache[g].channels)[(String) d.id].putAll(d)
+					else privateChannelCache[(String) d.id].putAll(d)
+				} else if (type == 'MESSAGE_CREATE') {
+					if (messages[(String) d.channel_id]) {
+						messages[(String) d.channel_id].add(d)
+					} else {
+						def a = new DiscordListCache([d], Client.this, Message)
+						a.setRoot channel((String) d.channel_id)
+						messages[(String) d.channel_id] = a
 					}
-				}
-				if (d.json.status == "offline")
-					cache.guilds[d.json.guild_id].presences?.remove(d.json.user.id)
-				else {
-					cache.guilds[d.json.guild_id].presences?.add(d.json.with {
-						Map di = it.clone()
-						di.remove("roles")
-						di.remove("nick")
-						di
-					} + [id: d.json.user.id])
-				}
-			}else{
-				if (d.isNew){
-					cache.private_channels.each { k, v ->
-						if (v.recipients.containsKey(d.json.user.id))
-							v.recipients[d.json.user.id] = d.json.user
+				} else if (type == 'MESSAGE_UPDATE') {
+					if (messages[(String) d.channel_id]) {
+						if (messages[(String) d.channel_id][(String) d.id]) {
+							messages[(String) d.channel_id][(String) d.id] << d
+						} else {
+							messages[(String) d.channel_id].add(d)
+						}
+					} else {
+						def a = new DiscordListCache([d], Client.this, Message)
+						a.setRoot channel((String) d.channel_id)
+						messages[(String) d.channel_id] = a
 					}
+				} else if (type == 'MESSAGE_DELETE') {
+					messages[(String) d.channel_id]?.remove((String) d.id)
+				} else if (type == 'GUILD_CREATE') {
+					if (guildCache[(String) d.id]) guildCache[(String) d.id].putAll(d)
+					else guildCache.add(d)
+				} else if (type == 'GUILD_DELETE') {
+					guildCache.remove((String) d.id)
+				} else if (type == 'GUILD_MEMBER_UPDATE') {
+					((DiscordListCache<Member>) guildCache[g].members)[(String) ((Map) d.user).id]?.putAll(d)
+				} else if (type == 'ROLE_UPDATE') {
+					def r = (String) ((Map) d.role).id
+					def rc = (DiscordListCache<Role>) guildCache[g].roles
+					if (rc.containsKey(r)) rc[r].putAll((Map) d.role)
+					else {
+						def x = new HashMap<String, Object>((Map) d.role)
+						x.put('guild_id', g)
+						rc.put r, x
+					}
+				} else if (type == 'GUILD_UPDATE') {
+					guildCache[(String) d.id] = d
+				} else if (type == 'PRESENCE_UPDATE') {
+					if (null != g) {
+						if (guildCache[g].unavailable) return
+						if (((Map) d.user).avatar) {
+							def m = (DiscordListCache<Member>) guildCache[g].members
+							if (m.containsKey((String) ((Map) d.user).id)) {
+								((Map) m[(String) ((Map) d.user).id].user).putAll((Map) d.user)
+							} else {
+								Map di = new HashMap(d)
+								di.remove 'status'
+								di.remove 'game'
+								if (allowMemberRequesting) di.putAll(requestMember(g, (String) ((Map) d.user).id).object)
+								m.add(di)
+							}
+						}
+						def pc = (DiscordListCache<Presence>) guildCache[g].presences
+						if (d.status == 'offline') pc?.remove((String) ((Map) d.user).id)
+						else {
+							Map di = new HashMap(d)
+							di.remove 'roles'
+							di.remove 'nick'
+							di.put 'id', ((Map) d.user).id
+							pc?.add(di)
+						}
+					} else {
+						def m = (Map) d.user
+						def i = (String) m.id
+						if (null == user(i)) for (e in privateChannelCache) {
+							def v = (DiscordListCache<User>) e.value.recipients
+							if (v.containsKey(i)) v[i] = m
+						}
+						if (d.status == 'offline') presenceCache.remove(i)
+						else {
+							def x = new HashMap<String, Object>(d)
+							x.put('id', i)
+							presenceCache[i] = x
+						}
+					}
+				} else if (type == 'CHANNEL_RECIPIENT_ADD') {
+					((DiscordListCache<User>) privateChannelCache[(String) d.channel_id].recipients)
+							.add((Map) d.user)
+				} else if (type == 'CHANNEL_RECIPIENT_REMOVE') {
+					((DiscordListCache<User>) privateChannelCache[(String) d.channel_id].recipients)
+							.remove((String) ((Map) d.user).id)
+				} else if (type == 'VOICE_STATE_UPDATE') {
+					def gi = g
+					if (null == g) {
+						for (e in guildCache) if (((DiscordListCache<Channel>) e.value.channels)
+												  .containsKey((String) d.channel_id)) gi = e.key
+					}
+					def x = (DiscordListCache<VoiceState>) guildCache[gi].voice_states
+					if ((String) d.channel_id) {
+						if (x.containsKey((String) d.id)) x[(String) d.id].putAll d
+						else x[(String) d.id] = d
+					} else x.remove((String) d.id)
+				} else if (type == 'GUILD_EMOJIS_UPDATE') {
+					guildCache[g].emojis = d.emojis
+				} else if (type == 'USER_UPDATE') {
+					userObject.putAll d
+				} else if (type == 'GUILD_MEMBERS_CHUNK') {
+					for (x in (List<Map>) d.members)
+						((DiscordListCache<Member>) guildCache[g].members).add(x + [guild_id: g])
+				} else if (type == 'GUILD_SYNC') {
+					for (x in (List<Map>) d.members)
+						((DiscordListCache<Member>) guildCache[g].members).add(x + [guild_id: g])
+					for (x in (List<Map>) d.presences)
+						((DiscordListCache<Presence>) guildCache[g].presences).add(x + [guild_id: g])
+					guildCache[(String) d.id].large = d.large
+				} else if (type == 'USER_NOTE_UPDATE') {
+					def n = ((Map<String, Object>) readyData.notes)
+					d.note ? n.put((String) d.id, d.note) : n.remove((String) d.id)
+				} else if (type == 'MESSAGE_REACTION_ADD') {
+					def fabricated = [user_id: (String) d.user_id,
+					                  emoji  : d.emoji]
+					reactions.containsKey((String) d.message_id) ?
+							reactions[(String) d.message_id].add(fabricated) :
+							reactions.put((String) d.message_id, [(Map) fabricated])
+				} else if (type == 'MESSAGE_REACTION_REMOVE' && reactions.containsKey((String) d.message_id)) {
+					def x = reactions[(String) d.message_id]
+					int i = 0
+					for (a in x) {
+						if (a.user_id == d.user_id && a.emoji == d.emoji) {
+							x.remove(i)
+							break
+						}
+						i++
+					}
+				} else if (type == 'MESSAGE_REACTION_REMOVE_ALL' && reactions.containsKey((String) d.message_id)) {
+					reactions.remove((String) d.message_id)
+				} else if (type == 'RELATIONSHIP_ADD') {
+					relationshipCache.add(d)
+				} else if (type == 'RELATIONSHIP_REMOVE') {
+					relationshipCache.remove((String) d.id)
+				} else if (type == 'CALL_CREATE') {
+					calls[(String) d.channel_id] = d
+				} else if (type == 'CALL_UPDATE') {
+					calls[(String) d.channel_id] << d
+				} else if (type == 'CALL_DELETE') {
+					calls.remove((String) d.channel_id)
+				} else if (type == 'USER_GUILD_SETTINGS_UPDATE') {
+					def x = userGuildSettingCache[g]
+					if (x) x.putAll(d)
+					else userGuildSettingCache[g] = d
+				} else if (type == 'USER_SETTINGS_UPDATE') {
+					((Map) readyData.user_settings) << d
 				}
-				if (d.json.status == "offline")
-					cache.presences.remove(d.json.user.id)
-				else
-					cache.presences[d.json.user.id] = d.json + [id: d.json.user.id]
 			}
-		}
-	}
-
-	void addChannelRecipientAddListener(){
-		addListener("channel recipient add"){ Map d ->
-			cache.private_channels[d.json.channel_id].recipients.add(d.json.user)
-		}
-	}
-
-	void addChannelRecipientRemoveListener(){
-		addListener("channel recipient remove"){ Map d ->
-			cache.private_channels[d.json.channel_id].recipients.remove(d.json.user.id)
-		}
-	}
-
-	void addVoiceStateUpdateListener(){
-		addListener("voice state change"){ Map d ->
-			def gi = d.constructed.guild_id ?:
-				cache["guilds"].find { it.channels[d.constructed.channel_id] }.id
-			if (d.constructed.channel_id){
-				if (cache["guilds"][gi]["voice_states"][d.constructed.id])
-					cache["guilds"][gi]["voice_states"][d.constructed.id] << d.constructed
-				else cache["guilds"][gi]["voice_states"][d.constructed.id] = d.constructed
-				if (d.constructed.id == this){
-					VoiceClient vc = voiceClients[d.constructed.id]
-					if (vc) vc.handleVoiceStateUpdate(d)
-				}
-			}else{
-				cache["guilds"][gi]["voice_states"].remove(d.constructed.id)
-			}
-		}
-	}
-
-	void addVoiceServerUpdateListener(){
-		addListener("voice server change"){ Map d ->
-			VoiceClient vc = voiceClients[d.json.guild_id]
-			if (vc) vc.handleVoiceServerUpdate(d)
-		}
-	}
-
-	void addGuildEmojisUpdateListener(){
-		addListener("guild emojis change"){ Map d ->
-			cache["guilds"][d.json.guild_id]["emojis"] = d.emojis
-		}
-	}
-
-	void addUserUpdateListener(){
-		addListener("user change"){ Map d ->
-			cache["user"] << d.json
-		}
-	}
-
-	void addGuildMemberChunkListener(){
-		addListener("guild members chunk"){ Map d ->
-			d.members.each {
-				cache["guilds"][d.guild_id]["members"].add(it + [guild_id: d.guild_id])
-			}
-		}
-	}
-
-	void addGuildSyncListener(){
-		addListener("guild sync"){ Map d ->
-			d.members.each {
-				cache["guilds"][d.id]["members"].add(it + [guild_id: d.guild_id])
-			}
-			d.presences.each {
-				cache["guilds"][d.id]["presences"].add(it + [guild_id: d.guild_id])
-			}
-			cache["guilds"][d.id]["large"] = d.large
-		}
-	}
-
-	void addUserNoteUpdateListener(){
-		addListener("user note update"){ Map d ->
-			d.note ? (cache.notes[d.id] = d.note) :
-				cache.notes.remove(d.id)
-		}
-	}
-
-	void addMessageReactionAddListener(){
-		addListener("message reaction add"){ Map d ->
-			def fabricated = [user_id: d.json.user_id,
-					emoji: d.json.emoji]
-			cache.reactions.containsKey(d.json.message_id) ?
-				cache.reactions[d.json.message_id].add(fabricated) :
-				cache.reactions.put(d.json.message_id, [fabricated])
-		}
-	}
-
-	void addMessageReactionRemoveListener(){
-		addListener("message reaction remove"){ Map d ->
-			if (cache.reactions.containsKey(d.json.message_id))
-				cache.reactions[d.json.message_id].with {
-					remove(find { it.user_id == d.json.user_id && it.emoji == d.json.emoji })
-				}
-		}
-	}
-
-	void addMessageReactionRemoveAllListener(){
-		addListener("message reaction remove all"){ Map d ->
-			if (cache.reactions.containsKey(d.json.message_id))
-				cache.reactions.remove(d.json.message_id)
-		}
-	}
-
-	void addRelationshipAddListener(){
-		addListener("relationship"){ Map d ->
-			cache.relationships.add(d.json)
-		}
-	}
-
-	void addRelationshipRemoveListener(){
-		addListener("relationship remove"){ Map d ->
-			cache.relationships.remove(d.json.id)
-		}
-	}
-
-	void addCallCreateListener(){
-		addListener("call"){ Map d ->
-			cache.calls[d.json.channel_id] = d.json
-		}
-	}
-
-	void addCallUpdateListener(){
-		addListener("call update"){ Map d ->
-			cache.calls[d.json.channel_id] << d.json
-		}
-	}
-
-	void addCallDeleteListener(){
-		addListener("call delete"){ Map d ->
-			cache.calls.remove(d.json.channel_id)
-		}
-	}
-
-	void addUserGuildSettingsUpdateListener(){
-		addListener("user guild settings update"){ Map d ->
-			cache["user_guild_settings"][d.json.guild_id] =
-				(cache["user_guild_settings"] ?: [:]) + d.json
-		}
-	}
-
-	void addUserSettingsUpdateListener(){
-		addListener("user settings update"){ Map d ->
-			cache["user_settings"] << d.json
-		}
+		})
 	}
 
 	def requestMembersOnReady(){
-		addListener("ready"){
-			chunkMembersFor(servers.findAll { it.large })
-		}
+		addListener(new DiscordRawWSListener() {
+			@CompileStatic
+			void fire(String type, Map data) {
+				chunkMembersFor(guilds.findAll { it.large })
+			}
+		})
 	}
 
 	// add this yourself
 	void addReconnector(){
-		addListener("close"){
-			if (!gatewayClosed && it.code < 4000)
-				ws.reconnect()
+		addListener('close') { Map it ->
+			if (!gatewayClosed && ((int) it.code) < 4000) ws.reconnect()
 		}
 	}
 
 	// HTTP REQUESTS
 
-	List<Server> requestServers(boolean checkCache = true){
-		http.jsonGet("users/@me/guilds").collect {
+	List<Guild> requestGuilds(boolean checkCache = true){
+		http.jsonGets('users/@me/guilds').collect {
 			Map object = it
 			if (checkCache && !it.unavailable){
-				def cached = cache["guilds"][it.id]
+				def cached = guildCache[(String) it.id]
 				object.members = cached.members
 				object.channels = cached.channels
 				object.presences = cached.presences
@@ -1186,12 +849,12 @@ class Client extends User {
 				object.emojis = cached.emojis
 				object.large = cached.large
 			}
-			new Server(this, object)
+			new Guild(this, object)
 		}
 	}
 
 	List<Channel> requestPrivateChannels(){
-		http.jsonGet("users/@me/channels").collect { new Channel(this, it) }
+		http.jsonGets('users/@me/channels').collect { new Channel(this, it) }
 	}
 
 	void moveMemberVoiceChannel(s, u, vc){
@@ -1203,7 +866,7 @@ class Client extends User {
 	}
 
 	void addRoles(s, u, Collection r) {
-		editRoles(s, u, cache.guilds[s].members[u].roles*.id + r)
+		editRoles(s, u, (List) ((DiscordListCache<Member>) guildCache[id(s)].members)[id(u)].roles + r)
 	}
 
 	void addRole(s, m, r){
@@ -1214,14 +877,14 @@ class Client extends User {
 		http.delete("guilds/${id(s)}/members/${id(m)}/roles/${id(r)}")
 	}
 
-	String changeOwnServerNick(s, String nick){
-		askPool("changeNick"){
+	String changeOwnGuildNick(s, String nick){
+		askPool('changeNick'){
 			http.jsonPatch("guilds/${id(s)}/members/@me/nick",
-				[nick: nick])["nick"]
+				[nick: nick]).nick
 		}
 	}
 
-	String changeServerNick(s, m, String nick){
+	void changeGuildNick(s, m, String nick){
 		editMember(nick: nick, s, m)
 	}
 
@@ -1229,24 +892,24 @@ class Client extends User {
 		http.delete("guilds/${id(s)}/members/${id(m)}")
 	}
 
-	List<Server.Ban> requestBans(s) {
-		http.jsonGet("guilds/${id(s)}/bans").collect { new Server.Ban(this, it) }
+	List<Guild.Ban> requestBans(s) {
+		http.jsonGets("guilds/${id(s)}/bans").collect { new Guild.Ban(this, it) }
 	}
 
-	List<Invite> requestServerInvites(s){
-		http.jsonGet("guilds/${id(s)}/invites").collect { new Invite(this, it) }
+	List<Invite> requestGuildInvites(s){
+		http.jsonGets("guilds/${id(s)}/invites").collect { new Invite(this, it) }
 	}
 
 	List<Region> requestRegions(s){
-		http.jsonGet("guilds/${id(s)}/regions").collect { new Region(this, it) }
+		http.jsonGets("guilds/${id(s)}/regions").collect { new Region(this, it) }
 	}
 
 	List<Integration> requestIntegrations(s){
-		http.jsonGet("guilds/${id(s)}/integrations").collect { new Integration(this, it) }
+		http.jsonGets("guilds/${id(s)}/integrations").collect { new Integration(this, it) }
 	}
 
 	Integration createIntegration(s, type, id){
-		new Integration(this, http.jsonPost("guilds/${id(s)}/integrations",
+		new Integration(this, http.jsonPost("guilds/${this.id(s)}/integrations",
 			[type: type.toString(), id: id.toString()]))
 	}
 
@@ -1259,23 +922,23 @@ class Client extends User {
 	}
 
 	int checkPrune(s, int d){
-		http.jsonGet("guilds/${id(s)}/prune?days=$d")["pruned"]
+		(int) http.jsonGet("guilds/${id(s)}/prune?days=$d").pruned
 	}
 
 	int prune(s, int d){
-		http.jsonPost("guilds/${id(s)}/prune?days=$d")["pruned"]
+		(int) http.jsonPost("guilds/${id(s)}/prune?days=$d").pruned
 	}
 
 	Role createRole(Map data, s) {
-		if (data["color"] instanceof Color) data["color"] = data["color"].value
-		if (data["permissions"] instanceof Permissions) data["permissions"] = data["permissions"].value
+		if (data.color instanceof Color) data.color = ((Color) data.color).RGB
+		if (data.permissions instanceof Permissions) data.permissions = ((Permissions) data.permissions).value
 		Role createdRole = new Role(this, http.jsonPost("guilds/${id(s)}/roles", [:]))
 		editRole(data, s, createdRole)
 	}
 
 	Role editRole(Map data, s, r) {
-		if (data["color"] instanceof Color) data["color"] = data["color"].value
-		if (data["permissions"] instanceof Permissions) data["permissions"] = data["permissions"].value
+		if (data.color instanceof Color) data.color = ((Color) data.color).RGB
+		if (data.permissions instanceof Permissions) data.permissions = ((Permissions) data.permissions).value
 		new Role(this, http.jsonPatch("guilds/${id(s)}/roles/${id(r)}", data))
 	}
 
@@ -1284,51 +947,60 @@ class Client extends User {
 	}
 	
 	List<Role> editRolePositions(Map mods, s){
-		http.jsonPatch("guilds/${id(s)}/roles", mods.collect { k, v ->
-			[id: id(k), position: v]}).collect { new Role(this, it + [guild_id: id(s)]) }
+		http.jsonPatches("guilds/${id(s)}/roles", mods.collect { k, v ->
+			[id: id(k), position: v]}).collect { new Role(this, it + [guild_id: (Object) id(s)]) }
 	}
 	
 	List<Channel> editChannelPositions(Map mods, s){
-		http.jsonPatch("guilds/${id(s)}/channels", mods.collect { k, v ->
-			[id: id(k), position: v]}).collect { Channel.construct(this, it, id(s)) }
+		http.jsonPatches("guilds/${id(s)}/channels", mods.collect { k, v ->
+			[id: id(k), position: v]}).collect { new Channel(this, Channel.construct(this, it, id(s))) }
 	}
 
-	List<Webhook> requestServerWebhooks(s){
-		http.jsonGet("guilds/${s}/webhooks").collect { new Webhook(this, it) }
+	List<Webhook> requestGuildWebhooks(s){
+		http.jsonGets("guilds/${s}/webhooks").collect { new Webhook(this, it) }
 	}
 
 	List<Member> requestMembers(s, int max=1000, boolean updateCache=true){
 		def i = id(s)
-		List members = http.jsonGet("guilds/$i/members?limit=${max}")
+		List<Map> members = http.jsonGets("guilds/$i/members?limit=${max}")
 		if (max > 1000){
 			for (int m = 1; m < (int) Math.ceil(max / 1000) - 1; m++){
-				members += http.jsonGet("guilds/$i/members?after=${(m * 1000) + 1}&limit=1000")
+				members += http.jsonGets("guilds/$i/members?after=${(m * 1000) + 1}&limit=1000")
 			}
-			members += http.jsonGet("guilds/$i/members?after=${(int)((Math.ceil(max / 1000) - 1) * 1000)+1}&limit=1000")
+			members += http.jsonGets("guilds/$i/members?after=${(int)((Math.ceil(max / 1000) - 1) * 1000)+1}&limit=1000")
 		}
 		if (updateCache){
-			client.cache["guilds"][i]["members"] = new DiscordListCache(members.collect { it + ["guild_id": i] + it["user"] }, this, Member)
-			client.cache["guilds"][i]["member_count"] = members.size()
+			guildCache[i].members = new DiscordListCache(members.collect {
+				def r = new HashMap<String, Object>(it)
+				r.put('guild_id', i)
+				r.putAll((Map<String, Object>) it.user)
+				new Member(this, r)
+			}, this, Member)
+			guildCache[i].member_count = members.size()
 		}
-		members.collect { new Member(this, it + ["guild_id": i]) }
+		members.collect {
+			def r = new HashMap(it)
+			r.put('guild_id', i)
+			new Member(this, r)
+		}
 	}
 
 	Member requestMember(s, m){ new Member(this,
 		http.jsonGet("guilds/${id(s)}/members/${id(m)}")) }
 
-	List<Emoji> requestEmojis(s){ http.jsonGet("guilds/${id(s)}/emojis")
+	List<Emoji> requestEmojis(s){ http.jsonGets("guilds/${id(s)}/emojis")
 		.collect { new Emoji(this, it) } }
 
 	Emoji createEmoji(Map data, s){
 		new Emoji(this, http.jsonPost("guilds/${id(s)}/emojis",
-			patchData(data, ["image"])))
+			patchData(data, 'image')))
 	}
 
 	Emoji editEmoji(Map data, s, emoji){
 		new Emoji(this, http.jsonPatch("guilds/${id(s)}/emojis/${id(emoji)}", data))
 	}
 
-	Webhook requestServerWebhook(s, w){
+	Webhook requestGuildWebhook(s, w){
 		new Webhook(this, http.jsonGet("guilds/${id(s)}/webhooks/${id(w)}"))
 	}
 
@@ -1348,27 +1020,27 @@ class Client extends User {
 		http.delete("invite/${Invite.parseId(i)}")
 	}
 
-	Server.Embed requestEmbed(s){ new Server.Embed(this, http.jsonGet("guilds/${id(s)}/embed")) }
+	Guild.Embed requestEmbed(s){ new Guild.Embed(this, http.jsonGet("guilds/${id(s)}/embed")) }
 
-	Server.Embed editEmbed(Map data, s, e){ new Server.Embed(this,
+	Guild.Embed editEmbed(Map data, s, e){ new Guild.Embed(this,
 		http.jsonPatch("guilds/${id(s)}/embed", data)) }
 
 	List<Connection> requestConnections(){
-		http.jsonGet("users/@me/connections").collect { new Connection(this, it) }
+		http.jsonGets('users/@me/connections').collect { new Connection(this, it) }
 	}
 
 	User edit(Map data){
 		Map map = [avatar: user.avatarHash, email: this?.email,
 			password: this?.password, username: user.username]
-		Map response = http.jsonPatch("users/@me", map <<
+		Map response = http.jsonPatch('users/@me', map <<
 			patchData(data))
 		email = response.email
-		password = (data["new_password"] != null && data["new_password"] instanceof String) ? data["new_password"] : password
-		token = response.token
-			.replaceFirst(java.util.regex.Pattern.quote(tokenPrefix), "")
+		password = (data.new_password != null && data.new_password instanceof String) ? data.new_password : password
+		token = ((String) response.token)
+			.replaceFirst(Pattern.quote(tokenPrefix), '')
 			.trim()
-		cache["user"]["email"] = response.email
-		cache["user"]["verified"] = response.verified
+		userObject.email = response.email
+		userObject.verified = response.verified
 		new User(this, response)
 	}
 
@@ -1377,11 +1049,11 @@ class Client extends User {
 	}
 
 	Application requestApplication(){
-		new Application(this, http.jsonGet("oauth2/applications/@me"))
+		new Application(this, http.jsonGet('oauth2/applications/@me'))
 	}
 
 	List<Application> requestApplications(){
-		http.jsonGet("oauth2/applications").collect { new Application(this, it) }
+		http.jsonGets('oauth2/applications').collect { new Application(this, it) }
 	}
 
 	Application requestApplication(a){
@@ -1389,8 +1061,7 @@ class Client extends User {
 	}
 
 	Application editApplication(Map data, a){
-		new Application(this, http.jsonPut("oauth2/applications/${id(a)}", map <<
-			patchData(data)))
+		new Application(this, http.jsonPut("oauth2/applications/${id(a)}", patchData(data)))
 	}
 
 	void deleteApplication(a){
@@ -1398,8 +1069,8 @@ class Client extends User {
 	}
 
 	Application createApplication(Map data){
-		Map map = [icon: null, description: "", redirect_uris: [], name: ""]
-		new Application(this, http.jsonPost("oauth2/applications", map <<
+		Map map = [icon: null, description: '', redirect_uris: [], name: '']
+		new Application(this, http.jsonPost('oauth2/applications', map <<
 			patchData(data)))
 	}
 
@@ -1409,28 +1080,28 @@ class Client extends User {
 	}
 
 	List<Region> requestRegions(){
-		http.jsonGet("voice/regions").collect { new Region(this, it) }
+		http.jsonGets('voice/regions').collect { new Region(this, it) }
 	}
 
 	List<User> queueUsers(String query, int limit=25){
-		http.jsonGet("users?q=${URLEncoder.encode(query)}&limit=$limit")
+		http.jsonGets("users?q=${URLEncoder.encode(query, 'UTF-8')}&limit=$limit")
 			.collect { new User(this, it) }
 	}
 
 	User requestUser(i){ new User(this, http.jsonGet("users/${id(i)}")) }
-	Server requestServer(i){ new Server(this, http.jsonGet("guilds/${id(i)}")) }
+	Guild requestGuild(i){ new Guild(this, http.jsonGet("guilds/${id(i)}")) }
 	Channel requestChannel(i){ new Channel(this, http.jsonGet("channels/${id(i)}")) }
 
-	Server editServer(Map data, s) {
-		new Server(this, object << http.jsonPatch("guilds/${id(s)}",
+	Guild editGuild(Map data, s) {
+		new Guild(this, object << http.jsonPatch("guilds/${id(s)}",
 			patchData(data)))
 	}
 
-	void leaveServer(s) {
+	void leaveGuild(s) {
 		http.delete("users/@me/guilds/${id(s)}")
 	}
 
-	void deleteServer(s) {
+	void deleteGuild(s) {
 		http.delete("guilds/${id(s)}")
 	}
 
@@ -1448,12 +1119,12 @@ class Client extends User {
 		new Channel(this, http.jsonPost("guilds/${id(s)}/channels", data))
 	}
 
-	Channel requestServerChannel(s, c){
+	Channel requestGuildChannel(s, c){
 		new Channel(this, http.jsonGet("guilds/${id(s)}/channels/${id(c)}"))
 	}
 
-	List<Channel> requestServerChannels(s){
-		http.jsonGet("guilds/${id(s)}/channels").collect { new Channel(this, it) }
+	List<Channel> requestGuildChannels(s){
+		http.jsonGets("guilds/${id(s)}/channels").collect { new Channel(this, it) }
 	}
 
 	Integration editIntegration(Map data, s, i){
@@ -1470,7 +1141,7 @@ class Client extends User {
 	}
 
 	void editMember(Map data, s, m){
-		askPool("editMembers", id(s)){
+		askPool('editMembers', id(s)){
 			http.patch("guilds/${id(s)}/members/${id(m)}", data)
 		}
 	}
@@ -1484,7 +1155,7 @@ class Client extends User {
 	}
 
 	void addRelationship(u, type){
-		http.put("users/@me/relationships/${id(u)}", [type: type.toInteger()])
+		http.put("users/@me/relationships/${id(u)}", [type: type.invokeMethod('toInteger', null)])
 	}
 
 	void removeRelationship(u){
@@ -1492,7 +1163,7 @@ class Client extends User {
 	}
 
 	List<Invite> requestChannelInvites(c){
-		http.jsonGet("channels/${id(c)}/invites").collect { new Invite(this, it) }
+		http.jsonGets("channels/${id(c)}/invites").collect { new Invite(this, it) }
 	}
 
 	void startTyping(c){
@@ -1510,9 +1181,9 @@ class Client extends User {
 
 	void editChannelOverwrite(Map data, c, o){
 		String i = id(o)
-		String type = data.type ?: (role(i) ? "role" : "member")
-		int allowBytes = data.allow?.toInteger() ?: 0
-		int denyBytes = data.deny?.toInteger() ?: 0
+		String type = data.type ?: (role(i) ? 'role' : 'member')
+		int allowBytes = null == data.allow ? 0 : (int) data.allow.invokeMethod('toInteger', null)
+		int denyBytes = null == data.deny ? 0 : (int) data.deny.invokeMethod('toInteger', null)
 		http.put("channels/${id(c)}/permissions/${i}",
 			[allow: allowBytes, deny: denyBytes, id: i, type: type])
 	}
@@ -1522,12 +1193,12 @@ class Client extends User {
 	}
 
 	Webhook createWebhook(Map data = [:], c){
-		new Webhook(client, http.jsonPost("channels/${id(c)}/webhooks",
+		new Webhook(this, http.jsonPost("channels/${id(c)}/webhooks",
 			patchData(data)))
 	}
 
 	List<Webhook> requestChannelWebhooks(c){
-		http.jsonGet("channels/${id(c)}/webhooks").collect { new Webhook(this, it) }
+		http.jsonGets("channels/${id(c)}/webhooks").collect { new Webhook(this, it) }
 	}
 
 	Webhook requestWebhook(w){
@@ -1535,68 +1206,80 @@ class Client extends User {
 	}
 
 	Message sendMessage(Map data, c){
-		if (data.containsKey("content")){
-			data.content = client.filterMessage(data.content)
-			if (!data.content || data.content.size() > 2000)
-				throw new MessageInvalidException(data.content)
+		if (data.containsKey('content')){
+			def s = data.content.toString()
+			s = filterMessage(s)
+			if (!s || s.size() > 2000) throw new MessageInvalidException(s)
+			data.content = s
 		}
-		boolean isWebhook = MiscUtil.defaultValueOnException { data.webhook && c?.id && c?.token }
-		Closure clos = {
+		boolean isWebhook = MiscUtil.defaultValueOnException new Closure(this) {
+			@CompileDynamic
+			def call() {
+				data.webhook && c?.id && c?.token
+			}
+		}
+		Closure<Message> clos = {
 			new Message(this, http.jsonPost(isWebhook ?
-				"webhooks/${id(c)}/$c.token" :
+				"webhooks/${id(c)}/${c instanceof Map ? c.token : ((Webhook) c).token}" :
 				"channels/${id(c)}/messages", [channel_id: id] << data))
 		}
-		isWebhook ? clos() : askPool("sendMessages", getChannelQueueName(c), clos)
+		isWebhook ? clos() : askPool('sendMessages', getChannelQueueName(c), clos)
 	}
 
 	Message sendMessage(c, content, tts = false){ sendMessage(c, content: content, tts: tts) }
 
 	Message editMessage(Map data, c, m){
-		if (data.content != null){
-			data.content = client.filterMessage(data.content)
-			if (!data.content || data.content.size() > 2000)
-				throw new MessageInvalidException(data.content)
+		if (data.containsKey('content')){
+			def s = data.content.toString()
+			s = filterMessage(s)
+			if (!s || s.size() > 2000) throw new MessageInvalidException(s)
+			data.content = s
 		}
-		askPool("sendMessages", getChannelQueueName(c)){ // that's right, they're in the same bucket
+		askPool('sendMessages', getChannelQueueName(c)){ // that's right, they're in the same bucket
 			new Message(this, http.jsonPatch("channels/${id(c)}/messages/${id(m)}", data))
 		}
 	}
 
 	void deleteMessage(c, m){
-		askPool("deleteMessages",
+		askPool('deleteMessages',
 			getChannelQueueName(c)){ http.delete("channels/${id(c)}/messages/${id(m)}") }
 	}
 
-	def sendFileRaw(Map data = [:], c, file){
-		boolean isWebhook = MiscUtil.defaultValueOnException { data.webhook && c?.id && c?.token }
+	Map sendFileRaw(Map data = [:], c, file){
+		boolean isWebhook = MiscUtil.defaultValueOnException new Closure(this) {
+			@CompileDynamic
+			def call() {
+				data.webhook && c?.id && c?.token
+			}
+		}
 		List fileArgs = []
 		if (file instanceof File){
-			if (data["filename"]){
+			if (data.filename){
 				fileArgs += file.bytes
-				fileArgs += data["filename"]
+				fileArgs += data.filename
 			}else fileArgs += file
 		}else{
 			fileArgs += ConversionUtil.getBytes(file)
-			if (!data["filename"]) throw new IllegalArgumentException("Tried to send non-file class ${file.class} and gave no filename")
-			fileArgs += data["filename"]
+			if (!data.filename) throw new IllegalArgumentException("Tried to send non-file class ${file.class} and gave no filename")
+			fileArgs += data.filename
 		}
 		def url = http.baseUrl + (isWebhook ?
-			"webhooks/${id(c)}/${c.token}" :
+			"webhooks/${id(c)}/${((Webhook) c).token}" :
 			"channels/${id(c)}/messages")
 		def aa = Unirest.post(url)
-			.header("Authorization", token)
-			.header("User-Agent", fullUserAgent)
-			.field("content", data["content"] == null ? "" : data["content"].toString())
-			.field("tts", data["tts"] as boolean)
+			.header('Authorization', token)
+			.header('User-Agent', fullUserAgent)
+			.field('content', data.content == null ? '' : data.content.toString())
+			.field('tts', data.tts as boolean)
 		if (fileArgs.size() == 1){
-			aa = aa.field("file", fileArgs[0])
+			aa = aa.field('file', fileArgs[0])
 		}else if (fileArgs.size() == 2){
-			aa = aa.field("file", fileArgs[0], fileArgs[1])
+			aa = (MultipartBody) aa.invokeMethod('field', ['file', fileArgs[0], fileArgs[1]])
 		}
-		def clos = {
-			JSONUtil.parse(aa.asString().body)
+		Closure<Map> clos = {
+			(Map) JSONUtil.parse(aa.asString().body)
 		}
-		isWebhook ? clos() : askPool("sendMessages", getChannelQueueName(c), clos)
+		isWebhook ? clos() : askPool('sendMessages', getChannelQueueName(c), clos)
 	}
 
 	Message sendFile(Map data, c, implicatedFile, filename = null) {
@@ -1615,23 +1298,25 @@ class Client extends User {
 		def m = new Message(this,
 			http.jsonGet("channels/$ch/messages/${id(ms)}"))
 		if (addToCache){
-			if (cache.messages[ch]) cache.messages[ch].add(m)
+			if (messages[ch]) messages[ch].add(m)
 			else {
-				cache.messages[ch] = new DiscordListCache([m], this, Message)
-				cache.messages[ch].root = channel(ch)
+				def r = new DiscordListCache([m], this, Message)
+				r.setRoot channel(ch)
+				messages[ch] = r
 			}
 		}
 		m
 	}
 
 	Message message(c, m, boolean request = true){
-		boolean inCache = cache.messages[id(c)].containsKey(id(m))
-		if (inCache) new Message(this, cache.messages[id(c)][id(m)])
+		boolean inCache = messages[id(c)].containsKey(id(m))
+		if (inCache) new Message(this, messages[id(c)][id(m)])
 		else if (request) requestMessage(c, m)
+		else null
 	}
 
 	String getChannelQueueName(c){
-		serverChannel(id(c)) ?: 'dm'
+		guildChannel(id(c)) ?: 'dm'
 	}
 
 	def pinMessage(c, m){
@@ -1643,7 +1328,7 @@ class Client extends User {
 	}
 
 	Collection<Message> requestPinnedMessages(c){
-		http.jsonGet("channels/${id(c)}/pins").collect { new Message(this, it) }
+		http.jsonGets("channels/${id(c)}/pins").collect { new Message(this, it) }
 	}
 
 	void reactToMessage(c, m, e){
@@ -1651,13 +1336,13 @@ class Client extends User {
 			"reactions/${translateEmoji(e)}/@me")
 	}
 
-	void unreactToMessage(c, m, e, u = "@me"){
+	void unreactToMessage(c, m, e, u = '@me'){
 		http.delete("channels/{id(c)}/messages/${id(m)}/" +
 			"reactions/${translateEmoji(e)}/${id(u)}")
 	}
 
 	List<User> requestReactors(c, m, e, int limit = 100){
-		http.jsonGet("channels/${id(c)}/messages/${id(m)}/reactions/" +
+		http.jsonGets("channels/${id(c)}/messages/${id(m)}/reactions/" +
 			translateEmoji(e) + "?limit=$limit").collect { new User(this, it) }
 	}
 
@@ -1667,7 +1352,7 @@ class Client extends User {
 		}else if (emoji instanceof Emoji){
 			"$emoji.name:$emoji.id"
 		}else if (emoji ==~ /\w+/){
-			def i = ((server(s)?.emojis ?: []) + (emojis - server(s)?.emojis)
+			def i = ((List<Emoji>) (guild(s)?.emojis ?: []) + (List<Emoji>) (emojis - guild(s)?.emojis)
 				).find { it.name == emoji }?.id
 			i ? "$emoji:$i" : ":$emoji:"
 		}else{
@@ -1676,75 +1361,76 @@ class Client extends User {
 	}
 
 	List<Message> requestChannelLogs(c, int max = 100, boundary = null,
-		boundaryType = 'before'){
-		def cached = cache.messages[id(c)]
+		String boundaryType = 'before'){
+		Map<String, Map> cached = messages[id(c)]
 		if (!boundary && cached?.size() > max) return cached.values().sort {
 			it.id }[-1..-max].collect { new Message(this, it) }
-		def l = rawRequestChannelLogs(c, max, boundary, boundaryType)
+		def l = directRequestChannelLogs(c, max, boundary, boundaryType)
 		if (boundaryType in ['around', 'after']) l = l.reverse()
-		if (cached) l.each(cache.messages[id(c)].&add)
-		else cache.messages[id(c)] = new DiscordListCache(l, this, Message)
+		if (cached) for (a in l) messages[id(c)].add(a)
+		else messages[id(c)] = new DiscordListCache(l, this, Message)
 		l.collect { new Message(this, it) }
 	}
 
 	List<Message> forceRequestChannelLogs(c, int m = 100, b = null,
-		bt = 'before'){ rawRequestChannelLogs(c, m, b, bt).collect { new Message(this, it) } }
+		String bt = 'before'){ directRequestChannelLogs(c, m, b, bt).collect { new Message(this, it) } }
 
 	// after and around sorted old-new
 	// before sorted new-old
-	List rawRequestChannelLogs(c, int max, boundary = null, boundaryType = 'before'){
-		Map params = [limit: max > 100 ? 100 : max]
+
+	@SuppressWarnings("GroovyAssignabilityCheck")
+	List<Map<String, Object>> directRequestChannelLogs(c, int max, boundary = null, String boundaryType = 'before'){
+		Map<String, Object> params = [limit: (Object) (max > 100 ? 100 : max)]
 		if (boundary){
-			if (boundaryType && !(boundaryType in ['before', 'after', 'around']))
+			if (boundaryType && boundaryType != 'before' && boundaryType != 'after' && boundaryType != 'around')
 				throw new IllegalArgumentException('Boundary type has to be before, after or around')
-			params[boundaryType ?: 'before'] = id(boundary)
+			params.put boundaryType ?: 'before', id(boundary)
 		}
-		List messages = rawRequestChannelLogs(params, c)
+		List<Map<String, Object>> messages = directRequestChannelLogs(params, c)
 		if (max > 100){
 			if (boundaryType == 'after'){
 				for (int m = 1; m < Math.floor(max / 100); m++) {
-					messages += rawRequestChannelLogs(c,
+					messages.addAll directRequestChannelLogs(c,
 							after: messages.last().id, limit: 100)
 				}
-				if (max % 100) messages += rawRequestChannelLogs(c,
+				if (max % 100 != 0) messages.addAll directRequestChannelLogs(c,
 						after: messages.last().id, limit: max % 100)
 			}else if (boundaryType == 'around'){
-				def age = max - 100
-				def af = age.intdiv(2)
-				def bef = age.intdiv(2) + (age % 2)
+				int age = max - 100
+				int af = age.intdiv(2).intValue()
+				int bef = age.intdiv(2).intValue() + (age % 2)
 				for (int m = 1; m < Math.floor(bef / 100); m++) {
-					messages = rawRequestChannelLogs(c, before: messages.first().id,
-							limit: 100).reverse() + messages
+					messages.addAll 0, directRequestChannelLogs(c, before: messages.first().id,
+							limit: 100).reverse()
 				}
-				if (bef % 100) messages = rawRequestChannelLogs(c, before: messages.first().id,
-						limit: bef % 100).reverse() + messages
+				if (bef % 100 != 0) messages.addAll 0, directRequestChannelLogs(c, before: messages.first().id,
+						limit: bef % 100).reverse()
 				for (int m = 1; m < Math.floor(af / 100); m++) {
-					messages += rawRequestChannelLogs(c, after: messages.last().id,
-							limit: 100)
+					messages.addAll directRequestChannelLogs((Map<String, Object>) [after: messages.last().id, limit: 100], c)
 				}
-				if (af % 100) messages += rawRequestChannelLogs(c, before: messages.last().id,
-						limit: af % 100)
+				if (af % 100 != 0) messages.addAll directRequestChannelLogs([before: messages.last().id,
+						limit: af % 100], c)
 			}else{
 				for (int m = 1; m < Math.floor(max / 100); m++) {
-					messages += rawRequestChannelLogs(c,
+					messages.addAll directRequestChannelLogs(c,
 							before: messages.last().id, limit: 100)
 				}
-				if (max % 100) messages += rawRequestChannelLogs(c,
+				if (max % 100) messages.addAll directRequestChannelLogs(c,
 						before: messages.last().id, limit: max % 100)
 			}
 		}
 		messages
 	}
 
-	List rawRequestChannelLogs(Map data = [:], c){
-		String parameters = data ? "?" + data.collect { k, v ->
-			URLEncoder.encode(k.toString()) + "=" + URLEncoder.encode(v.toString())
-		}.join("&") : ""
-		http.jsonGet("channels/${id(c)}/messages$parameters")
+	List<Map<String, Object>> directRequestChannelLogs(Map<String, Object> data = [:], c){
+		String parameters = data ? '?' + data.collect { k, v ->
+			URLEncoder.encode(k.toString(), 'UTF-8') + '=' + URLEncoder.encode(v.toString(), 'UTF-8')
+		}.join('&') : ''
+		http.jsonGets("channels/${id(c)}/messages$parameters")
 	}
 
 	def bulkDeleteMessages(c, Collection ids){
-		askPool("bulkDeleteMessages"){
+		askPool('bulkDeleteMessages'){
 			http.post("channels/${id(c)}/messages/bulk-delete",
 				[messages: ids.collect { id(it) }])
 		}
@@ -1760,7 +1446,7 @@ class Client extends User {
 	}
 
 	Channel createPrivateChannel(u){
-		new Channel(this, http.jsonPost("users/@me/channels",
+		new Channel(this, http.jsonPost('users/@me/channels',
 			[recipient_id: id(u)]))
 	}
 }

@@ -1,13 +1,10 @@
 package hlaaftana.discordg.util
 
+import groovy.transform.CompileStatic
+
 import java.time.LocalDateTime
 
-import hlaaftana.discordg.collections.DynamicList
-
-/**
- * A groovy way to log messages.
- * @author Hlaaftana
- */
+@CompileStatic
 class Log {
 	static class Level {
 		String name
@@ -25,34 +22,34 @@ class Log {
 		LocalDateTime time = LocalDateTime.now()
 		Map info = [:]
 
-		String toString(){ toString(Log.defaultFormatter) }
+		String toString(){ toString(defaultFormatter) }
 		String toString(Log log){ toString(log.formatter) }
 		String toString(Closure formatter){ formatter(this) }
 	}
 
-	static DynamicList defaultLevels = [
-		new Level(name: "info"),
-		new Level(name: "error"),
-		new Level(name: "warn"),
-		new Level(name: "debug").disable(),
-		new Level(name: "trace").disable()
+	static List<Level> defaultLevels = [
+		new Level(name: 'info'),
+		new Level(name: 'error'),
+		new Level(name: 'warn'),
+		new Level(name: 'debug').disable(),
+		new Level(name: 'trace').disable()
 	]
 
-	static Closure defaultFormatter = { Message message ->
-		String.format("<%s|%s> [%s] [%s]: %s",
+	static Closure<String> defaultFormatter = { Message message ->
+		String.format('<%s|%s> [%s] [%s]: %s',
 			message.time.toLocalDate(),
 			message.time.toLocalTime(),
 			message.level.name.toUpperCase(),
 			message.by, message.content)
 	}
 
-	Closure formatter = defaultFormatter
+	Closure<String> formatter = defaultFormatter
 
-	DynamicList levels = defaultLevels
+	List<Level> levels = defaultLevels
 
-	DynamicList messages = []
+	List<Message> messages = []
 
-	DynamicList listeners = [{ if (it.level.enabled) println formatter(it) }]
+	List<Closure> listeners = [{ Message it -> if (it.level.enabled) println formatter(it) }]
 
 	String name
 	Log(String name){ this.name = name }
@@ -67,19 +64,19 @@ class Log {
 	}
 
 	def call(Message message){
-		listeners.each { it message }
+		for (it in listeners) { it message }
 	}
 
-	def level(String name){
-		Level ass = levels.find("name", name)
-		if (!ass){
+	Level level(String name){
+		Level ass = levels.find { it.name == name }
+		if (null == ass) {
 			ass = new Level(name: name)
 			levels.add ass
 		}
 		ass
 	}
 
-	def level(Level level){
+	Level level(Level level){
 		if (level in levels) level
 		else {
 			levels.add level
@@ -87,18 +84,19 @@ class Log {
 		}
 	}
 
-	def propertyMissing(String name){
+	Level propertyMissing(String name){
 		level(name)
 	}
 
 	def methodMissing(String name, args){
-		Level level = propertyMissing(name)
-		boolean argsIsMultiple = args instanceof Collection || args.class.array
-		if (args instanceof Message || (argsIsMultiple && args[0] instanceof Message)){
-			log(args)
+		Level level = (Level) propertyMissing(name)
+		if (args.class.array) args = ((Object[]) args).toList()
+		boolean argsIsMultiple = args instanceof Collection
+		if (args instanceof Message || (argsIsMultiple && args.first() instanceof Message)){
+			invokeMethod('log', args)
 		}else{
-			List ahh = [level] + (argsIsMultiple ? args as List : args)
-			log(ahh)
+			def ahh = argsIsMultiple ? [level, *args] : [level, args]
+			invokeMethod('log', ahh)
 		}
 	}
 
@@ -110,5 +108,17 @@ class Log {
 	def log(Message message){
 		messages += message
 		call(message)
+	}
+
+	def info(content, String by = name) {
+		log(level('info'), content, by)
+	}
+
+	def warn(content, String by = name) {
+		log(level('warn'), content, by)
+	}
+
+	def debug(content, String by = name) {
+		log(level('debug'), content, by)
 	}
 }

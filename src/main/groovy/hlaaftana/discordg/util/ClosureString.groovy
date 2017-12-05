@@ -24,7 +24,7 @@ class ClosureString implements CharSequence {
 	}
 
 	def plus(smh){
-		"${closure()}$smh"
+		"$this$smh"
 	}
 
 	def plus(ClosureString trigger){
@@ -32,7 +32,7 @@ class ClosureString implements CharSequence {
 	}
 
 	boolean equals(other){
-		is(other) || closure.is(other.closure) || toString() == other.toString()
+		(other instanceof ClosureString && (is(other) || closure.is(other.closure))) || toString() == other.toString()
 	}
 
 	String toString(){
