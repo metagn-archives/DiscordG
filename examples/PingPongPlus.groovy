@@ -32,7 +32,7 @@ static String getCommandArgs(String message, String command){
 }
 
 client = DiscordG.withToken args[0]
-client.listener('message'){
+client.listen('message'){
 	// Refer to isMessageCommand above to understand how it works.
 	if (isMessageCommand(content, "ping")){
 		// Refer to getCommandArgs above to understand how it works.

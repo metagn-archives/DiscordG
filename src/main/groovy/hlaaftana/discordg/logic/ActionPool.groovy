@@ -13,7 +13,7 @@ class ActionPool {
 	Map<String, Integer> actions = [:]
 	Closure<Boolean> suspend = { String it -> (actions[it] ?: 0) >= max }
 
-	static 'new'(long max, long ms){
+	static ActionPool create(long max, long ms){
 		def ap = new ActionPool()
 		ap.max = max
 		ap.ms = ms

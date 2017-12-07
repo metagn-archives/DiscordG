@@ -2,14 +2,14 @@ import hlaaftana.discordg.*
 
 Client client = DiscordG.withToken args[0]
 
-client.listener 'guild', {
+client.listen 'guild', {
 	guild.sendMessage("Hello there, new guild!")
 }
 
-client.listener 'guild deleted', {
+client.listen 'guild deleted', {
 	println "It seems I left or was banned in/kicked out of $guild.name."
 }
 
-client.listener 'guild changed', {
+client.listen 'guild changed', {
 	guild.sendMessage("Seems this guild updated.")
 }

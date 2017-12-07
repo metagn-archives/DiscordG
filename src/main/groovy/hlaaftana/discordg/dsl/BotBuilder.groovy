@@ -1,18 +1,16 @@
 package hlaaftana.discordg.dsl
 
+import groovy.transform.CompileStatic
 import hlaaftana.discordg.util.bot.CommandBot
 
+@CompileStatic
 class BotBuilder {
 	Map options
-	CommandBot bot
+	@Delegate(interfaces = false) CommandBot bot
 
 	BotBuilder(Map options = [:]){
-		bot = CommandBot.create(options)
+		bot = new CommandBot(options)
 		this.options = options
-	}
-
-	def command(){
-
 	}
 
 	def client(Map data = [:], Closure closure){

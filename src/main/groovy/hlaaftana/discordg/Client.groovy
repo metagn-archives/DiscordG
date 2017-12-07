@@ -8,9 +8,8 @@ import hlaaftana.discordg.collections.Cache
 import hlaaftana.discordg.collections.DiscordListCache
 
 import hlaaftana.discordg.exceptions.MessageInvalidException
-import hlaaftana.discordg.logic.ActionPool
-import hlaaftana.discordg.logic.ListenerSystem
-import hlaaftana.discordg.logic.ParentListenerSystem
+import static hlaaftana.discordg.logic.ActionPool.create as newPool
+import hlaaftana.discordg.logic.*
 import hlaaftana.discordg.net.*
 import hlaaftana.discordg.util.*
 import hlaaftana.discordg.objects.*
@@ -29,8 +28,10 @@ import org.eclipse.jetty.websocket.client.WebSocketClient
 @SuppressWarnings('GroovyUnusedDeclaration')
 @CompileStatic
 class Client extends User {
-	private static final Closure<ActionPool> newPool = ActionPool.&new
-	static Map eventAliases = [MESSAGE: 'MESSAGE_CREATE',
+	/**
+	 * Map of uppercase event names to be mapped to real discord event names in parseEvent.
+	 */
+	static Map<String, String> eventAliases = [MESSAGE: 'MESSAGE_CREATE',
 		NEW_MESSAGE: 'MESSAGE_CREATE', MESSAGE_DELETED: 'MESSAGE_DELETE',
 		MESSAGE_BULK_DELETE: 'MESSAGE_DELETE_BULK',
 		MESSAGE_BULK_DELETED: 'MESSAGE_DELETE_BULK',
@@ -71,14 +72,20 @@ class Client extends User {
 		RECIPIENT_REMOVED: 'CHANNEL_RECIPIENT_REMOVE', RELATIONSHIP: 'RELATIONSHIP_ADD',
 		NEW_RELATIONSHIP: 'RELATIONSHIP_ADD', RELATIONSHIP_ADDED: 'RELATIONSHIP_ADD',
 		RELATIONSHIP_REMOVED: 'RELATIONSHIP_REMOVE']
-	static List knownDiscordEvents = ['READY', 'MESSAGE_ACK', 'GUILD_INTEGRATIONS_UPDATE',
+	/**
+	 * Events Discord is known to send.
+	 */
+	static List<String> knownDiscordEvents = ['READY', 'MESSAGE_ACK', 'GUILD_INTEGRATIONS_UPDATE',
 		'GUILD_EMOJIS_UPDATE', 'VOICE_STATE_UPDATE', 'VOICE_GUILD_UPDATE', 'USER_UPDATE',
 		'USER_GUILD_SETTINGS_UPDATE', 'USER_SETTINGS_UPDATE', 'GUILD_MEMBERS_CHUNK',
 		'GUILD_SYNC', 'CHANNEL_PINS_UPDATE', 'CHANNEL_PINS_ACK',
 		'MESSAGE_REACTION_REMOVE_ALL', 'WEBHOOKS_UPDATE', 'RESUMED'] +
 			(eventAliases.values() as ArrayList).toSet()
-	static List knownEvents = ['INITIAL_GUILD_CREATE', 'UNRECOGINZED', 'ALL'] + knownDiscordEvents
-	
+	/**
+	 * Events DiscordG might send.
+	 */
+	static List<String> knownEvents = ['INITIAL_GUILD_CREATE', 'UNRECOGINZED', 'ALL'] + knownDiscordEvents
+
 	String customUserAgent = ''
 	String getFullUserAgent(){ "$DiscordG.USER_AGENT $customUserAgent" }
 
@@ -90,49 +97,80 @@ class Client extends User {
 	boolean confirmedBot
 	void setBot(boolean x) { if (x && !confirmedBot) confirmedBot = true }
 	
-	// if the key is a string, it calls .replace
-	// if the key is a pattern, it calls .replaceAll
-	Map messageFilters = [
+	/** if the key is a string, it calls .replace
+	 * if the key is a pattern, it calls .replaceAll
+     */ 
+	Map<Object, Object> messageFilters = new HashMap<Object, Object>(
 		'@everyone': '@\u200beveryone',
 		'@here': '@\u200bhere'
-	]
-	// name in log
+	)
+	/**
+	 * name in log
+	 */
 	String logName = 'DiscordG'
-	// discord gateway version, dont change unless you know what it is and want to
+	/**
+	 * discord gateway version, dont change unless you know what it is and want to
+	 */
 	int gatewayVersion = 6
-	// cache tokens from logins. dont turn this off.
+	/**
+	 * cache tokens from email and password logins. dont turn this off.
+	 */
 	boolean cacheTokens = true
-	// path to the token cache file
+	/**
+	 * path to the token cache file
+	 */
 	String tokenCachePath = 'token.json'
-	// maximum amount of events that can be handled at the same time
-	// increasing might help with lag but takes up more CPU
-	int eventThreadCount = 3
-	// number of maximum members in a guild until discord doesnt send offline members
-	// set lower for a possible RAM decrease
+	/**
+	 * maximum amount of events that can be handled at the same time
+	 * increasing might help with lag but takes up more CPU
+	 */
+	int threadPoolSize = 3
+	/**
+	 * number of maximum members in a guild until discord doesnt send offline members
+	 * set lower for a possible RAM decrease
+	 */
 	int largeThreshold = 250 
-	// request offline members after discord gives us the online ones for large guilds
-	// set this to false if youre changing large threshold or if it uses too much RAM
+	/** 
+	 * request offline members after discord gives us the online ones for large guilds 
+	 * set this to false if youre changing large threshold or if it uses too much RAM
+	 */
 	boolean requestMembersOnReady = true
-	// adds the READY raw event data to the cache
-	// set to false for possible RAM decrease
+	/**
+	 * adds the READY raw event data to the cache
+	 * set to false for possible RAM decrease
+	 */
 	boolean copyReady = true
-	// retry a request on a 5xx status code
-	// generally harmless, 5xx status codes are usually nothing
+	/**
+	 * retry a request on a 5xx status code
+	 * generally harmless, 5xx status codes are usually nothing
+	 */
 	boolean retryOn502 = true
-	// requests a member on PRESENCE_UPDATE for the joined_at data for a newly discovered member
-	// dont turn it on unless you need join dates and cant request offline members
+	/**
+	 * requests a member on PRESENCE_UPDATE for the joined_at data for a newly discovered member
+	 * dont turn it on unless you need join dates and cant request offline members
+	 */
 	boolean allowMemberRequesting = false
-	// spread message bulk delete events to separate message delete events
-	// true by default for easier handling by bots
+	/**
+	 * spread message bulk delete events to separate message delete events
+	 * true by default for easier handling by bots
+	 */
 	boolean spreadBulkDelete = true
-	// timeout for waiting for guild_create events after the READY
-	// only for bots and accounts at or over 100 guilds
+	/**
+	 * timeout for waiting for guild_create events after the READY
+	 * only for bots and accounts at or over 100 guilds
+	 */
 	long guildTimeout = 30_000
-	// whitelisted events
-	List includedEvents = []
-	// blacklisted events
-	List excludedEvents = ['TYPING_START']
-	// for shards, [shardId, shardCount]
+	/**
+	 * whitelisted events
+	 */
+	List<String> eventWhitelist = []
+	/**
+	 * blacklisted events
+	 */
+	List<String> eventBlacklist = ['TYPING_START']
+	/**
+	 * for shards, [shardId, shardCount]
+	 */
 	Tuple2 shardTuple
 	
 	Log log
@@ -150,7 +188,6 @@ class Client extends User {
 		login: newPool(1, 60_000),
 		connect: newPool(1, 30_000)
 	]
-	// if you want to use global variables through the API object. mostly for utility
 	
 	List<DiscordRawWSListener> rawListeners = []
 	@Delegate(excludes = ['getClass', 'equals']) ListenerSystem listenerSystem = new ParentListenerSystem(this)
@@ -208,6 +245,9 @@ class Client extends User {
 	}
 
 	WSClient getWebSocketClient(){ ws }
+
+	def blacklist(event) { client.eventBlacklist.add(parseEvent(event)) }
+	def whitelist(event) { client.eventWhitelist.add(parseEvent(event)) }
 
 	void login(String email, String password, boolean threaded=true){
 		Closure a = {
@@ -1283,15 +1323,23 @@ class Client extends User {
 		isWebhook ? clos() : askPool('sendMessages', getChannelQueueName(c), clos)
 	}
 
-	Message sendFile(Map data, c, implicatedFile, filename = null) {
+	Message sendFile(Map data, c, implicatedFile, filename) {
 		def file
 		if (implicatedFile.class in [File, String]) file = implicatedFile as File
 		else file = ConversionUtil.getBytes(implicatedFile)
 		new Message(this, sendFileRaw((filename ? [filename: filename] : [:]) << data, c, file))
 	}
 
-	Message sendFile(c, implicatedFile, filename = null){
+	Message sendFile(Map data, c, implicatedFile) {
+		sendFile(data, c, implicatedFile, null)
+	}
+
+	Message sendFile(c, implicatedFile, filename){
 		sendFile([:], c, implicatedFile, filename)
+	}
+
+	Message sendFile(c, implicatedFile){
+		sendFile([:], c, implicatedFile, null)
 	}
 
 	Message requestMessage(c, ms, boolean addToCache = true){

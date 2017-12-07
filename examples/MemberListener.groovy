@@ -2,14 +2,14 @@ import hlaaftana.discordg.*
 
 Client client = DiscordG.withToken args[0]
 
-client.listener('member') {
+client.listen('member') {
 	guild.sendMessage("Welcome to the guild, $member.mention!")
 }
 
-client.listener('member left') {
+client.listen('member left') {
 	guild.sendMessage("Aww, $member.mention left the guild.")
 }
 
-client.listener('member changed') {
+client.listen('member changed') {
 	guild.sendMessage("I see you changed, $member.mention.")
 }

@@ -4,6 +4,9 @@ apply plugin: 'maven'
 apply plugin: 'idea'
 apply plugin: 'application'
 
+version = "5.0.0"
+group = "hlaaftana"
+archivesBaseName = "DiscordG"
 mainClassName = "hlaaftana.discordg.DSLMain"
 
 jar {
@@ -25,6 +28,9 @@ dependencies {
 	compile 'org.abstractj.kalium:kalium:0.4.0'*/
 }
 
-version = "5.0.0"
-group = "com.github.hlaaftana"
-archivesBaseName = "DiscordG"
+groovydoc {
+	docTitle = "DiscordG ${this.version} Documentation"
+	windowTitle = "DiscordG Documentation"
+	destinationDir = new File("out/doc")
+	classpath = sourceSets.main.compileClasspath
+}

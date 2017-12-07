@@ -30,6 +30,7 @@ class CommandBot implements Triggerable {
 	Closure exceptionListener
 	Closure<String> formatter
 	ListenerSystem listenerSystem = new BasicListenerSystem()
+	String token
 
 	CommandBot(Map<String, Object> config){
 		for (e in config)
@@ -80,9 +81,9 @@ class CommandBot implements Triggerable {
 		this.&command.curry(commandClass)
 	}
 
-	void login(String token, boolean bot = true, boolean threaded = true){
+	void login(String token, boolean threaded = true){
 		loggedIn = true
-		client.login(token, bot, threaded)
+		client.login(token, true, threaded)
 	}
 
 	/**
@@ -90,7 +91,7 @@ class CommandBot implements Triggerable {
 	 * @param email - the email to log in with.
 	 * @param password - the password to log in with.
 	 */
-	void initialize(){
+	void initialize() {
 		exceptionListener = listenerSystem.addListener(Events.EXCEPTION) { CommandEventData d ->
 			((Exception) d.getProperty('exception')).printStackTrace()
 			log.error 'Command threw exception'
@@ -126,6 +127,7 @@ class CommandBot implements Triggerable {
 			if (!anyPassed) listenerSystem.dispatchEvent(Events.NO_COMMAND, data)
 		}
 		listenerSystem.dispatchEvent(Events.INITIALIZE, null)
+		if (null != token && !loggedIn) login(token)
 	}
 
 	def initialize(String token){
