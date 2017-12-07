@@ -1,5 +1,8 @@
 package hlaaftana.discordg.util
 
+import groovy.transform.CompileDynamic
+import groovy.transform.stc.ClosureParams
+import groovy.transform.stc.FirstParam
 import org.codehaus.groovy.runtime.StringGroovyMethods
 
 import java.awt.*
@@ -9,12 +12,12 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 import groovy.transform.CompileStatic
-import groovy.transform.Memoized
 
 /**
  * Utilities unrelated to the actual API itself. In fact, most are not even used.
  * @author Hlaaftana
  */
+@CompileStatic
 class MiscUtil {
 	static Map<String, Integer> namedColors = [
 		aliceblue: 0xf0f8ff, antiquewhite: 0xfaebd7, aqua: 0x00ffff,
@@ -66,134 +69,91 @@ class MiscUtil {
 	]
 
 	static Random listRandom = new Random()
-	
-	@CompileStatic
+
 	static Clipboard getClipboard(){ Toolkit.defaultToolkit.systemClipboard }
-	
-	@CompileStatic
+
 	static copy(String content){
 		clipboard.setContents(new StringSelection(content), null)
 	}
-	
-	@CompileStatic
+
 	static String paste(){
 		clipboard.getContents(null).getTransferData(DataFlavor.stringFlavor)
 	}
-	
-	@CompileStatic
+
+	static <T> T defaultValueOnException(T defaultValue = null,
+	                                     Collection<Class> exceptions = [Exception],
+	                                     Closure<T> expr){
+		try{
+			expr()
+		}catch (ex){
+			if (exceptions.any { it.isAssignableFrom(ex.class) }) defaultValue
+			else throw ex
+		}
+	}
+
+	static String lchop(String s, CharSequence x){
+		s.startsWith(x.toString()) ? s.substring(x.size()) : s
+	}
+
+	static String rchop(String s, CharSequence x){
+		s.endsWith(x.toString()) ? s.substring(0, s.size() - x.size()) : s
+	}
+
+	static <T> T sample(Collection<T> coll, Random rand = listRandom) {
+		coll[rand.nextInt(coll.size())]
+	}
+
 	static LocalDateTime dateToLDT(Date date = new Date(),
 		ZoneId tz = ZoneId.systemDefault()){
 		LocalDateTime.ofInstant(date.toInstant(), tz)
 	}
 
-	static dump(list, newItem, Closure doto = Closure.IDENTITY){
-		def mock = list
-		mock += newItem
-		mock = mock.collect { doto(it) }
-		mock
-	}
-
-	static undump(list, newItem, Closure doto = Closure.IDENTITY){
-		def mock = list
-		mock -= newItem
-		mock = mock.collect { doto(it) }
-		mock
-	}
-
-	static defaultValueOnException(defaultValue = null,
-		Collection<Class> exceptions = [Exception],
-		Closure expr){
-		try{
-			expr()
-		}catch (ex){
-			if (exceptions.any { ex in it }) defaultValue
-			else throw ex
-		}
-	}
-		
-	@CompileStatic
-	static List splitWhen(iter, Closure cond){
-		def a = [[]]
-		iter.each {
-			if (cond(it)) a.add([it])
-			else a.last().add(it)
+	static <T> List<List<T>> splitWhen(iter, @ClosureParams(FirstParam.FirstGenericType) Closure<Boolean> cond){
+		List<List<T>> a = [[]]
+		for (it in iter) {
+			if (cond((T) it)) a.add([it])
+			else a.last().add((T) it)
 		}
 		a
 	}
-	
-	@CompileStatic
-	@Memoized
-	static String uncapitalize(String s){
-		s ? s[0].toLowerCase() + s.substring(1) : s
-	}
-	
-	@CompileStatic
-	@Memoized
+
 	static String removeFromStart(String s, CharSequence x){
 		s.startsWith(x.toString()) ? s.substring(x.size()) : s
 	}
-	
-	@CompileStatic
-	@Memoized
+
 	static String removeFromEnd(String s, CharSequence x){
 		s.endsWith(x.toString()) ? s.substring(0, s.size() - x.size()) : s
 	}
-	
-	@CompileStatic
-	@Memoized
+
 	static String removeFormatting(String s){
 		s.replace('~', '\\~').replace('_', '\\_').replace('*', '\\*')
 			.replace('```', '\u200b`\u200b`\u200b`').replace('`', '\\`')
 			.replace(':', '\\:').replace('`', '\\`').replace('/', '\\/')
 			.replace('@', '\\@').replace('<', '\\<').replace('>', '\\>')
 	}
-	
-	@CompileStatic
-	@Memoized
-	static String surround(String s, String sur){ "$sur$s$sur" }
-	
-	@CompileStatic
-	@Memoized
+
+	static String surround(String s, String sur){ sur + s + sur }
 	static String bold(String s){ surround(s, '**') }
-	@CompileStatic
-	@Memoized
 	static String bolden(String s){ surround(s, '**') }
-	@CompileStatic
-	@Memoized
 	static String italic(String s, boolean underscore = false){
 		surround(s, underscore ? '_' : '*') }
-	@CompileStatic
-	@Memoized
 	static String italicize(String s, boolean underscore = false){
 		surround(s, underscore ? '_' : '*') }
-	@CompileStatic
-	@Memoized
 	static String underline(String s){ surround(s, '__') }
-	@CompileStatic
-	@Memoized
 	static String strikethrough(String s){ surround(s, '~~') }
-	@CompileStatic
-	@Memoized
 	static String code(String s){ surround(s, '`') }
-	@CompileStatic
-	@Memoized
 	static String block(String s, String language = ''){ "```$language\n$s```" }
 
 	/**
 	 * Registers a bunch of methods to help you with Discord formatting to the String meta class.
 	 */
-	static registerStringMethods(){
+	@CompileDynamic
+	static registerStaticMethods(){
 		MiscUtil.metaClass.methods.findAll {
 			it.declaringClass.theClass == MiscUtil &&
 				!(it.name in ['getProperty', 'invokeMethod', 'setProperty']) &&
 				String in it.parameterTypes*.theClass }.each { a ->
 			String.metaClass."$a.name" = { ...args -> MiscUtil."$a.name"(delegate, *args) }
-		}
-	}
-
-	static registerCollectionMethods(){
-		Collection.metaClass.sample = { Random random = listRandom ->
-			((Collection) delegate)[random.nextInt(((Collection) delegate).size())]
 		}
 	}
 }

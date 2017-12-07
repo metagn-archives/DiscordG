@@ -39,7 +39,7 @@ class WSClient extends WebSocketAdapter {
 
 	WSClient(Client client){
 		this.client = client
-		threadPool = Executors.newFixedThreadPool(client.eventThreadCount)
+		threadPool = Executors.newFixedThreadPool(client.threadPoolSize)
 	}
 
 	void onWebSocketConnect(Session session){
@@ -296,12 +296,12 @@ class WSClient extends WebSocketAdapter {
 		String ass = Client.parseEvent(event)
 		if (ass in ['READY', 'GUILD_MEMBERS_CHUNK', 'GUILD_SYNC']) return true
 		if (ass == 'GUILD_CREATE' && (guildCreate || client.bot)) return true
-		if (client.includedEvents){
+		if (client.eventWhitelist){
 			aa = false
-			aa |= ass in client.includedEvents.collect { Client.parseEvent(it) }
+			aa |= ass in client.eventWhitelist.collect { Client.parseEvent(it) }
 		}
-		if (client.excludedEvents){
-			aa &= !(ass in client.excludedEvents.collect { Client.parseEvent(it) })
+		if (client.eventBlacklist){
+			aa &= !(ass in client.eventBlacklist.collect { Client.parseEvent(it) })
 		}
 		aa
 	}

@@ -12,13 +12,18 @@ class DSLMain {
 		ImportCustomizer imports = new ImportCustomizer()
 		imports.addStarImports('hlaaftana.discordg', 'hlaaftana.discordg.dsl',
 				'hlaaftana.discordg.objects', 'hlaaftana.discordg.status',
-				'hlaaftana.discordg.net', 'hlaaftana.discordg.util')
+				'hlaaftana.discordg.net', 'hlaaftana.discordg.util', 'hlaaftana.discordg.util.bot',
+				'hlaaftana.discordg.exceptions', 'hlaaftana.discordg.logic')
 		CompilerConfiguration cc = new CompilerConfiguration()
 		cc.addCompilationCustomizers(imports)
 		cc.scriptBaseClass = DelegatingScript.name
 		GroovyShell sh = new GroovyShell(new Binding(), cc)
 		DelegatingScript script = (DelegatingScript) sh.parse(new File(args[0]))
-		script.delegate = new GroovyBot()
+		def dsl = new GroovyBot()
+		script.delegate = dsl
 		script.run()
+		if (null != dsl.bot) dsl.bot.initialize()
+		else if (null != dsl.client) dsl.client.login()
+		else throw new IllegalArgumentException('Why run a DSL if you aren\'t going to use it?')
 	}
 }

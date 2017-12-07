@@ -1,0 +1,53 @@
+// java -jar DiscordG.jar this-file.bot
+
+class Tag {
+	String name
+	String content
+	User author
+}
+
+bot {
+	trigger = '&'
+
+	client {
+		filter ~/(?i)stupid/, 'smart'
+		threadPoolSize 5
+	}
+
+	listen 'member join', {
+		guild.sendMessage "Hello there, $member!"
+	}
+
+	def tags = [:]
+
+	command 'tag', usages: [
+		'&tag help',
+        '&tag set (name) (content)',
+		'&tag delete (name)',
+		'&tag author (name)',
+		'&tag by (name)',
+		'&tag (name)'
+	], {
+		def (option, name, value) = arguments.split(/\s+/, 3)
+
+		if (option == 'help') {
+			respond "Usage:\n" + command.usages.join('\n')
+		} else if (option == 'set') {
+			tags[option] = new Tag(name: name, content: value, author: author)
+			respond "Set tag $name."
+		} else if (option == 'delete') {
+			respond tags.remove(name) ? "Removed tag $name." : "Tag $name doesn't exist."
+		} else if (option == 'author') {
+			def tag = tags[name]
+			respond tag ? "Author for tag $name is $tag.author.uniqueName." : "Tag $name not found."
+		} else if (option == 'by') {
+			def user = client.user(name)
+			def foundTags = tags.findAll { tagName, tag -> tag.author == user }
+			respond foundTags ? "Tags by $user.uniqueName (${foundTags.size()}): " + foundTags*.value*.name.join(', ')
+							  : "No tags found by $user.uniqueName."
+		} else {
+			def tag = tags[name]
+			respond tag ? "$tag.content" : "Tag $name not found."
+		}
+	}
+}

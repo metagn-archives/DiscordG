@@ -48,8 +48,12 @@ class CommandEventData {
 		(Message) chan.invokeMethod('sendMessage', arguments)
 	}
 
-	Message sendFile(Channel chan = channel, ...arguments) {
+	Message sendFile(Channel chan, ...arguments) {
 		(Message) chan.invokeMethod('sendFile', arguments)
+	}
+
+	Message sendFile(...arguments) {
+		(Message) channel.invokeMethod('sendFile', arguments)
 	}
 
 	CommandEventData clone() {

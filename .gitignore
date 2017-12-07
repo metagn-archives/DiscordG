@@ -6,7 +6,7 @@
 *.iml
 /builds/
 /output/
-*.bat
+*.ps1
 /gradlew
 /.gradle/
 /build/
