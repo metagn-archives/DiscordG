@@ -34,7 +34,8 @@ MessageTypes, ChannelTypes etc. Also helper methods for channel types exist in c
 `Permissions.BitOffsets.READ_MESSAGES.offset`. You can get the permissions of a user in a channel by doing
 `user.permissionsFor(channel)` which returns a Permissions object.
 
-* Webhooks still need Client instances, but the Client doesn't have to login. For example: ```groovy
+* Webhooks still need Client instances, but the Client doesn't have to login. For example:
+```groovy
 def webhook = [id: 388383836469329933, token: "somethingludicrous"]
 def client = new Client()
 client.sendMessage(webhook, "Whats up")
