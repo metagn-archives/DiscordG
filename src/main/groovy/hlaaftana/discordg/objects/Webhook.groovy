@@ -24,6 +24,10 @@ class Webhook extends DiscordObject {
 	Channel getChannel(){ guild.channel(channelId) }
 	String getToken() { (String) object.token }
 
+	Webhook retrieve() {
+		client.requestWebhook(id, token)
+	}
+
 	Webhook edit(Map data){
 		client.editWebhook(data, this)
 	}

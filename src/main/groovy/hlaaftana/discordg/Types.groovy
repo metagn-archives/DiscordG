@@ -20,6 +20,7 @@ interface ChannelTypes extends Types {
 	final int DM = 1
 	final int VOICE = 2
 	final int GROUP = 3
+	final int CATEGORY = 4
 }
 
 interface MessageTypes extends Types {

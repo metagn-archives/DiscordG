@@ -20,12 +20,19 @@ class Channel extends DiscordObject {
 	String getMention(){ "<#$id>" }
 	Integer getPosition(){ (Integer) object.position }
 	Integer getType(){ (Integer) object.type }
+	/**
+	 * Only for guild channels.
+	 */
 	boolean isText(){ type == 0 }
 	boolean isPrivate(){ (boolean) object.is_private || dm || group }
 	boolean isDm(){ type == 1 }
+	/**
+	 * Only for guild channels.
+	 */
 	boolean isVoice(){ type == 2 }
 	boolean isGroup(){ type == 3 }
-	boolean isInGuild(){ text || voice }
+	boolean isInGuild(){ text || voice || category }
+	boolean isCategory() { type == 4 }
 	String getTopic(){ (String) object.topic }
 	Guild getGuild(){ dm || group ? null : client.guildCache.at(guildId) }
 	String getGuildId(){ (String) object.guild_id }

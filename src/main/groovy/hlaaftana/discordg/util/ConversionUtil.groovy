@@ -10,33 +10,35 @@ class ConversionUtil {
 		Calendar.DAY_OF_MONTH, Calendar.HOUR_OF_DAY,
 		Calendar.MINUTE, Calendar.SECOND, Calendar.MILLISECOND] as int[]
 
-	static String encodeImage(byte[] bytes, String type = 'jpg'){
+	static String encodeImageBase64(byte[] bytes, String type = 'jpg'){
 		"data:image/$type;base64," + bytes.encodeBase64().toString()
 	}
 
-	static String encodeImage(String pathToImage){
-		encodeImage(pathToImage ==~ /https?:\/\/(?:.|\n)*/ ?
+	static String encodeImageBase64(String pathToImage){
+		encodeImageBase64(pathToImage ==~ /https?:\/\/(?:.|\n)*/ ?
 			new URL(pathToImage) : new File(pathToImage))
 	}
 
-	@CompileDynamic
-	static String encodeImage(imagable){
-		encodeImage(getBytes(imagable))
+	static String encodeImageBase64(imagable){
+		if (imagable instanceof String) encodeImageBase64((String) imagable)
+		else encodeImageBase64(getBytes(imagable))
 	}
 
+	@CompileDynamic
 	static byte[] getBytes(thing){
-		try { getBytesProperty(thing) }
-		catch (ignored) { throw new UnsupportedOperationException("Cannot get byte array of $thing") }
+		try { getBytes$(thing) }
+		catch (MissingMethodException ignore) { try { getBytesProperty(thing) }
+		catch (ex) { throw new UnsupportedOperationException("Cannot get byte array of $thing", ex) } }
 	}
 
 	@CompileDynamic
 	private static byte[] getBytesProperty(thing) { thing.bytes }
-	static byte[] getBytes(byte[] thing) { thing }
-	static byte[] getBytes(File thing) { thing.bytes }
-	static byte[] getBytes(InputStream thing) { thing.bytes }
-	static byte[] getBytes(URL thing) { thing.bytes }
-	static byte[] getBytes(String thing) { thing.bytes }
-	static byte[] getBytes(ByteArrayOutputStream stream){ stream.toByteArray() }
+	static byte[] getBytes$(byte[] thing) { thing }
+	static byte[] getBytes$(File thing) { thing.bytes }
+	static byte[] getBytes$(InputStream thing) { thing.bytes }
+	static byte[] getBytes$(URL thing) { thing.bytes }
+	static byte[] getBytes$(String thing) { thing.bytes }
+	static byte[] getBytes$(ByteArrayOutputStream stream){ stream.toByteArray() }
 
 	static boolean isImagable(thing){
 		try{

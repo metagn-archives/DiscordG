@@ -1246,6 +1246,10 @@ class Client extends User {
 		new Webhook(this, http.jsonGet("webhooks/${id(w)}"))
 	}
 
+	Webhook requestWebhook(id, token) {
+		new Webhook(this, http.jsonGet("webhooks/${this.id(id)}/$token"))
+	}
+
 	Message sendMessage(Map data, c){
 		if (data.containsKey('content')){
 			def s = data.content.toString()
