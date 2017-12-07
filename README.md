@@ -15,7 +15,8 @@ i am about the list the pros and cons, but first some that might be one of both
 
 * Uses Groovy's JSON parsers which are very fast and/but directly return Java objects.
 
-* Based on Map<String, Object>s instead of immutable objects.
+* Caches use JSON objects instead of immutable objects. This also allows for raw Discord data to be
+observed. So if you did `group.object.application_id`, you would get the application_id Discord gave.
 
 * No interfaces for Discord objects.
 

@@ -33,10 +33,12 @@ class Channel extends DiscordObject {
 	boolean isGroup(){ type == 3 }
 	boolean isInGuild(){ text || voice || category }
 	boolean isCategory() { type == 4 }
+	String getCategoryId() { (String) object.parent_id }
+	Channel getCategory() { null == categoryId ? null : guild.channel(categoryId) }
+	boolean isNsfw() { (boolean) object.nsfw }
 	String getTopic(){ (String) object.topic }
 	Guild getGuild(){ dm || group ? null : client.guildCache.at(guildId) }
 	String getGuildId(){ (String) object.guild_id }
-	Guild getParent(){ guild }
 	List<User> getUsers(){
 		(List<User>) (inGuild ? members : (recipients + client.user))
 	}
