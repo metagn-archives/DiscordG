@@ -67,7 +67,7 @@ class HTTPClient {
 		50016: 'Provided too few or too many messages to delete. Must provide at least 2 and fewer than 100 messages to delete.',
 	].asImmutable()
 	String baseUrl = defaultApi
-	Map<String, RateLimit> ratelimits = [:]
+	Map<String, RateLimit> ratelimits = [:].asSynchronized()
 	Client client
 
 	HTTPClient(Client client, String concatUrl = ''){
@@ -151,13 +151,13 @@ class HTTPClient {
 	}
 
 	BaseRequest headerUp(HttpRequest req){
-		if (client?.token) req = req.header('Authorization', client.token)
+		if (null != client.token) req = req.header('Authorization', client.token)
 		if (!(req instanceof GetRequest)) req = req.header('Content-Type', 'application/json')
 		req.header('User-Agent', null != client ? client.fullUserAgent : DiscordG.USER_AGENT)
 	}
 
 	HttpURLConnection headerUp(HttpURLConnection req) {
-		if (client?.token) req.setRequestProperty('Authorization', client.token)
+		if (null != client.token) req.setRequestProperty('Authorization', client.token)
 		if (!(req.requestMethod == 'GET')) req.setRequestProperty('Content-Type', 'application/json')
 		req.setRequestProperty('User-Agent', null != client ? client.fullUserAgent : DiscordG.USER_AGENT)
 		req

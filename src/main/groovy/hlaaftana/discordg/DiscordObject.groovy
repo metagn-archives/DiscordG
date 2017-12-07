@@ -93,7 +93,7 @@ class DiscordObject implements Comparable, JSONable {
 			def key = k.toString()
 			if (a.containsKey(key)){
 				if (ConversionUtil.isImagable(a[key])){
-					a[key] = ConversionUtil.encodeImage(a[key])
+					a[key] = ConversionUtil.encodeImageBase64(a[key])
 				}else{
 					throw new IllegalArgumentException("$key cannot be resolved " +
 						"for class ${data[key].getClass()}")
