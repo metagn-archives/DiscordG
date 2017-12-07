@@ -10,7 +10,7 @@ bot.command("hello") {
 bot.formatter = { "| $it |" }
 
 bot.command(["say", "repeat", ~/echo+/]) {
-	respond arguments
+	formatted arguments
 }
 
 bot.command "mfw", category: "meme", {
