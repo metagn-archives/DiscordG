@@ -3,10 +3,10 @@ package hlaaftana.discordg.logic
 import groovy.transform.CompileStatic
 
 @CompileStatic
-class BasicListenerSystem extends ListenerSystem {
+class BasicListenerSystem<T> extends ListenerSystem<T> {
 	def parseEvent(param) { param }
 
-	def listenerError(event, Throwable ex, Closure closure, data){
+	def listenerError(event, Throwable ex, Closure closure, T data){
 		throw new ListenerException(event, ex, closure, data)
 	}
 }

@@ -4,7 +4,7 @@ apply plugin: 'maven'
 apply plugin: 'idea'
 apply plugin: 'application'
 
-version = "5.0.1"
+version = "5.0.2"
 group = "hlaaftana"
 archivesBaseName = "DiscordG"
 mainClassName = "hlaaftana.discordg.DSLMain"

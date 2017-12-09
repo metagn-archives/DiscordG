@@ -142,7 +142,6 @@ class WSClient extends WebSocketAdapter {
 					}
 					if (guildCreate) {
 						client.log.info 'Waiting for guilds.', client.log.name + 'WS'
-						guildCreatingState = LoadState.LOADING
 						long ass = System.currentTimeMillis()
 						while (client.anyUnavailableGuilds()) {
 							if (System.currentTimeMillis() - ass >= client.guildTimeout) {
@@ -151,8 +150,8 @@ class WSClient extends WebSocketAdapter {
 								return
 							}
 						}
-						guildCreatingState = LoadState.LOADED
 					}
+					guildCreatingState = LoadState.LOADED
 					loaded = true
 					while (!client.loaded) { Thread.sleep 10 }
 					dispatch = true
@@ -173,8 +172,12 @@ class WSClient extends WebSocketAdapter {
 								/"channel_id":$data.channel_id,"id":$i,"bulk":true}}/)
 					}
 				}
+				boolean guildCreateInitial = false
 				if (type == 'CHANNEL_CREATE') Channel.construct(client, data)
-				else if (type == 'GUILD_CREATE') Guild.construct(client, data)
+				else if (type == 'GUILD_CREATE') {
+					guildCreateInitial = client.guildCache.containsKey(data.id)
+					Guild.construct(client, data)
+				}
 				for (l in client.rawListeners) l.fire(type, data)
 				if (!client.listenerSystem.listeners[type]) return
 				data.rawType = type
@@ -200,10 +203,9 @@ class WSClient extends WebSocketAdapter {
 					data.sendFile = ((Channel) data.channel).&sendFile
 				}
 				if (type.startsWith('PRESENCE')) data.presence = ((Guild) data.guild).presence(data.user)
-				Map event = new HashMap(data)
+				Map<String, Object> event = new HashMap<>(data)
 				Thread.start("$type-${messageCounts[op][type]}"){
-					client.dispatchEvent(type == 'GUILD_CREATE' && guildCreatingState ==
-						LoadState.LOADING ? 'INITIAL_GUILD_CREATE' : type, event) }
+					client.dispatchEvent(guildCreateInitial ? 'INITIAL_GUILD_CREATE' : type, event) }
 				Thread.start("ALL-${((Map<String, Integer>) messageCounts[op]).values().sum()}"){
 					client.dispatchEvent('ALL', event) }
 			}
@@ -214,6 +216,7 @@ class WSClient extends WebSocketAdapter {
 				heartbeats = 0
 				identify()
 			} else if (op == 10) {
+				guildCreatingState = LoadState.LOADING
 				client.readyData.putAll((Map) content.d)
 				if (justReconnected){
 					dispatch = true
@@ -247,7 +250,8 @@ class WSClient extends WebSocketAdapter {
 
 	void onWebSocketClose(int code, String reason){
 		client.log.info "Connection closed. Reason: $reason, code: $code", client.log.name + 'WS'
-		Thread.start { client.dispatchEvent('CLOSE', [code: code, reason: reason, json: [code: code, reason: reason]]) }
+		Thread.start { client.dispatchEvent('CLOSE', new HashMap<String, Object>(
+				code: code, reason: reason, json: [code: code, reason: reason])) }
 		if (keepAliveThread){
 			keepAliveThread.interrupt()
 			keepAliveThread = null
