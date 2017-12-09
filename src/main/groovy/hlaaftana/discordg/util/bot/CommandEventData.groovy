@@ -36,15 +36,15 @@ class CommandEventData {
 		extra.put name, value
 	}
 
-	Message formatted(Channel chan = channel, String content) {
+	Message formatted(Channel chan = message.channel, String content) {
 		(Message) chan.invokeMethod('sendMessage', command.parent.formatter.call(content))
 	}
 
-	Message sendMessage(Channel chan = channel, ...arguments) {
+	Message sendMessage(Channel chan = message.channel, ...arguments) {
 		(Message) chan.invokeMethod('sendMessage', arguments)
 	}
 
-	Message respond(Channel chan = channel, ...arguments) {
+	Message respond(Channel chan = message.channel, ...arguments) {
 		(Message) chan.invokeMethod('sendMessage', arguments)
 	}
 

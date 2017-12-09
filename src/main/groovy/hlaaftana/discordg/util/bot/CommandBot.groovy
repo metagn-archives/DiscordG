@@ -29,7 +29,7 @@ class CommandBot implements Triggerable {
 	Closure commandRunnerListener
 	Closure exceptionListener
 	Closure<String> formatter
-	ListenerSystem listenerSystem = new BasicListenerSystem()
+	ListenerSystem<BotEventData> listenerSystem = new BasicListenerSystem<>()
 	String token
 
 	CommandBot(Map<String, Object> config){
@@ -92,17 +92,16 @@ class CommandBot implements Triggerable {
 	 * @param password - the password to log in with.
 	 */
 	void initialize() {
-		exceptionListener = listenerSystem.addListener(Events.EXCEPTION) { CommandEventData d ->
-			((Exception) d.getProperty('exception')).printStackTrace()
+		exceptionListener = listenerSystem.addListener(Events.EXCEPTION) { BotExceptionEventData d ->
+			d.exception.printStackTrace()
 			log.error 'Command threw exception'
 		}
-		commandRunnerListener = listenerSystem.addListener(Events.COMMAND) { CommandEventData d ->
+		commandRunnerListener = listenerSystem.addListener(Events.COMMAND) { BotCommandEventData d ->
 			try {
-				d.command.call(d)
+				d.command.call(d.commandData)
 				d.command.uses += 1
 			} catch (ex) {
-				CommandEventData c = d.clone()
-				c.setProperty('exception', ex)
+				def c = new BotExceptionEventData(this, d, ex)
 				listenerSystem.dispatchEvent(Events.EXCEPTION, c)
 			}
 		}
@@ -120,11 +119,11 @@ class CommandBot implements Triggerable {
 					ced.captures = c.captures(msg)
 					ced.allCaptures = c.allCaptures(msg)
 
-					listenerSystem.dispatchEvent(Events.COMMAND, ced)
+					listenerSystem.dispatchEvent(Events.COMMAND, new BotCommandEventData(this, ced))
 				}
 			}
 
-			if (!anyPassed) listenerSystem.dispatchEvent(Events.NO_COMMAND, data)
+			if (!anyPassed) listenerSystem.dispatchEvent(Events.NO_COMMAND, new BotMapEventData(this, data))
 		}
 		listenerSystem.dispatchEvent(Events.INITIALIZE, null)
 		if (null != token && !loggedIn) login(token)
@@ -145,6 +144,45 @@ class CommandBot implements Triggerable {
 		COMMAND,
 		NO_COMMAND,
 		EXCEPTION
+	}
+}
+
+@CompileStatic
+class BotEventData {
+	CommandBot bot
+
+	BotEventData(CommandBot bot) {
+		this.bot = bot
+	}
+}
+
+@CompileStatic
+class BotMapEventData extends BotEventData {
+	Map data
+
+	BotMapEventData(CommandBot bot, Map data) {
+		super(bot)
+		this.data = data
+	}
+}
+
+class BotCommandEventData extends BotEventData {
+	@Delegate CommandEventData commandData
+
+	BotCommandEventData(CommandBot bot, CommandEventData commandData) {
+		super(bot)
+		this.commandData = commandData
+	}
+}
+
+class BotExceptionEventData extends BotEventData {
+	Exception exception
+	@Delegate BotCommandEventData commandEventData
+
+	BotExceptionEventData(CommandBot bot, BotCommandEventData commandEventData, Exception exception) {
+		super(bot)
+		this.commandEventData = commandEventData
+		this.exception = exception
 	}
 }
 

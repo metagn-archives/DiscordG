@@ -39,6 +39,8 @@ class Client extends User {
 		NEW_CHANNEL: 'CHANNEL_CREATE', CHANNEL_UPDATED: 'CHANNEL_UPDATE',
 		CHANNEL_DELETED: 'CHANNEL_DELETE', BAN: 'GUILD_BAN_ADD',
 		UNBAN: 'GUILD_BAN_REMOVE', GUILD: 'GUILD_CREATE',
+		GUILD_JOIN: 'GUILD_CREATE', GUILD_JOINED: 'GUILD_CREATE',
+		NEW_GUILD: 'GUILD_CREATE', JOIN_GUILD: 'GUILD_CREATE', JOINED_GUILD: 'GUILD_CREATE',
 		GUILD_CREATE: 'GUILD_CREATE', GUILD_CREATED: 'GUILD_CREATE',
 		GUILD_UPDATED: 'GUILD_UPDATE', GUILD_UPDATE: 'GUILD_UPDATE',
 		GUILD_DELETE: 'GUILD_DELETE', GUILD_DELETED: 'GUILD_DELETE',
@@ -190,7 +192,8 @@ class Client extends User {
 	]
 	
 	List<DiscordRawWSListener> rawListeners = []
-	@Delegate(excludes = ['getClass', 'equals']) ListenerSystem listenerSystem = new ParentListenerSystem(this)
+	@Delegate(excludes = ['hashCode', 'equals', 'toString', 'listenerError', 'parseEvent'])
+	ListenerSystem<Map<String, Object>> listenerSystem = new ParentListenerSystem<>(this)
 	HTTPClient http
 	WSClient ws
 	Cache<String, Object> readyData = Cache.empty(this)

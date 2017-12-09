@@ -3,14 +3,14 @@ package hlaaftana.discordg.logic
 import groovy.transform.CompileStatic
 
 @CompileStatic
-abstract class ListenerSystem {
+abstract class ListenerSystem<T> {
 	Map<Object, List<Closure>> listeners = [:]
 
 	abstract parseEvent(param)
 
-	abstract listenerError(event, Throwable ex, Closure closure, data)
+	abstract listenerError(event, Throwable ex, Closure closure, T data)
 
-	Closure submit(event, boolean temporary = false, @DelegatesTo(Map) Closure closure){
+	Closure submit(event, boolean temporary = false, @DelegatesTo(T) Closure closure){
 		addListener(event, temporary, closure)
 	}
 
@@ -22,11 +22,9 @@ abstract class ListenerSystem {
 		closure
 	}
 	
-	Closure listen(event, boolean temporary = false, @DelegatesTo(Map) Closure closure){
+	Closure listen(event, boolean temporary = false, @DelegatesTo(T) Closure closure){
 		Closure ass
-		ass = { Map d, Closure internal ->
-			//d['rawClosure'] = closure
-			//d['closure'] = ass
+		ass = { T d, Closure internal ->
 			Closure copy = (Closure) closure.clone()
 			copy.delegate = d
 			copy.parameterTypes.size() == 2 ? copy(copy.delegate, internal) : copy(copy.delegate)
@@ -47,7 +45,7 @@ abstract class ListenerSystem {
 		listeners = [:]
 	}
 
-	def dispatchEvent(type, data){
+	def dispatchEvent(type, T data){
 		def x = listeners[parseEvent(type)]
 		if (null != x) for (l in x){
 			def a = (Closure) l.clone()

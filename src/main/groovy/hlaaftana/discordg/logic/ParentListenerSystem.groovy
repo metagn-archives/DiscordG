@@ -3,7 +3,7 @@ package hlaaftana.discordg.logic
 import groovy.transform.CompileStatic
 
 @CompileStatic
-class ParentListenerSystem extends ListenerSystem {
+class ParentListenerSystem<T> extends ListenerSystem<T> {
 	def parent
 	ParentListenerSystem(parent){ this.parent = parent }
 
@@ -11,7 +11,7 @@ class ParentListenerSystem extends ListenerSystem {
 		parent.invokeMethod('parseEvent', param)
 	}
 
-	def listenerError(event, Throwable ex, Closure closure, data){
+	def listenerError(event, Throwable ex, Closure closure, T data){
 		parent.invokeMethod('listenerError', [event, ex, closure, data])
 	}
 }
