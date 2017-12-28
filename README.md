@@ -1,7 +1,7 @@
 # DiscordG
 Discord library for Groovy. Documentation in https://hlaaftana.github.io/DiscordG downloads in releases page
 
-Now you're like woah. Why would you make one if there is already 3 existing java libs (
+Now you're like woah. Why would you make another Java library if there are already three! (
 
 [JDA](https://github.com/DV8FromTheWorld/JDA)
 
