@@ -1,7 +1,7 @@
 # DiscordG
 Discord library for Groovy. Documentation in https://hlaaftana.github.io/DiscordG downloads in releases page
 
-Now youre likje "woa. why would you make one if theres already 3 javalibs (
+Now you're like woah. Why would you make one if there is already 3 existing java libs (
 
 [JDA](https://github.com/DV8FromTheWorld/JDA)
 
@@ -11,7 +11,7 @@ Now youre likje "woa. why would you make one if theres already 3 javalibs (
 
 )""
 
-i am about the list the pros and cons, but first some that might be one of both
+I am about the list the pros and cons, but first some that might be both pros and cons.
 
 * Uses Groovy's JSON parsers which are very fast and/but directly return Java objects.
 
