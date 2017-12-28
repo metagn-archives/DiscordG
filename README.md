@@ -6,7 +6,7 @@ Now you're like woah. Why would you make another Java library if there are alrea
 ([JDA](https://github.com/DV8FromTheWorld/JDA) |  [Discord4J](https://github.com/austinv11/Discord4J) |  [Javacord](https://github.com/BtoBastian/Javacord))
 
 
-I am about the list the pros and cons, but first some that might be both pros and cons.
+I am about to list the pros and cons, but first some that might be both pros and cons.
 
 * Uses Groovy's JSON parsers which are very fast and/but directly return Java objects.
 
