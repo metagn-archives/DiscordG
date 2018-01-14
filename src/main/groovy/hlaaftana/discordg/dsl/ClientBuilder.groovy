@@ -10,7 +10,8 @@ class ClientBuilder {
 	@Delegate(excludes = ['client', 'toString', 'getClass', 'sendFile']) Client client
 
 	ClientBuilder(Map options = [:]){
-		client = new Client(options)
+		client = new Client()
+		for (e in options) client.setProperty((String) e.key, e.value)
 		this.options = options
 	}
 
