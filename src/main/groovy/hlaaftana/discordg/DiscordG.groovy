@@ -4,7 +4,7 @@ import groovy.transform.CompileStatic
 
 @CompileStatic
 class DiscordG {
-	static final String VERSION = '5.0.2'
+	static final String VERSION = '5.0.3'
 	static final String GITHUB = 'https://github.com/hlaaftana/DiscordG'
 	static final String USER_AGENT = "groovy/$GroovySystem.version DiscordBot ($GITHUB, $VERSION)"
 
