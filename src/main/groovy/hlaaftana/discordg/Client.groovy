@@ -4,6 +4,7 @@ import com.mashape.unirest.http.Unirest
 import com.mashape.unirest.request.body.MultipartBody
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
+import groovy.transform.Memoized
 import hlaaftana.discordg.collections.Cache
 import hlaaftana.discordg.collections.DiscordListCache
 
@@ -194,10 +195,12 @@ class Client extends User {
 	List<DiscordRawWSListener> rawListeners = []
 	@Delegate(excludes = ['hashCode', 'equals', 'toString', 'listenerError', 'parseEvent'])
 	ListenerSystem<Map<String, Object>> listenerSystem = new ParentListenerSystem<>(this)
-	HTTPClient http
+	HTTPClient http = new HTTPClient(this)
 	WSClient ws
 	Cache<String, Object> readyData = Cache.empty(this)
+	boolean cacheMessages = true
 	Cache<String, DiscordListCache<Message>> messages = Cache.empty(this)
+	boolean cacheReactions = false
 	Cache<String, List<Map<String, Object>>> reactions = Cache.empty(this)
 	Cache<String, Map<String, Object>> calls = Cache.empty(this)
 	DiscordListCache<Guild> guildCache
@@ -210,64 +213,66 @@ class Client extends User {
 	String sessionId
 	boolean gatewayClosed
 
-	Client(Map config = [:]){
+	Client() {
 		super(null, [:])
-		http = new HTTPClient(this)
 		client = this
-
-		config.each { k, v ->
-			this[k.toString()] = v
-		}
-
-		log = new Log(logName)
-
 		addCacher()
-
-		if (requestMembersOnReady) requestMembersOnReady()
 	}
 
-	String getToken(){
+	Log getLog() { this.@log ?: (log = new Log(logName)) }
+
+	void setLogName(String name) {
+		this.@logName = name
+		if (log) log.name = logName else log = new Log(logName)
+	}
+
+	void setRequestMembersOnReady(boolean doso) {
+		if (doso) requestMembersOnReady() else dontRequestMembersOnReady()
+	}
+
+	boolean getRequestMembersOnReady() {
+		rawListeners.contains(memberRequesterOnReady)
+	}
+
+	String getToken() {
 		tokenPrefix ? "$tokenPrefix $rawToken" : rawToken
 	}
 
-	void setToken(String newToken){
+	void setToken(String newToken) {
 		rawToken = newToken
 	}
 	
-	void setConfirmedBot(boolean ass){
+	void setConfirmedBot(boolean ass) {
 		if (ass) tokenPrefix = 'Bot'
 		else tokenPrefix = ''
 		this.@confirmedBot = ass
 	}
 	
-	boolean isBot(){
+	boolean isBot() {
 		boolean ass = confirmedBot || object.bot
 		if (ass) tokenPrefix = 'Bot'
 		else tokenPrefix = ''
 		ass
 	}
 
-	WSClient getWebSocketClient(){ ws }
+	WSClient getWebSocketClient() { ws }
 
 	def blacklist(event) { client.eventBlacklist.add(parseEvent(event)) }
 	def whitelist(event) { client.eventWhitelist.add(parseEvent(event)) }
 
-	void login(String email, String password, boolean threaded=true){
+	void login(String email, String password, boolean threaded = true){
 		Closure a = {
 			log.info 'Getting token...'
 			this.email = email
 			this.password = password
 			File tokenCache = new File(tokenCachePath)
-			if (!cacheTokens){
-				token = requestToken(email, password)
-			}else{
-				try{
-					token = ((Map) JSONUtil.parse(tokenCache)[(email)]).token
-				}catch (ignored){
-					JSONUtil.modify(tokenCache,
-						[(email): [token: requestToken(email, password)]])
-					token = ((Map) JSONUtil.parse(tokenCache)[(email)]).token
-				}
+			if (!cacheTokens) token = requestToken(email, password)
+			else try {
+				token = ((Map) JSONUtil.parse(tokenCache)[(email)]).token
+			} catch (ignored) {
+				JSONUtil.modify(tokenCache,
+					[(email): [token: requestToken(email, password)]])
+				token = ((Map) JSONUtil.parse(tokenCache)[(email)]).token
 			}
 			log.info 'Got token.'
 			login(token.toString(), false, false)
@@ -276,7 +281,7 @@ class Client extends User {
 		else a()
 	}
 
-	void login(String token, boolean bot = true, boolean threaded=true){
+	void login(String token, boolean bot = true, boolean threaded = true){
 		Closure a = {
 			confirmedBot = bot
 			this.token = token
@@ -290,9 +295,7 @@ class Client extends User {
 		Closure a = {
 			confirmedBot = true
 			File tokenFile = new File(tokenCachePath)
-			if (!tokenFile.exists()){
-				JSONUtil.dump(tokenFile, [bots: [:]])
-			}
+			if (!tokenFile.exists()) JSONUtil.dump(tokenFile, [bots: [:]])
 			Map original = (Map<String, Map<String, Map<String, String>>>) JSONUtil.parse(tokenFile)
 			if (!original.bots) original.bots = [:]
 			if (!original.bots[customBotName]) original.bots[customBotName] = [:]
@@ -395,7 +398,7 @@ class Client extends User {
 	}
 
 	String requestToken(String email, String password){
-		askPool('login'){
+		askPool('login') {
 			http.jsonPost('auth/login',
 				['email': email, 'password': password]).token
 		}
@@ -685,9 +688,10 @@ class Client extends User {
 	// WEBSOCKET LISTENERS
 
 	void addListener(DiscordRawWSListener listener) { rawListeners.add(listener) }
+	void removeListener(DiscordRawWSListener listener) { rawListeners.remove(listener) }
 
-	void addCacher() {
-		addListener(new DiscordRawWSListener() {
+	@Memoized DiscordRawWSListener getCacher() {
+		new DiscordRawWSListener() {
 			@Override
 			@CompileStatic
 			void fire(String type, Map d) {
@@ -713,6 +717,7 @@ class Client extends User {
 					if (null != g) ((DiscordListCache<Channel>) guildCache[g].channels)[(String) d.id].putAll(d)
 					else privateChannelCache[(String) d.id].putAll(d)
 				} else if (type == 'MESSAGE_CREATE') {
+					if (!cacheMessages) return
 					if (messages[(String) d.channel_id]) {
 						messages[(String) d.channel_id].add(d)
 					} else {
@@ -721,6 +726,7 @@ class Client extends User {
 						messages[(String) d.channel_id] = a
 					}
 				} else if (type == 'MESSAGE_UPDATE') {
+					if (!cacheMessages) return
 					if (messages[(String) d.channel_id]) {
 						if (messages[(String) d.channel_id][(String) d.id]) {
 							messages[(String) d.channel_id][(String) d.id] << d
@@ -733,6 +739,7 @@ class Client extends User {
 						messages[(String) d.channel_id] = a
 					}
 				} else if (type == 'MESSAGE_DELETE') {
+					if (!cacheMessages) return
 					messages[(String) d.channel_id]?.remove((String) d.id)
 				} else if (type == 'GUILD_CREATE') {
 					if (guildCache[(String) d.id]) guildCache[(String) d.id].putAll(d)
@@ -800,7 +807,7 @@ class Client extends User {
 					def gi = g
 					if (null == g) {
 						for (e in guildCache) if (((DiscordListCache<Channel>) e.value.channels)
-												  .containsKey((String) d.channel_id)) gi = e.key
+								.containsKey((String) d.channel_id)) gi = e.key
 					}
 					def x = (DiscordListCache<VoiceState>) guildCache[gi].voice_states
 					if ((String) d.channel_id) {
@@ -824,13 +831,16 @@ class Client extends User {
 					def n = ((Map<String, Object>) readyData.notes)
 					d.note ? n.put((String) d.id, d.note) : n.remove((String) d.id)
 				} else if (type == 'MESSAGE_REACTION_ADD') {
+					if (!cacheReactions) return
 					def fabricated = [user_id: (String) d.user_id,
-					                  emoji  : d.emoji]
+							emoji  : d.emoji]
 					reactions.containsKey((String) d.message_id) ?
 							reactions[(String) d.message_id].add(fabricated) :
 							reactions.put((String) d.message_id, [(Map) fabricated])
-				} else if (type == 'MESSAGE_REACTION_REMOVE' && reactions.containsKey((String) d.message_id)) {
+				} else if (type == 'MESSAGE_REACTION_REMOVE') {
+					if (!cacheReactions) return
 					def x = reactions[(String) d.message_id]
+					if (null == x) return
 					int i = 0
 					for (a in x) {
 						if (a.user_id == d.user_id && a.emoji == d.emoji) {
@@ -839,7 +849,8 @@ class Client extends User {
 						}
 						i++
 					}
-				} else if (type == 'MESSAGE_REACTION_REMOVE_ALL' && reactions.containsKey((String) d.message_id)) {
+				} else if (type == 'MESSAGE_REACTION_REMOVE_ALL') {
+					if (!cacheReactions) return
 					reactions.remove((String) d.message_id)
 				} else if (type == 'RELATIONSHIP_ADD') {
 					relationshipCache.add(d)
@@ -859,17 +870,23 @@ class Client extends User {
 					((Map) readyData.user_settings) << d
 				}
 			}
-		})
+		}
 	}
 
-	def requestMembersOnReady(){
-		addListener(new DiscordRawWSListener() {
+	void removeCacher() { removeListener(cacher) }
+	void addCacher() { addListener(cacher) }
+
+	@Memoized DiscordRawWSListener getMemberRequesterOnReady() {
+		new DiscordRawWSListener() {
 			@CompileStatic
 			void fire(String type, Map data) {
-				chunkMembersFor(guilds.findAll { it.large })
+				if (type == 'READY') chunkMembersFor(guilds.findAll { it.large })
 			}
-		})
+		}
 	}
+
+	def requestMembersOnReady(){ addListener(memberRequesterOnReady) }
+	def dontRequestMembersOnReady(){ removeListener(memberRequesterOnReady) }
 
 	// add this yourself
 	void addReconnector(){

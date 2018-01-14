@@ -32,14 +32,14 @@ class CommandBot implements Triggerable {
 	ListenerSystem<BotEventData> listenerSystem = new BasicListenerSystem<>()
 	String token
 
-	CommandBot(Map<String, Object> config){
-		for (e in config)
-			if (e.key == 'trigger') addTrigger(e.value)
-			else if (e.key == 'triggers') addTriggers(e.value as Collection)
-			else setProperty(e.key, e.value)
-		if (!log) log = new Log(logName)
-		if (!client) client = new Client(bot: true)
+	Log getLog() { this.@log ?: (log = new Log(logName)) }
+
+	void setLogName(String name) {
+		this.@logName = name
+		if (log) log.name = logName else log = new Log(logName)
 	}
+
+	Client getClient() { this.@client ?: (client = new Client(bot: true)) }
 
 	def addCommand(Command command){
 		commands.add(command)
@@ -187,32 +187,35 @@ class BotExceptionEventData extends BotEventData {
 }
 
 @CompileStatic
-class CommandType {
+abstract class CommandType {
 	private static quote(CommandPattern aot){
 		String g = aot.toString()
 		aot.regex ? g : Pattern.quote(g)
 	}
-	// These have IDs for convenience sake
-	static final CommandType PREFIX = de { CommandPattern trigger, CommandPattern alias ->
-		/(?i)(/ + quote(trigger) + quote(alias) + /)(?:\s+(?:.|\n)*)?/
+
+	static final CommandType PREFIX = new CommandType() {
+		String matchCommand(CommandPattern trigger, CommandPattern alias) {
+			/(?i)(/ + quote(trigger) + quote(alias) + /)(?:\s+(?:.|\n)*)?/
+		}
 	}
-	static final CommandType SUFFIX = de { CommandPattern trigger, CommandPattern alias ->
-		/(?i)(/ + quote(alias) + quote(trigger) + /)(?:\s+(?:.|\n)*)?/
+	static final CommandType SUFFIX = new CommandType() {
+		String matchCommand(CommandPattern trigger, CommandPattern alias) {
+			/(?i)(/ + quote(alias) + quote(trigger) + /)(?:\s+(?:.|\n)*)?/
+		}
 	}
-	static final CommandType REGEX = de { CommandPattern trigger, CommandPattern alias ->
-		/(/ + trigger.toString() + alias.toString() + /)(?:\s+(?:.|\n)*)?/
+	static final CommandType REGEX = new CommandType() {
+		String matchCommand(CommandPattern trigger, CommandPattern alias) {
+			/(/ + trigger.toString() + alias.toString() + /)(?:\s+(?:.|\n)*)?/
+		}
 	}
-	static final CommandType REGEX_SUFFIX = de { CommandPattern trigger, CommandPattern alias ->
-		/(/ + alias.toString() + trigger.toString() + /)(?:\s+(?:.|\n)*)?/
+	static final CommandType REGEX_SUFFIX = new CommandType() {
+		String matchCommand(CommandPattern trigger, CommandPattern alias) {
+			/(/ + alias.toString() + trigger.toString() + /)(?:\s+(?:.|\n)*)?/
+		}
 	}
 
-	Closure<List> customCaptures = { List it -> it.drop(1) }
-	Closure<String> commandMatcher
-	CommandType(Closure<String> commandMatcher){ this.commandMatcher = commandMatcher }
-
-	static CommandType 'de'(Closure<String> commandMatcher){
-		new CommandType(commandMatcher)
-	}
+	abstract String matchCommand(CommandPattern trigger, CommandPattern alias)
+	List<String> captures(List<String> it) { it.tail() }
 }
 
 trait Restricted {
@@ -277,6 +280,10 @@ trait Restricted {
 
 trait Triggerable {
 	Set<CommandPattern> triggers = []
+
+	def setTrigger(trigger) { triggers.clear(); addTrigger(trigger) }
+
+	def setTriggers(trigger) { triggers.clear(); addTriggers(trigger) }
 	
 	def addTrigger(trigger) {
 		triggers.add(new CommandPattern(trigger))
@@ -295,11 +302,15 @@ trait Triggerable {
 			addTrigger(t)
 	}
 
-	CommandPattern getTrigger(){ triggers[0] }
+	@CompileStatic CommandPattern getTrigger() { triggers[0] }
 }
 
 trait Aliasable {
 	Set<CommandPattern> aliases = []
+
+	def setAlias(alias) { aliases.clear(); addAlias(alias) }
+
+	def setAliases(alias) { aliases.clear(); addAliases(alias) }
 
 	def addAlias(alias) {
 		aliases.add(new CommandPattern(alias))
@@ -318,7 +329,7 @@ trait Aliasable {
 			addAlias(t)
 	}
 
-	CommandPattern getAlias(){ aliases[0] }
+	@CompileStatic CommandPattern getAlias() { aliases[0] }
 }
 
 @CompileStatic
@@ -358,9 +369,9 @@ class Command implements Triggerable, Aliasable, Restricted {
 	}
 	
 	Command(alias, trigger){
-		if (alias instanceof Collection || alias.class.array) addAliases(alias)
+		if (alias instanceof Collection || alias.class.array) addAliases(alias as Collection)
 		else addAlias(alias)
-		if (trigger instanceof Collection || trigger.class.array) addTriggers(trigger)
+		if (trigger instanceof Collection || trigger.class.array) addTriggers(trigger as Collection)
 		else addTrigger(trigger)
 	}
 
@@ -368,18 +379,15 @@ class Command implements Triggerable, Aliasable, Restricted {
 	Tuple2<CommandPattern, CommandPattern> match(Message msg){
 		if (!allows(msg)) return null
 		for (List<CommandPattern> x in (List<List<CommandPattern>>) [triggers, aliases].combinations())
-			if (x[0].allows(msg) && x[1].allows(msg) && msg.content ==~ type.commandMatcher.call(x[0], x[1]))
+			if (x[0].allows(msg) && x[1].allows(msg) && msg.content ==~ type.matchCommand(x[0], x[1]))
 				return new Tuple2(x[0], x[1])
 		null
 	}
 
-	CommandPattern hasAlias(ahh){ for (x in aliases) if (ahh.toString() == x.toString()) return x; null }
-	CommandPattern hasTrigger(ahh){ for (x in triggers) if (ahh.toString() == x.toString()) return x; null }
-
 	Matcher matcher(Message msg){
-		Tuple2 pair = match(msg)
+		def pair = match(msg)
 		if (!pair) return null
-		msg.content =~ type.commandMatcher.call(pair)
+		msg.content =~ type.matchCommand(pair.first, pair.second)
 	}
 
 	/**
@@ -397,7 +405,7 @@ class Command implements Triggerable, Aliasable, Restricted {
 
 	// only for regex
 	List captures(Message msg){
-		type.customCaptures.call(allCaptures(msg))
+		type.captures(allCaptures(msg))
 	}
 
 	// only for regex

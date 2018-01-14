@@ -8,8 +8,9 @@ class BotBuilder {
 	Map options
 	@Delegate(interfaces = false) CommandBot bot
 
-	BotBuilder(Map options = [:]){
-		bot = new CommandBot(options)
+	BotBuilder(Map options = [:]) {
+		bot = new CommandBot()
+		for (e in options) bot.setProperty((String) e.key, e.value)
 		this.options = options
 	}
 
