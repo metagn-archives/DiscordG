@@ -180,7 +180,10 @@ class WSClient extends WebSocketAdapter {
 			if (data.guild_id) data.guild = client.guild(data.guild_id)
 			if (data.user_id) data.user = client.user(data.user_id)
 			if (data.message_id) data.message = ((Channel) data.channel).message(data.message_id)
-			if (data.user) data.user = client.user(data.user) ?: new User(client, (Map) data.user)
+			if (data.user) {
+				data.user = client.user(data.user) ?: new User(client, (Map) data.user)
+				if (type.contains('MEMBER') && data.guild_id) data.member = ((Guild) data.guild).member(data.user)
+			}
 			if (data.id) {
 				if (type.contains('MEMBER')) data.member = ((Guild) data.guild).member(data.id)
 				else if (type.contains('GUILD')) data.guild = client.guild(data.id) ?: new Guild(client, data)

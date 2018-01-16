@@ -126,15 +126,13 @@ class DiscordObject implements Comparable, JSONable {
 	static <T extends DiscordObject> T find(DiscordListCache<T> cache, value){
 		String a = id(value)
 		if (!a) return null
-		def b = isId(a) && cache.containsKey(a) ? cache[a] : findName(cache, a)
-		b ? cache.class().newInstance(cache.client(), b) : null
+		isId(a) && cache.containsKey(a) ? cache.at(a) : findName(cache, a)
 	}
 
 	static <T extends DiscordObject> List<T> findAll(DiscordListCache<T> cache, value){
 		String a = id(value)
 		if (!a) return null
-		def b = isId(a) && cache.containsKey(a) ? [cache[a]] : findAllName(cache, a)
-		b ? b.collect { cache.class().newInstance(cache.client(), it) } : []
+		isId(a) && cache.containsKey(a) ? [cache.at(a)] : findAllName(cache, a)
 	}
 
 	static <T extends DiscordObject> T findNested(DiscordListCache cache, name, value){
