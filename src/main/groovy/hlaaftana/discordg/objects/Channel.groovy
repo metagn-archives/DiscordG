@@ -280,8 +280,8 @@ class Channel extends DiscordObject {
 		res
 	}
 
-	VoiceState voiceState(thing){ find(voiceStates, voiceStateMap, thing) }
-	User member(thing){ find(members, memberMap, thing) }
+	VoiceState voiceState(thing){ findBuilt(voiceStateMap, thing) }
+	User member(thing){ findBuilt(memberMap, thing) }
 	Call getOngoingCall(){ client.ongoingCall(id) }
 
 	int getBitrate() { (int) object.bitrate }

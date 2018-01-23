@@ -3,6 +3,7 @@ package hlaaftana.discordg
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
 import hlaaftana.discordg.collections.DiscordListCache
+import hlaaftana.discordg.objects.Member
 import hlaaftana.discordg.util.JSONable
 import hlaaftana.discordg.util.CasingType
 import hlaaftana.discordg.util.ConversionUtil
@@ -87,7 +88,7 @@ class DiscordObject implements Comparable, JSONable {
 	static Map patchData(Map data, ...imageKeys = ['avatar', 'icon']){
 		Map a = new HashMap(data.size())
 		for (e in data) {
-			a.put(CasingType.CAMEL.to(CasingType.SNAKE, e.key.toString()), e.value)
+			a.put(CasingType.camel.to(CasingType.snake, e.key.toString()), e.value)
 		}
 		for (k in imageKeys) {
 			def key = k.toString()
@@ -103,9 +104,9 @@ class DiscordObject implements Comparable, JSONable {
 		a
 	}
 
-	static <T> T find(Collection<T> ass, value){
+	static Map find(Collection<Map> ass, value){
 		String bong = id(value)
-		if (!bong) return null
+		if (!bong || !ass) return null
 		if (isId(bong)){
 			findId(ass, bong) ?: findName(ass, bong)
 		}else{
@@ -113,9 +114,9 @@ class DiscordObject implements Comparable, JSONable {
 		}
 	}
 
-	static <T> T find(Collection<T> ass, Map<String, T> idMap, value){
+	static Map find(Collection<Map> ass, Map<String, Map> idMap, value){
 		String bong = id(value)
-		if (!bong) return null
+		if (!bong || !ass) return null
 		if (isId(bong) && idMap.containsKey(bong)){
 			idMap[bong]
 		}else{
@@ -123,21 +124,47 @@ class DiscordObject implements Comparable, JSONable {
 		}
 	}
 
+	static <T extends DiscordObject> T findBuilt(Collection<T> ass, value){
+		String bong = id(value)
+		if (!bong || !ass) return null
+		if (isId(bong)){
+			findId(ass, bong) ?: findNameBuilt(ass, bong)
+		}else{
+			findNameBuilt(ass, bong)
+		}
+	}
+
+	static <T extends DiscordObject> T findBuilt(Map<String, T> idMap, value){
+		String bong = id(value)
+		if (!bong || !idMap) return null
+		if (isId(bong) && idMap.containsKey(bong)){
+			idMap[bong]
+		}else{
+			findNameBuilt(idMap.values(), bong)
+		}
+	}
+
 	static <T extends DiscordObject> T find(DiscordListCache<T> cache, value){
 		String a = id(value)
-		if (!a) return null
+		if (!a || !cache) return null
 		isId(a) && cache.containsKey(a) ? cache.at(a) : findName(cache, a)
+	}
+
+	static Member findMember(DiscordListCache<Member> cache, value){
+		String a = id(value)
+		if (!a || !cache) return null
+		isId(a) && cache.containsKey(a) ? cache.at(a) : findMemberName(cache, a)
 	}
 
 	static <T extends DiscordObject> List<T> findAll(DiscordListCache<T> cache, value){
 		String a = id(value)
-		if (!a) return null
+		if (!a || !cache) return null
 		isId(a) && cache.containsKey(a) ? [cache.at(a)] : findAllName(cache, a)
 	}
 
 	static <T extends DiscordObject> T findNested(DiscordListCache cache, name, value){
 		String x = id(value)
-		if (!x) return null
+		if (!x || !cache) return null
 		boolean a = isId(x)
 		for (e in cache){
 			def c = (DiscordListCache<T>) ((Map) e.value).get(name)
@@ -153,7 +180,7 @@ class DiscordObject implements Comparable, JSONable {
 
 	static <T extends DiscordObject> List<T> findAllNested(DiscordListCache cache, name, value){
 		String x = id(value)
-		if (!x) return []
+		if (!x || !cache) return []
 		boolean a = isId(x)
 		def d = []
 		for (e in cache){
@@ -185,6 +212,7 @@ class DiscordObject implements Comparable, JSONable {
 	static String id(thing){ resolveId(thing) }
 
 	static <T> T find(Collection<T> ass, String propertyName, value){
+		if (!ass || null == value) return null
 		int hash = value.hashCode()
 		for (x in ass) {
 			def a = dynamicprop(x, propertyName)
@@ -193,26 +221,44 @@ class DiscordObject implements Comparable, JSONable {
 		null
 	}
 	
-	private static Closure nameClosure = { Map o, v ->
+	private static Closure nameClosure = { Map o, String v ->
 		def bool = false
 		if (o.containsKey('username')) bool |= o.username == v
 		else if (o.containsKey('name')) bool |= o.name == v
-		else if (o.containsKey('nick')) bool |= o.nick == v
-		else if (o.containsKey('user') && ((Map) o.user).containsKey('username'))
-			bool |= ((Map) o.user).username == v
 		bool
 	}
 
-	static <T> T findName(Collection<T> ass, value){
-		ass.find(nameClosure.rcurry(value))
+	private static Closure memberNameClosure = { Map o, String v ->
+		((Map) o.user).username == v || o.nick == v
+	}
+
+	static Map findName(Collection<Map> ass, value){
+		if (!ass || null == value) return null
+		ass.find(nameClosure.rcurry(value.toString()))
+	}
+
+	static <T extends DiscordObject> T findNameBuilt(Collection<T> ass, value){
+		if (!ass || null == value) return null
+		final s = value.toString()
+		final h = s.hashCode()
+		for (c in ass) if (c.name.hashCode() == h && c.name == s) return c
+		null
 	}
 
 	static <T extends DiscordObject> T findName(DiscordListCache<T> cache, value){
+		if (null == value || !cache) return null
 		def i = cache.rawList().find(nameClosure.rcurry(value))
 		null == i ? null : cache.at(i.id)
 	}
 
+	static Member findMemberName(DiscordListCache<Member> cache, value){
+		if (null == value || !cache) return null
+		def i = cache.rawList().find(memberNameClosure.rcurry(value))
+		null == i ? null : cache.at(i.id)
+	}
+
 	static <T extends DiscordObject> List<T> findAllName(DiscordListCache<T> cache, value){
+		if (null == value || !cache) return null
 		def i = cache.rawList().findAll(nameClosure.rcurry(value))
 		if (i.empty) return []
 		def res = new ArrayList<T>(i.size())
@@ -221,6 +267,7 @@ class DiscordObject implements Comparable, JSONable {
 	}
 
 	static <T> T findId(Collection<T> ass, value){
+		if (null == value || !ass) return null
 		int hash = value.hashCode()
 		for (x in ass) {
 			def a = dynamicid(x)

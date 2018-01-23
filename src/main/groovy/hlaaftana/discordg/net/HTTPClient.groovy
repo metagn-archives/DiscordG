@@ -93,7 +93,7 @@ class HTTPClient {
 
 	def parse(String request){
 		def a = request.split(/\s+/, 3)
-		methodMissing(CAMEL.to(CONSTANT, a[0]), a.length == 2 ? a[1] : [a[1], a[2]])
+		methodMissing(camel.to(constant, a[0]), a.length == 2 ? a[1] : [a[1], a[2]])
 	}
 
 	def get(...args) { methodMissing('get', args) }
@@ -112,7 +112,7 @@ class HTTPClient {
 
 	def methodMissing(String methodName, List argl){
 		String url
-		List methodParams = CAMEL.toWords(methodName)
+		List methodParams = camel.toWords(methodName)
 		boolean global = methodParams.remove('global')
 		boolean json = methodParams.remove('json')
 		boolean body = methodParams.remove('body')

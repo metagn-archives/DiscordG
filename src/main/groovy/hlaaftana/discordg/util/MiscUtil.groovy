@@ -3,7 +3,6 @@ package hlaaftana.discordg.util
 import groovy.transform.CompileDynamic
 import groovy.transform.stc.ClosureParams
 import groovy.transform.stc.FirstParam
-import org.codehaus.groovy.runtime.StringGroovyMethods
 
 import java.awt.*
 import java.util.List
@@ -158,8 +157,9 @@ class MiscUtil {
 	}
 }
 
+@CompileStatic
 abstract class CasingType {
-	static final CasingType CAMEL = new CasingType() {
+	static final CasingType camel = new CasingType() {
 		@CompileStatic
 		List<String> toWords(String words) {
 			List<String> result = []
@@ -193,7 +193,7 @@ abstract class CasingType {
 			result.toString()
 		}
 	}
-	static final CasingType SNAKE = new CasingType() {
+	static final CasingType snake = new CasingType() {
 		@CompileStatic
 		List<String> toWords(String words) {
 			words.tokenize((char) '_')
@@ -204,7 +204,7 @@ abstract class CasingType {
 			words.join('_')
 		}
 	}
-	static final CasingType CONSTANT = new CasingType() {
+	static final CasingType constant = new CasingType() {
 		@CompileStatic
 		List<String> toWords(String words) {
 			List<String> a = []
@@ -222,18 +222,31 @@ abstract class CasingType {
 
 		@CompileStatic
 		String fromWords(List<String> words) {
-			words.join('_')
+			words*.toUpperCase().join('_')
 		}
 	}
-	static final CasingType PASCAL = [
-		toWords: { MiscUtil.splitWhen(it.toString().toCharArray()){ Character.isUpperCase(it) }
-			.drop(1)*.join('').collect(StringGroovyMethods.&uncapitalize) },
-		fromWords: { it*.capitalize().join() }
-	] as CasingType
-	static final CasingType KEBAB = [
-		toWords: { it.tokenize('-') },
-		fromWords: { it.join('-') }
-	] as CasingType
+	static final CasingType pascal = new CasingType() {
+		@CompileStatic
+		List<String> toWords(String words) {
+			camel.toWords(words.uncapitalize())
+		}
+
+		@CompileStatic
+		String fromWords(List<String> words) {
+			camel.fromWords(words).capitalize()
+		}
+	}
+	static final CasingType kebab = new CasingType() {
+		@CompileStatic
+		List<String> toWords(String words) {
+			words.tokenize((char) '-')
+		}
+
+		@CompileStatic
+		String fromWords(List<String> words) {
+			words.join('-')
+		}
+	}
 	
 	abstract List<String> toWords(String words)
 	abstract String fromWords(List<String> words)

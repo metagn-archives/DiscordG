@@ -93,9 +93,9 @@ class Guild extends DiscordObject {
 	List<Channel> getVoiceChannels(){ channels.findAll { it.voice } }
 	Map<String, Channel> getVoiceChannelMap(){ channelMap.findAll { k, v -> v.voice } }
 
-	Channel textChannel(id){ find(textChannels, id) }
+	Channel textChannel(id){ findBuilt(textChannels, id) }
 
-	Channel voiceChannel(id){ find(voiceChannels, id) }
+	Channel voiceChannel(id){ findBuilt(voiceChannels, id) }
 
 	Channel channel(id){ find(channelCache, id) }
 
@@ -266,7 +266,7 @@ class Guild extends DiscordObject {
 		client.editEmoji(data, this, emoji)
 	}
 
-	Member member(user){ find(memberCache, user) }
+	Member member(user){ findMember(memberCache, user) }
 
 	Message sendMessage(String message, boolean tts=false){ sendMessage(content: message, tts: tts) }
 	Message sendMessage(Map data){ client.sendMessage(data, this) }

@@ -116,8 +116,6 @@ class CommandBot implements Triggerable {
 
 					CommandEventData ced = new CommandEventData(c, match.second, match.first,
 							c.arguments(msg), msg)
-					ced.captures = c.captures(msg)
-					ced.allCaptures = c.allCaptures(msg)
 
 					listenerSystem.dispatchEvent(Events.COMMAND, new BotCommandEventData(this, ced))
 				}

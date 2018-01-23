@@ -261,12 +261,12 @@ class WSClient extends WebSocketAdapter {
 
 	void reconnect(boolean requestGateway = false) {
 		dispatch = false
-		client.closeGateway(false)
+		try { client.closeGateway(false) } catch (ignored) {}
 		while (++reconnectTries){
 			if (reconnectTries > 5) {
 				client.log.info 'Failed reconnect. Logging out.', client.log.name + 'WS'
 				reconnectTries = 0
-				client.logout()
+				try { client.logout() } catch (ignored) {}
 				return
 			}
 			try {
@@ -275,7 +275,7 @@ class WSClient extends WebSocketAdapter {
 				justReconnected = true
 				return
 			} catch (ignored) {
-				client.log.debug "Reconnect $reconnectTries failed', client.log.name + 'WS"
+				client.log.debug "Reconnect $reconnectTries failed", client.log.name + 'WS'
 			}
 		}
 	}
