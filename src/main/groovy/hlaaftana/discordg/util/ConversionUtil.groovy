@@ -52,7 +52,7 @@ class ConversionUtil {
 		Calendar cal = Calendar.getInstance(tz)
 		cal.clear()
 		def x = string.split(/\D+/)
-		for (int i = 0; i < x.length; ++i) {
+		for (int i = 0; i < Math.min(x.length, dateFields.length); ++i) {
 			cal.set(dateFields[i], new Integer(x[i]) + (i == 1 ? -1 : 0))
 		}
 		cal.time

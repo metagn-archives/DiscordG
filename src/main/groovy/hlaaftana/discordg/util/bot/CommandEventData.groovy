@@ -10,8 +10,8 @@ class CommandEventData {
 	CommandPattern alias
 	CommandPattern trigger
 	String arguments
-	List<String> captures
-	List<String> allCaptures
+	@Lazy List<String> captures = command.captures(message)
+	@Lazy List<String> allCaptures = command.allCaptures(message)
 	@Delegate(excludes = ['getClass', 'toString']) Message message
 	Map<String, Object> extra = [:]
 

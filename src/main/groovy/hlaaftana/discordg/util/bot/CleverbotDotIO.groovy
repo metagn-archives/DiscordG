@@ -1,11 +1,13 @@
 package hlaaftana.discordg.util.bot
 
 import com.mashape.unirest.http.Unirest
+import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.util.JSONUtil
 
 /// A wrapper for https://cleverbot.io/
 /// API documentation: https://docs.cleverbot.io/docs/querying-cleverbot
+@CompileStatic
 class CleverbotDotIO {
 	String baseUrl = 'https://cleverbot.io/1.0/'
 	String user
@@ -19,47 +21,47 @@ class CleverbotDotIO {
 	}
 
 	def startSession(){
-		nick = request('post', 'create', [:]).nick
+		nick = post('create', [:]).nick
 	}
 
 	String ask(text){
 		if (!nick) startSession()
-		request('post', 'ask', [nick: nick, text: text]).response
+		post('ask', [nick: nick, text: text]).response
 	}
 
-	Map request(String method, String path, Map body = null){
+	Map post(String path, Map body = null){
 		Map response
 		if (body != null){
 			if (!user || !key) noAuth()
-			Map a = [
-				user: user,
-				key: key
-			]
+			Map<String, Object> a = new HashMap<>()
+			a.user = user
+			a.key = key
 			if (nick) a.nick = nick
 			a << body
-			response = JSONUtil.parse(
-				Unirest."$method"(baseUrl + path)
+			response = (Map) JSONUtil.parse(
+				Unirest.post(baseUrl + path)
 					.fields(a)
 					.asString().body)
 		}else{
-			response = JSONUtil.parse(
-				Unirest."$method"(baseUrl + path)
+			response = (Map) JSONUtil.parse(
+				Unirest.post(baseUrl + path)
 					.asString().body)
 		}
 		checkResponse(response)
 	}
 
-	private static noAuth(){
+	private static void noAuth() {
 		throw new IllegalArgumentException('User or key not set.' +
 			'Go to https://cleverbot.io/keys to get your user and key')
 	}
 
-	private static checkResponse(Map response){
+	private static Map checkResponse(Map response){
 		if (response.status != 'success')
 			throw new APIException("Something messed up: $response.status")
 		else response
 	}
 }
 
+@CompileStatic
 @InheritConstructors
 class APIException extends Exception {}
