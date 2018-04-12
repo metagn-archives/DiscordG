@@ -72,10 +72,6 @@ class DiscordListCache<T extends DiscordObject> extends Cache<String, Map<String
 		super.get(DiscordObject.id(key))
 	}
 
-	DiscordListCache plus(DiscordListCache other){
-		new DiscordListCache(rawList() + other.rawList(), client, class_)
-	}
-
 	def add(Map object){
 		put((class_ == Member ? ((Map<String, Object>) object.user).id : object.id).toString(), object)
 	}

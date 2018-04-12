@@ -9,6 +9,8 @@ import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.Permissions
 import hlaaftana.discordg.collections.DiscordListCache
 
+import java.util.regex.Pattern
+
 /**
  * A Discord channel.
  * @author Hlaaftana
@@ -17,6 +19,8 @@ import hlaaftana.discordg.collections.DiscordListCache
 @SuppressWarnings('GroovyUnusedDeclaration')
 @CompileStatic
 class Channel extends DiscordObject {
+	static final Pattern MENTION_REGEX = ~/<#(\d+)>/
+
 	String getMention(){ "<#$id>" }
 	Integer getPosition(){ (Integer) object.position }
 	Integer getType(){ (Integer) object.type }

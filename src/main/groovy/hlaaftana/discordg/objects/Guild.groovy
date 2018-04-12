@@ -11,6 +11,8 @@ import java.awt.Color
 
 import groovy.transform.InheritConstructors
 
+import java.util.regex.Pattern
+
 /**
  * A Discord guild/guild.
  * @author Hlaaftana
@@ -403,6 +405,8 @@ class Integration extends DiscordObject {
 @CompileStatic
 @SuppressWarnings('GroovyUnusedDeclaration')
 class Emoji extends DiscordObject {
+	static final Pattern REGEX = ~/<:(?<name>\w+):(?<id>\d+)>/
+
 	String getGuildId() { (String) object.guild_id }
 	Guild getGuild(){ client.guild(guildId) }
 	Guild getParent(){ guild }
@@ -504,7 +508,11 @@ class Role extends DiscordObject{
 @SuppressWarnings('GroovyUnusedDeclaration')
 class Member extends User {
 	Member(Client client, Map object){
-		super(client, object + (Map) object.user)
+		super(client, object)
+		if (object.user instanceof Map) object << ((Map) object.user)
+		else if (object.user instanceof User) {
+			object << (object.user = ((User) object.user).object)
+		}
 	}
 
 	User getUser(){ new User(client, (Map) object.user) }
