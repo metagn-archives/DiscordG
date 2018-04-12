@@ -7,13 +7,15 @@ import hlaaftana.discordg.Client
 import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.Permissions
 
+import java.util.regex.Pattern
+
 /**
  * A Discord user.
  * @author Hlaaftana
  */
 @CompileStatic
 class User extends DiscordObject{
-	static final Closure<String> MENTION_REGEX = { String id = /\d+/ -> /<@!?$id>/.toString() }
+	static final Pattern MENTION_REGEX = ~/<@!?(\d+)>/
 
 	User(Client client, Map object){
 		super(client, object)
@@ -26,7 +28,6 @@ class User extends DiscordObject{
 	boolean isOffline(){ status == 'offline' }
 	boolean isIdle(){ status == 'idle' }
 	boolean isAway(){ status == 'idle' }
-	String getMentionRegex(){ MENTION_REGEX(id) }
 	String getName(){ username }
 	String getUsername() { (String) object.username }
 	String getAvatarHash() { (String) object.avatar }

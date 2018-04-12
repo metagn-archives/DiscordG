@@ -358,7 +358,7 @@ class Client extends User {
 		Closure a = {
 			gatewayClosed = true
 			if (ws){
-				ws.keepAliveThread?.interrupt()
+				ws.heartbeatThread?.interrupt()
 				ws.session?.close(1000, 'Close')
 			}
 		}
@@ -694,7 +694,7 @@ class Client extends User {
 		new DiscordRawWSListener() {
 			@Override
 			@CompileStatic
-			void fire(String type, Map d) {
+			void fire(String type, Map<String, Object> d) {
 				def g = (String) d.guild_id
 				if (type == 'GUILD_MEMBER_ADD') {
 					((DiscordListCache) guildCache[g].members).add(d)
@@ -708,14 +708,26 @@ class Client extends User {
 				} else if (type == 'GUILD_ROLE_DELETE') {
 					((DiscordListCache<Role>) guildCache[g].roles).remove((String) d.role_id)
 				} else if (type == 'CHANNEL_CREATE') {
-					if (null != g) ((DiscordListCache<Channel>) guildCache[g].channels).add(d)
-					else privateChannelCache.add(d)
+					(null != g ? ((DiscordListCache<Channel>) guildCache[g].channels) :
+							privateChannelCache).add(d)
 				} else if (type == 'CHANNEL_DELETE') {
-					if (null != g) ((DiscordListCache<Channel>) guildCache[g].channels).remove((String) d.id)
-					else privateChannelCache.remove((String) d.id)
+					(null != g ? ((DiscordListCache<Channel>) guildCache[g].channels) :
+							privateChannelCache).remove((String) d.id)
 				} else if (type == 'CHANNEL_UPDATE') {
-					if (null != g) ((DiscordListCache<Channel>) guildCache[g].channels)[(String) d.id].putAll(d)
-					else privateChannelCache[(String) d.id].putAll(d)
+					final map = (null != g ? ((DiscordListCache<Channel>) guildCache[g].channels) :
+							privateChannelCache)[(String) d.id]
+					for (e in d) {
+						if (e.key == 'permission_overwrites') {
+							final po = (List<Map<String, Object>>) e.value
+							def a = new ArrayList<Map<String, Object>>(po.size())
+							for (x in po) {
+								def j = new HashMap((Map) x)
+								j.put('channel_id', (String) d.id)
+								a.add(j)
+							}
+							map.permission_overwrites = new DiscordListCache(a, client, PermissionOverwrite)
+						} else map[e.key] = e.value
+					}
 				} else if (type == 'MESSAGE_CREATE') {
 					if (!cacheMessages) return
 					if (messages[(String) d.channel_id]) {
@@ -748,7 +760,7 @@ class Client extends User {
 					guildCache.remove((String) d.id)
 				} else if (type == 'GUILD_MEMBER_UPDATE') {
 					((DiscordListCache<Member>) guildCache[g].members)[(String) ((Map) d.user).id]?.putAll(d)
-				} else if (type == 'ROLE_UPDATE') {
+				} else if (type == 'GUILD_ROLE_UPDATE') {
 					def r = (String) ((Map) d.role).id
 					def rc = (DiscordListCache<Role>) guildCache[g].roles
 					if (rc.containsKey(r)) rc[r].putAll((Map) d.role)
@@ -758,7 +770,7 @@ class Client extends User {
 						rc.put r, x
 					}
 				} else if (type == 'GUILD_UPDATE') {
-					guildCache[(String) d.id] = d
+					guildCache[(String) d.id] << d
 				} else if (type == 'PRESENCE_UPDATE') {
 					if (null != g) {
 						if (guildCache[g].unavailable) return

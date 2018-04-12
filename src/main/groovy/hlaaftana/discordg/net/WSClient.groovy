@@ -21,7 +21,7 @@ class WSClient extends WebSocketAdapter {
 	CountDownLatch latch = new CountDownLatch(1)
 	Client client
 	Session session
-	Thread keepAliveThread
+	Thread heartbeatThread
 	ExecutorService threadPool
 	Map<Integer, Integer> opCounts = [:]
 	Map<String, Integer> eventCounts = [:]
@@ -217,7 +217,7 @@ class WSClient extends WebSocketAdapter {
 				client.log.info 'Successfully reconnected. Resuming events...'
 				resume()
 			}
-			threadKeepAlive((long) client.readyData.heartbeat_interval)
+			startHeartbeating((long) client.readyData.heartbeat_interval)
 		} else if (op == 11) {
 			unackedHeartbeats--
 		} else {
@@ -247,9 +247,9 @@ class WSClient extends WebSocketAdapter {
 		client.log.info "Connection closed. Reason: $reason, code: $code", client.log.name + 'WS'
 		Thread.start { client.dispatchEvent('CLOSE', new HashMap<String, Object>(
 				code: code, reason: reason, json: [code: code, reason: reason])) }
-		if (keepAliveThread){
-			keepAliveThread.interrupt()
-			keepAliveThread = null
+		if (heartbeatThread){
+			heartbeatThread.interrupt()
+			heartbeatThread = null
 		}
 		this.session.close()
 		Thread.currentThread().interrupt()
@@ -346,17 +346,17 @@ class WSClient extends WebSocketAdapter {
 		]
 	}
 
-	void keepAlive() {
+	void heartbeat() {
 		heartbeats++
 		unackedHeartbeats++
 		send op: 1, d: seq
 	}
 
-	void threadKeepAlive(long heartbeat) {
-		keepAliveThread = Thread.startDaemon {
+	void startHeartbeating(long interval) {
+		heartbeatThread = Thread.startDaemon {
 			while (true) {
-				keepAlive()
-				try { Thread.sleep(heartbeat) }
+				heartbeat()
+				try { Thread.sleep(interval) }
 				catch (InterruptedException ignored) { break }
 			}
 		}

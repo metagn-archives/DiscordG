@@ -15,7 +15,7 @@ class VoiceWSClient extends WebSocketAdapter {
 	VoiceClient vc
 	Session session
 	int heartbeats
-	Thread keepAliveThread
+	Thread heartbeatThread
 	boolean connected
 	boolean speaking
 	DatagramSocket udpSocket
@@ -60,7 +60,7 @@ class VoiceWSClient extends WebSocketAdapter {
 			int selfPort = ((received[-2] as int) << 8) | received[-1]
 			threadUdpKeepAlive()
 			selectProtocol(selfIp, selfPort)
-			threadKeepAlive(vc.heartbeatInterval)
+			startHeartbeating(vc.heartbeatInterval)
 		}else if (op == 3){
 			def interval = System.currentTimeMillis() - data
 			vc.pingIntervals += interval
@@ -81,9 +81,9 @@ class VoiceWSClient extends WebSocketAdapter {
 	void onWebSocketClose(int code, String reason){
 		vc.log.info "Connection closed. Reason: $reason, code: $code', vc.log.name + 'WS"
 		Thread.start { vc.dispatchEvent('CLOSE', [code: code, reason: reason, json: [code: code, reason: reason]]) }
-		if (keepAliveThread){
-			keepAliveThread.interrupt()
-			keepAliveThread = null
+		if (heartbeatThread){
+			heartbeatThread.interrupt()
+			heartbeatThread = null
 		}
 		if (udpKeepAliveThread){
 			udpKeepAliveThread.interrupt()
@@ -118,15 +118,15 @@ class VoiceWSClient extends WebSocketAdapter {
 		]
 	}
 
-	void keepAlive(){
+	void heartbeat(){
 		heartbeats++
 		send op: 3, d: System.currentTimeMillis().toString()
 	}
 
-	void threadKeepAlive(long interval){
-		keepAliveThread = Thread.startDaemon {
+	void startHeartbeating(long interval){
+		heartbeatThread = Thread.startDaemon {
 			while (true){
-				keepAlive()
+				heartbeat()
 				try{ Thread.sleep(interval) }catch (InterruptedException ex){ return }
 			}
 		}
