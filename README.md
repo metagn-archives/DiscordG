@@ -37,7 +37,7 @@ MessageTypes, ChannelTypes etc. Also helper methods for channel types exist in c
 
 * Webhooks still need Client instances, but the Client doesn't have to login. For example:
 ```groovy
-def webhook = [id: 388383836469329933, token: "somethingludicrous"]
+def webhook = [webhook: true, id: 388383836469329933, token: "somethingludicrous"]
 def client = new Client()
 client.sendMessage(webhook, "Whats up")
 
@@ -100,7 +100,7 @@ child. Inspired by discordrb.
 role.edit(name: "ROLE FOR IMPKMAAAA", color: 0xFF00FF)
 
 // discord4j
-role.edit(new Color(0xFF00FF)), role.hoisted, "ROLE FOR IMPKMAAAA", role.permissions, role.mentionable)
+role.edit(new Color(0xFF00FF), role.hoisted, "ROLE FOR IMPKMAAAA", role.permissions, role.mentionable)
 
 // jda
 role.managerUpdatable.nameField.setValue("ROLE FOR IMPKMAAA").colorField.setValue(new Color(0xFF00FF)).update().queue()

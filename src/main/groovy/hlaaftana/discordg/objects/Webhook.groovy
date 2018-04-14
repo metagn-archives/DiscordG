@@ -52,6 +52,6 @@ class Webhook extends DiscordObject {
 	}
 
 	Message sendFile(implicatedFile, filename = null) {
-		sendFile([webhook: true], implicatedFile, filename)
+		sendFile([:], implicatedFile, filename)
 	}
 }
