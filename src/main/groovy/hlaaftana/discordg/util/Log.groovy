@@ -10,9 +10,9 @@ class Log {
 		String name
 		boolean enabled = true
 
-		Level enable(){ enabled = true; this }
-		Level disable(){ enabled = false; this }
-		boolean equals(Level other){ name == other.name }
+		Level enable() { enabled = true; this }
+		Level disable() { enabled = false; this }
+		boolean equals(Level other) { name == other.name }
 	}
 
 	static class Message {
@@ -22,9 +22,9 @@ class Log {
 		LocalDateTime time = LocalDateTime.now()
 		Map info = [:]
 
-		String toString(){ toString(defaultFormatter) }
-		String toString(Log log){ toString(log.formatter) }
-		String toString(Closure formatter){ formatter(this) }
+		String toString() { toString(defaultFormatter) }
+		String toString(Log log) { toString(log.formatter) }
+		String toString(Closure formatter) { formatter(this) }
 	}
 
 	static List<Level> defaultLevels = [
@@ -52,22 +52,22 @@ class Log {
 	List<Closure> listeners = [{ Message it -> if (it.level.enabled) println formatter.call(it) }]
 
 	String name
-	Log(String name){ this.name = name }
+	Log(String name) { this.name = name }
 
-	Log(Log parent){
+	Log(Log parent) {
 		formatter = parent.formatter
 		name = parent.name
 	}
 
-	def listen(Closure ass){
+	def listen(Closure ass) {
 		listeners.add ass
 	}
 
-	def call(Message message){
+	def call(Message message) {
 		for (it in listeners) { it message }
 	}
 
-	Level level(String name){
+	Level level(String name) {
 		Level ass = levels.find { it.name == name }
 		if (null == ass) {
 			ass = new Level(name: name)
@@ -76,7 +76,7 @@ class Log {
 		ass
 	}
 
-	Level level(Level level){
+	Level level(Level level) {
 		if (level in levels) level
 		else {
 			levels.add level
@@ -84,28 +84,28 @@ class Log {
 		}
 	}
 
-	Level propertyMissing(String name){
+	Level propertyMissing(String name) {
 		level(name)
 	}
 
-	def methodMissing(String name, args){
+	def methodMissing(String name, args) {
 		Level level = (Level) propertyMissing(name)
 		if (args.class.array) args = ((Object[]) args).toList()
 		boolean argsIsMultiple = args instanceof Collection
 		if (args instanceof Message || (argsIsMultiple && args.first() instanceof Message)){
 			invokeMethod('log', args)
-		}else{
+		} else {
 			def ahh = argsIsMultiple ? [level, *args] : [level, args]
 			invokeMethod('log', ahh)
 		}
 	}
 
-	def log(Level level, content, String by = name){
+	def log(Level level, content, String by = name) {
 		Message ass = new Message(level: level, content: content.toString(), by: by)
 		log(ass)
 	}
 
-	def log(Message message){
+	def log(Message message) {
 		messages += message
 		call(message)
 	}

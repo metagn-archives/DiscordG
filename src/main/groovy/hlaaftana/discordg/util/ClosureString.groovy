@@ -6,40 +6,40 @@ class ClosureString implements CharSequence {
 	Closure closure
 	boolean regex
 
-	ClosureString(Closure c){
+	ClosureString(Closure c) {
 		closure = c
 	}
 
-	ClosureString(Pattern pattern){
+	ClosureString(Pattern pattern) {
 		closure = pattern.&toString
 		regex = true
 	}
 
-	ClosureString(notClosure){
+	ClosureString(notClosure) {
 		closure = notClosure.&toString
 	}
 
-	ClosureString(ClosureString otherTrigger){
+	ClosureString(ClosureString otherTrigger) {
 		closure = otherTrigger.closure
 	}
 
-	def plus(smh){
+	def plus(smh) {
 		"$this$smh"
 	}
 
-	def plus(ClosureString trigger){
+	def plus(ClosureString trigger) {
 		this.class.newInstance({ "$this$trigger" })
 	}
 
-	boolean equals(other){
+	boolean equals(other) {
 		(other instanceof ClosureString && (is(other) || closure.is(other.closure))) || toString() == other.toString()
 	}
 
-	String toString(){
+	String toString() {
 		"${closure()}"
 	}
 
-	char charAt(int index){ toString() charAt index }
-	int length(){ toString() length() }
-	CharSequence subSequence(int start, int end){ toString() subSequence start, end }
+	char charAt(int index) { toString() charAt index }
+	int length() { toString() length() }
+	CharSequence subSequence(int start, int end) { toString() subSequence start, end }
 }

@@ -20,42 +20,42 @@ import java.util.regex.Pattern
 @CompileStatic
 @SuppressWarnings('GroovyUnusedDeclaration')
 class Guild extends DiscordObject {
-	Guild(Client client, Map object){
+	Guild(Client client, Map object) {
 		super(client, object)
 	}
 
 	String getRegionId() { (String) object.region }
 	String getRawJoinedAt() { (String) object.joined_at }
-	Date getJoinedAt(){ ConversionUtil.fromJsonDate(rawJoinedAt) }
+	Date getJoinedAt() { ConversionUtil.fromJsonDate(rawJoinedAt) }
 	String getIconHash() { (String) object.icon }
 	String getIcon() {
 		iconHash ? "https://cdn.discordapp.com/icons/$id/${iconHash}.jpg" : ''
 	}
-	boolean hasIcon(){ object.icon }
-	InputStream newIconInputStream(){ inputStreamFromDiscord(icon) }
-	File downloadIcon(file){ downloadFileFromDiscord(icon, file) }
+	boolean hasIcon() { object.icon }
+	InputStream newIconInputStream() { inputStreamFromDiscord(icon) }
+	File downloadIcon(file) { downloadFileFromDiscord(icon, file) }
 
 	String getOwnerId() { (String) object.owner_id }
-	Member getOwner(){ member(ownerId) }
+	Member getOwner() { member(ownerId) }
 
-	Member getMe(){ member(client) }
-	String changeNick(String newNick){ client.changeOwnGuildNick(id, newNick) }
-	String nick(String newNick){ changeNick(newNick) }
-	String editNick(String newNick){ changeNick(newNick) }
-	String resetNick(){ changeNick('') }
+	Member getMe() { member(client) }
+	String changeNick(String newNick) { client.changeOwnGuildNick(id, newNick) }
+	String nick(String newNick) { changeNick(newNick) }
+	String editNick(String newNick) { changeNick(newNick) }
+	String resetNick() { changeNick('') }
 
-	Channel getDefaultChannel(){ channel(id) }
-	Channel getAfkChannel(){ channel(object.afk_channel_id) }
+	Channel getDefaultChannel() { channel(id) }
+	Channel getAfkChannel() { channel(object.afk_channel_id) }
 	int getAfkTimeout() { (int) object.afk_timeout }
-	Channel getWidgetChannel(){ channel(object.embed_channel_id) }
+	Channel getWidgetChannel() { channel(object.embed_channel_id) }
 	boolean isWidgetEnabled() { (boolean) object.embed_enabled }
 	boolean isLarge() { (boolean) object.large }
 	boolean isUnavailable() { (boolean) object.unavailable }
 	int getVerificationLevel() { (int) object.verification_level }
 	int getMfaLevel() { (int) object.mfa_level }
-	boolean isMfaRequiredForStaff(){ mfaLevel == MFALevelTypes.ELEVATED }
+	boolean isMfaRequiredForStaff() { mfaLevel == MFALevelTypes.ELEVATED }
 
-	Role getDefaultRole(){ role(id) }
+	Role getDefaultRole() { role(id) }
 
 	Guild edit(Map data) {
 		client.editGuild(data, id)
@@ -77,54 +77,54 @@ class Guild extends DiscordObject {
 		client.createVoiceChannel(this, name)
 	}
 	
-	Channel createChannel(Map data = [:]){
+	Channel createChannel(Map data = [:]) {
 		client.createChannel(data, this)
 	}
 
-	Channel requestChannel(c){
+	Channel requestChannel(c) {
 		client.requestGuildChannel(this, c)
 	}
 
-	List<Channel> requestChannels(){
+	List<Channel> requestChannels() {
 		client.requestGuildChannels(this)
 	}
 
-	List<Channel> getTextChannels(){ channels.findAll { it.text } }
-	Map<String, Channel> getTextChannelMap(){ channelMap.findAll { k, v -> v.text } }
+	List<Channel> getTextChannels() { channels.findAll { it.text } }
+	Map<String, Channel> getTextChannelMap() { channelMap.findAll { k, v -> v.text } }
 
-	List<Channel> getVoiceChannels(){ channels.findAll { it.voice } }
-	Map<String, Channel> getVoiceChannelMap(){ channelMap.findAll { k, v -> v.voice } }
+	List<Channel> getVoiceChannels() { channels.findAll { it.voice } }
+	Map<String, Channel> getVoiceChannelMap() { channelMap.findAll { k, v -> v.voice } }
 
-	Channel textChannel(id){ findBuilt(textChannels, id) }
+	Channel textChannel(id) { findBuilt(textChannels, id) }
 
-	Channel voiceChannel(id){ findBuilt(voiceChannels, id) }
+	Channel voiceChannel(id) { findBuilt(voiceChannels, id) }
 
-	Channel channel(id){ find(channelCache, id) }
+	Channel channel(id) { find(channelCache, id) }
 
 	DiscordListCache<Channel> getChannelCache() { (DiscordListCache<Channel>) object.channels }
-	List<Channel> getChannels(){ channelCache.list() }
-	Map<String, Channel> getChannelMap(){ channelCache.map() }
+	List<Channel> getChannels() { channelCache.list() }
+	Map<String, Channel> getChannelMap() { channelCache.map() }
 
 	DiscordListCache<Role> getRoleCache() { (DiscordListCache<Role>) object.roles }
-	List<Role> getRoles(){ roleCache.list() }
-	Map<String, Role> getRoleMap(){ roleCache.map() }
+	List<Role> getRoles() { roleCache.list() }
+	Map<String, Role> getRoleMap() { roleCache.map() }
 	Set<String> getUsedRoleIds() {
 		def res = new HashSet()
 		for (e in memberCache) res.addAll((List<String>) e.value.roles)
 		res
 	}
 
-	Role role(ass){ find(roleCache, ass) }
+	Role role(ass) { find(roleCache, ass) }
 
 	DiscordListCache<Member> getMemberCache() { (DiscordListCache<Member>) object.members }
-	List<Member> getMembers(){ memberCache.list() }
-	Map<String, Member> getMemberMap(){ memberCache.map() }
+	List<Member> getMembers() { memberCache.list() }
+	Map<String, Member> getMemberMap() { memberCache.map() }
 
 	DiscordListCache<Presence> getPresenceCache() { (DiscordListCache<Presence>) object.presences }
-	List<Presence> getPresences(){ presenceCache.list() }
-	Map<String, Presence> getPresenceMap(){ presenceCache.map() }
+	List<Presence> getPresences() { presenceCache.list() }
+	Map<String, Presence> getPresenceMap() { presenceCache.map() }
 
-	Presence presence(ass){ find(presenceCache, ass) }
+	Presence presence(ass) { find(presenceCache, ass) }
 
 	void editRoles(member, List roles) {
 		client.editRoles(this, member, roles)
@@ -134,11 +134,11 @@ class Guild extends DiscordObject {
 		client.addRoles(this, member, roles)
 	}
 
-	void addRole(member, role){
+	void addRole(member, role) {
 		client.addRole(this, member, role)
 	}
 
-	void removeRole(member, role){
+	void removeRole(member, role) {
 		client.removeRole(this, member, role)
 	}
 
@@ -146,33 +146,33 @@ class Guild extends DiscordObject {
 		client.kick(this, member)
 	}
 
-	List<Ban> requestBans(){
+	List<Ban> requestBans() {
 		client.requestBans(this)
 	}
 	
 	DiscordListCache<VoiceState> getVoiceStateCache() { (DiscordListCache<VoiceState>) object.voice_states }
 	
-	List<VoiceState> getVoiceStates(){
+	List<VoiceState> getVoiceStates() {
 		voiceStateCache.list()
 	}
 
-	Map<String, VoiceState> getVoiceStateMap(){
+	Map<String, VoiceState> getVoiceStateMap() {
 		voiceStateCache.map()
 	}
 
-	List<Invite> requestInvites(){
+	List<Invite> requestInvites() {
 		client.requestGuildInvites(this)
 	}
 
-	List<Region> requestRegions(){
+	List<Region> requestRegions() {
 		client.requestRegions(this)
 	}
 
-	List<Integration> requestIntegrations(){
+	List<Integration> requestIntegrations() {
 		client.requestIntegrations(this)
 	}
 
-	Integration createIntegration(String type, String id){
+	Integration createIntegration(String type, String id) {
 		client.createIntegration(this, type, id)
 	}
 
@@ -186,11 +186,11 @@ class Guild extends DiscordObject {
 		client.unban(this, user)
 	}
 
-	int checkPrune(int days){
+	int checkPrune(int days) {
 		client.checkPrune(this, days)
 	}
 
-	int prune(int days){
+	int prune(int days) {
 		client.prune(this, days)
 	}
 
@@ -206,15 +206,15 @@ class Guild extends DiscordObject {
 		client.deleteRole(this, role)
 	}
 
-	List<Webhook> requestWebhooks(){
+	List<Webhook> requestWebhooks() {
 		client.requestGuildWebhooks(this)
 	}
 	
-	List<Role> editRolePositions(Map mods){
+	List<Role> editRolePositions(Map mods) {
 		client.editRolePositions(mods, this)
 	}
 
-	List<Role> moveRole(ro, int movement){
+	List<Role> moveRole(ro, int movement) {
 		Role r = role(ro)
 		def rp = Math.max(r.position + movement, 0)
 		def rg = rp..<r.position
@@ -224,7 +224,7 @@ class Guild extends DiscordObject {
 		editRolePositions(x)
 	}
 
-	List<Channel> moveChannel(chan, int movement){
+	List<Channel> moveChannel(chan, int movement) {
 		Channel c = channel(chan)
 		def cp = Math.max(c.position + movement, 0)
 		def cg = cp..<c.position
@@ -234,50 +234,50 @@ class Guild extends DiscordObject {
 		editChannelPositions(x)
 	}
 	
-	List<Channel> editChannelPositions(Map mods){
+	List<Channel> editChannelPositions(Map mods) {
 		client.editChannelPositions(mods, this)
 	}
 
-	List<Member> requestMembers(int max=1000, boolean updateCache=true){
+	List<Member> requestMembers(int max=1000, boolean updateCache=true) {
 		client.requestMembers(this, max, updateCache)
 	}
 
-	Member requestMember(id){ client.requestMember(this, id) }
+	Member requestMember(id) { client.requestMember(this, id) }
 
-	Member getLastMember(){ members.max { it.joinedAt } }
-	Member getLatestMember(){ members.max { it.joinedAt } }
+	Member getLastMember() { members.max { it.joinedAt } }
+	Member getLatestMember() { members.max { it.joinedAt } }
 	int getMemberCount() { (int) object.member_count }
 
 	DiscordListCache<Emoji> getEmojiCache() { (DiscordListCache<Emoji>) object.emojis }
-	List<Emoji> getEmojis(){ emojiCache.list() }
-	List<Emoji> getEmoji(){ emojis }
-	Map<String, Emoji> getEmojiIdMap(){ emojiCache.map() }
-	Map<String, Emoji> getEmojiNameMap(){
+	List<Emoji> getEmojis() { emojiCache.list() }
+	List<Emoji> getEmoji() { emojis }
+	Map<String, Emoji> getEmojiIdMap() { emojiCache.map() }
+	Map<String, Emoji> getEmojiNameMap() {
 		def res = new HashMap<String, Emoji>()
 		for (e in emojiCache) res.put((String) e.value.name, new Emoji(client, e.value))
 		res
 	}
 
-	List<Emoji> requestEmojis(){ client.requestEmojis(this) }
+	List<Emoji> requestEmojis() { client.requestEmojis(this) }
 
-	Emoji createEmoji(Map data){
+	Emoji createEmoji(Map data) {
 		client.createEmoji(data, this)
 	}
 
-	Emoji editEmoji(Map data, emoji){
+	Emoji editEmoji(Map data, emoji) {
 		client.editEmoji(data, this, emoji)
 	}
 
-	Member member(user){ findMember(memberCache, user) }
+	Member member(user) { findMember(memberCache, user) }
 
-	Message sendMessage(String message, boolean tts=false){ sendMessage(content: message, tts: tts) }
-	Message sendMessage(Map data){ client.sendMessage(data, this) }
-	Message sendFile(...args){ (Message) client.invokeMethod('sendFile', [this, *args]) }
-	Message sendFile(Map data, ...args){ (Message) client.invokeMethod('sendFile', [data, this, *args]) }
+	Message sendMessage(String message, boolean tts=false) { sendMessage(content: message, tts: tts) }
+	Message sendMessage(Map data) { client.sendMessage(data, this) }
+	Message sendFile(...args) { (Message) client.invokeMethod('sendFile', [this, *args]) }
+	Message sendFile(Map data, ...args) { (Message) client.invokeMethod('sendFile', [data, this, *args]) }
 
-	Embed requestEmbed(){ client.requestEmbed(this) }
+	Embed requestEmbed() { client.requestEmbed(this) }
 
-	static Map construct(Client client, Map g){
+	static Map construct(Client client, Map g) {
 		def gid = (String) g.id
 
 		def m = (List<Map>) g.members, ml = new ArrayList<Map>(m.size())
@@ -332,73 +332,73 @@ class Guild extends DiscordObject {
 
 	@InheritConstructors
 	static class Embed extends DiscordObject {
-		String getId(){ (String) object.channel_id }
-		String getName(){ channel.name }
-		boolean isEnabled(){ (boolean) object.enabled }
-		Channel getChannel(){ client.channel(id) }
-		Guild getGuild(){ channel.guild }
-		Embed edit(Map data){
+		String getId() { (String) object.channel_id }
+		String getName() { channel.name }
+		boolean isEnabled() { (boolean) object.enabled }
+		Channel getChannel() { client.channel(id) }
+		Guild getGuild() { channel.guild }
+		Embed edit(Map data) {
 			client.editEmbed(data, guild, this)
 		}
 	}
 
 	static class Ban extends User {
-		Ban(Client client, Map object){ super(client, object + (Map) object.user) }
+		Ban(Client client, Map object) { super(client, object + (Map) object.user) }
 
-		User getUser(){ new User(client, (Map) object.user) }
-		String getReason(){ (String) object.reason }
+		User getUser() { new User(client, (Map) object.user) }
+		String getReason() { (String) object.reason }
 	}
 }
 
 @CompileStatic
 @SuppressWarnings('GroovyUnusedDeclaration')
 class VoiceState extends DiscordObject {
-	VoiceState(Client client, Map object){ super(client, object) }
+	VoiceState(Client client, Map object) { super(client, object) }
 
-	String getGuildId(){ (String) object.guild_id }
-	String getChannelId(){ (String) object.channel_id }
-	String getUserId(){ (String) object.user_id }
-	Channel getChannel(){ client.channel(channelId) }
-	User getUser(){ client.user(userId) }
-	Guild getGuild(){ guildId ? client.guild(guildId) : channel.guild }
-	Channel getParent(){ channel }
-	Member getMember(){ guild.member(user) }
-	boolean isDeaf(){ (boolean) object.deaf }
-	boolean isMute(){ (boolean) object.mute }
-	boolean isDeafened(){ deaf }
-	boolean isMuted(){ mute }
-	boolean isSelfDeaf(){ (boolean) object.self_deaf }
-	boolean isSelfMute(){ (boolean) object.self_mute }
-	boolean isSelfDeafened(){ selfDeaf }
-	boolean isSelfMuted(){ selfMute }
-	boolean isSuppress(){ (boolean) object.suppress }
-	String getToken(){ (String) object.token }
-	String getSessionId(){ (String) object.session_id }
-	String getName(){ user.name }
+	String getGuildId() { (String) object.guild_id }
+	String getChannelId() { (String) object.channel_id }
+	String getUserId() { (String) object.user_id }
+	Channel getChannel() { client.channel(channelId) }
+	User getUser() { client.user(userId) }
+	Guild getGuild() { guildId ? client.guild(guildId) : channel.guild }
+	Channel getParent() { channel }
+	Member getMember() { guild.member(user) }
+	boolean isDeaf() { (boolean) object.deaf }
+	boolean isMute() { (boolean) object.mute }
+	boolean isDeafened() { deaf }
+	boolean isMuted() { mute }
+	boolean isSelfDeaf() { (boolean) object.self_deaf }
+	boolean isSelfMute() { (boolean) object.self_mute }
+	boolean isSelfDeafened() { selfDeaf }
+	boolean isSelfMuted() { selfMute }
+	boolean isSuppress() { (boolean) object.suppress }
+	String getToken() { (String) object.token }
+	String getSessionId() { (String) object.session_id }
+	String getName() { user.name }
 }
 
 @CompileStatic
 @SuppressWarnings('GroovyUnusedDeclaration')
 class Integration extends DiscordObject {
-	Integration(Client client, Map object){ super(client, object) }
+	Integration(Client client, Map object) { super(client, object) }
 
-	int getSubscriberCount(){ (int) object.subscriber_count }
-	boolean isSyncing(){ (boolean) object.syncing }
-	boolean isEnableEmoticons(){ (boolean) object.enable_emoticons }
-	int getExpireBehaviour(){ (int) object.expire_behaviour }
-	int getExpireGracePeriod(){ (int) object.expire_grace_period }
-	User getUser(){ new User(client, (Map) object.user) }
-	DiscordObject getAccount(){ new DiscordObject(client, (Map) object.account) }
+	int getSubscriberCount() { (int) object.subscriber_count }
+	boolean isSyncing() { (boolean) object.syncing }
+	boolean isEnableEmoticons() { (boolean) object.enable_emoticons }
+	int getExpireBehaviour() { (int) object.expire_behaviour }
+	int getExpireGracePeriod() { (int) object.expire_grace_period }
+	User getUser() { new User(client, (Map) object.user) }
+	DiscordObject getAccount() { new DiscordObject(client, (Map) object.account) }
 	boolean isEnabled() { (boolean) object.enabled }
-	String getRoleId(){ (String) object.role_id }
-	Role getRole(){ client.role(roleId) }
-	Guild getGuild(){ role.guild }
+	String getRoleId() { (String) object.role_id }
+	Role getRole() { client.role(roleId) }
+	Guild getGuild() { role.guild }
 	String getRawSyncedAt() { (String) object.synced_at }
-	Date getSyncedAt(){ ConversionUtil.fromJsonDate(rawSyncedAt) }
+	Date getSyncedAt() { ConversionUtil.fromJsonDate(rawSyncedAt) }
 	String getType() { (String) object.type }
-	Integration edit(Map data){ client.editIntegration(data, guild, this) }
-	void delete(){ client.deleteIntegration(guild, this) }
-	void sync(){ client.syncIntegration(guild, this) }
+	Integration edit(Map data) { client.editIntegration(data, guild, this) }
+	void delete() { client.deleteIntegration(guild, this) }
+	void sync() { client.syncIntegration(guild, this) }
 }
 
 @InheritConstructors
@@ -408,18 +408,18 @@ class Emoji extends DiscordObject {
 	static final Pattern REGEX = ~/<:(?<name>\w+):(?<id>\d+)>/
 
 	String getGuildId() { (String) object.guild_id }
-	Guild getGuild(){ client.guild(guildId) }
-	Guild getParent(){ guild }
+	Guild getGuild() { client.guild(guildId) }
+	Guild getParent() { guild }
 	List<String> getRoleIds() { (List<String>) object.roles }
-	List<Role> getRoles(){ roleIds.collect(guild.&role) }
-	boolean requiresColons(){ (boolean) object.require_colons }
-	boolean requireColons(){ (boolean) object.require_colons }
+	List<Role> getRoles() { roleIds.collect(guild.&role) }
+	boolean requiresColons() { (boolean) object.require_colons }
+	boolean requireColons() { (boolean) object.require_colons }
 	boolean isRequiresColons() { (boolean) object.require_colons }
 	boolean isRequireColons() { (boolean) object.require_colons }
 	boolean isManaged() { (boolean) object.managed }
-	String getUrl(){ "https://cdn.discordapp.com/emojis/${id}.png" }
-	InputStream newInputStream(){ inputStreamFromDiscord(url) }
-	File download(file){ downloadFileFromDiscord(url, file) }
+	String getUrl() { "https://cdn.discordapp.com/emojis/${id}.png" }
+	InputStream newInputStream() { inputStreamFromDiscord(url) }
+	File download(file) { downloadFileFromDiscord(url, file) }
 }
 
 @InheritConstructors
@@ -454,60 +454,60 @@ class Role extends DiscordObject{
 	static final Closure MENTION_REGEX = { String id = /\d+/ -> /<@&$id>/ }
 
 	int getColorValue() { (int) object.color }
-	Color getColor(){ new Color(colorValue) }
-	boolean isLocked(){ isLockedFor(guild.me) }
-	boolean isLockedFor(user){
+	Color getColor() { new Color(colorValue) }
+	boolean isLocked() { isLockedFor(guild.me) }
+	boolean isLockedFor(user) {
 		guild.member(user).owner ? false :
 			position >= guild.member(user).primaryRole.position
 	}
 	boolean isHoist() { (boolean) object.hoist }
 	boolean isManaged() { (boolean) object.managed }
 	boolean isMentionable() { (boolean) object.mentionable }
-	Permissions getPermissions(){ new Permissions(permissionValue) }
+	Permissions getPermissions() { new Permissions(permissionValue) }
 	int getPermissionValue() { (int) object.permissions }
 	int getPosition() { (int) object.position }
 
-	Guild getGuild(){ client.guild(guildId) }
+	Guild getGuild() { client.guild(guildId) }
 	String getGuildId() { (String) object.guild_id }
-	Guild getParent(){ guild }
+	Guild getParent() { guild }
 
-	String getMention(){ "<@&${id}>" }
-	String getMentionRegex(){ MENTION_REGEX(id) }
+	String getMention() { "<@&${id}>" }
+	String getMentionRegex() { MENTION_REGEX(id) }
 
-	List<Member> getMembers(){
+	List<Member> getMembers() {
 		def x = ((DiscordListCache<Member>) client.guildCache[guildId].members).values()
 		def r = []
 		for (a in x) if (((List<String>) a.roles).contains(id)) r.add(new Member(client, a))
 		r
 	}
 
-	List<String> getMemberIds(){
+	List<String> getMemberIds() {
 		def x = ((DiscordListCache<Member>) client.guildCache[guildId].members).values()
 		def r = []
 		for (a in x) if (((List<String>) a.roles).contains(id)) r.add(a.id)
 		r
 	}
 
-	List<PermissionOverwrite> getPermissionOverwrites(){
+	List<PermissionOverwrite> getPermissionOverwrites() {
 		findAllNested((DiscordListCache<Channel>) client.guildCache[guildId].channels,
 			'permission_overwrites', id)
 	}
-	List<PermissionOverwrite> getOverwrites(){ permissionOverwrites }
+	List<PermissionOverwrite> getOverwrites() { permissionOverwrites }
 
-	boolean isUsed(){ guild.usedRoleIds.contains(id) }
-	Role edit(Map data){ client.editRole(data, guildId, this) }
-	void delete(){ client.deleteRole(guildId, this) }
-	void addTo(user){ client.addRole(guildId, user, this) }
-	void addTo(Collection users){ users.each(this.&addTo) }
-	void removeFrom(user){ client.removeRole(guildId, user, this) }
-	void removeFrom(Collection users){ users.each(this.&removeFrom) }
-	def move(int movement){ guild.moveRole(this, movement) }
+	boolean isUsed() { guild.usedRoleIds.contains(id) }
+	Role edit(Map data) { client.editRole(data, guildId, this) }
+	void delete() { client.deleteRole(guildId, this) }
+	void addTo(user) { client.addRole(guildId, user, this) }
+	void addTo(Collection users) { users.each(this.&addTo) }
+	void removeFrom(user) { client.removeRole(guildId, user, this) }
+	void removeFrom(Collection users) { users.each(this.&removeFrom) }
+	def move(int movement) { guild.moveRole(this, movement) }
 }
 
 @CompileStatic
 @SuppressWarnings('GroovyUnusedDeclaration')
 class Member extends User {
-	Member(Client client, Map object){
+	Member(Client client, Map object) {
 		super(client, object)
 		if (object.user instanceof Map) object << ((Map) object.user)
 		else if (object.user instanceof User) {
@@ -515,65 +515,65 @@ class Member extends User {
 		}
 	}
 
-	User getUser(){ new User(client, (Map) object.user) }
-	String getNick(){ (String) object.nick ?: name }
+	User getUser() { new User(client, (Map) object.user) }
+	String getNick() { (String) object.nick ?: name }
 	String getRawNick() { (String) object.nick }
 	String getGuildId() { (String) object.guild_id }
-	Guild getGuild(){ client.guild(object.guild_id) }
-	Guild getParent(){ guild }
+	Guild getGuild() { client.guild(object.guild_id) }
+	Guild getParent() { guild }
 	String getRawJoinedAt() { (String) object.joined_at }
-	Date getJoinedAt(){ ConversionUtil.fromJsonDate(rawJoinedAt) }
-	List<String> getRoleIds(){ (List<String>) object.roles }
-	List<Role> getRoles(){
+	Date getJoinedAt() { ConversionUtil.fromJsonDate(rawJoinedAt) }
+	List<String> getRoleIds() { (List<String>) object.roles }
+	List<Role> getRoles() {
 		DiscordListCache<Role> x = (DiscordListCache<Role>) client.guildCache[guildId].roles
 		def r = []
 		for (ri in roleIds) r.add(x.at(ri))
 		r
 	}
 
-	boolean isOwner(){ guild.ownerId == id }
+	boolean isOwner() { guild.ownerId == id }
 
-	Game getGame(){
+	Game getGame() {
 		presence?.game ?: null
 	}
 
-	Presence getPresence(){
+	Presence getPresence() {
 		guild.presence(id)
 	}
 
-	void edit(Map data){
+	void edit(Map data) {
 		client.editMember(data, guildId, this)
 	}
 
-	void changeNick(String newNick){
+	void changeNick(String newNick) {
 		id == client.id ? client.changeOwnGuildNick(guildId, newNick) :
 			edit(nick: newNick)
 	}
-	void nick(String newNick){ changeNick(newNick) }
-	void editNick(String newNick){ changeNick(newNick) }
-	void resetNick(){ changeNick('') }
+	void nick(String newNick) { changeNick(newNick) }
+	void editNick(String newNick) { changeNick(newNick) }
+	void resetNick() { changeNick('') }
 
-	void mute(){ edit(mute: true) }
-	void unmute(){ edit(mute: false) }
-	void deafen(){ edit(deaf: true) }
-	void undeafen(){ edit(deaf: false) }
-	void ban(int days = 0){ client.ban(guildId, this, days) }
-	void unban(){ client.unban(guildId, this) }
+	void mute() { edit(mute: true) }
+	void unmute() { edit(mute: false) }
+	void deafen() { edit(deaf: true) }
+	void undeafen() { edit(deaf: false) }
+	void ban(int days = 0) { client.ban(guildId, this, days) }
+	void unban() { client.unban(guildId, this) }
 	boolean isMute() { (boolean) object.mute }
 	boolean isDeaf() { (boolean) object.deaf }
 	boolean isDeafened() { (boolean) object.deaf }
 
-	String getStatus(){
+	String getStatus() {
 		presence?.status ?: 'offline'
 	}
 
-	Role getPrimaryRole(){ roles.max { it.position } }
-	int getColorValue(){ roles.findAll { it.colorValue != 0 }.max { it.position }?.colorValue ?: 0 }
-	Color getColor(){ new Color(colorValue) }
-	Permissions getPermissions(){
+	Role getPrimaryRole() { roles.max { it.position } }
+	int getColorValue() { roles.findAll { it.colorValue != 0 }.max { it.position }?.colorValue ?: 0 }
+	Color getColor() { new Color(colorValue) }
+	Permissions getPermissions() {
 		if (owner) return Permissions.ALL_TRUE
 		int full = guild.defaultRole.permissionValue
-		for (role in roles){
+		for (role in roles) {
 			def perms = role.permissionValue
 			if (((perms >> 3) & 1) == 1) return Permissions.ALL_TRUE
 			full |= perms
@@ -589,11 +589,11 @@ class Member extends User {
 		client.addRoles(guildId, this, roles)
 	}
 
-	void addRole(role){
+	void addRole(role) {
 		client.addRole(guildId, this, role)
 	}
 
-	void removeRole(role){
+	void removeRole(role) {
 		client.removeRole(guildId, this, role)
 	}
 
@@ -601,30 +601,30 @@ class Member extends User {
 		client.kick(guildId, this)
 	}
 
-	void moveTo(channel){
+	void moveTo(channel) {
 		client.moveMemberVoiceChannel(guildId, this, channel)
 	}
 
-	List<PermissionOverwrite> getPermissionOverwrites(){
+	List<PermissionOverwrite> getPermissionOverwrites() {
 		findAllNested((DiscordListCache<Channel>) client.guildCache[guildId].channels,
 			'permission_overwrites', id)
 	}
-	List<PermissionOverwrite> getOverwrites(){ permissionOverwrites }
+	List<PermissionOverwrite> getOverwrites() { permissionOverwrites }
 
-	boolean isSuperior(){
+	boolean isSuperior() {
 		roles*.position.max() > guild.me.roles*.position.max()
 	}
 	
-	boolean isSuperiorTo(user){
+	boolean isSuperiorTo(user) {
 		roles*.position.max() > guild.member(user).roles*.position.max()
 	}
 	
-	User toUser(){ new User(client, (Map) object.user) }
-	def asType(Class target){
+	User toUser() { new User(client, (Map) object.user) }
+	def asType(Class target) {
 		if (target == User) toUser()
 		else super.asType(target)
 	}
-	String toString(){ nick }
+	String toString() { nick }
 }
 
 @InheritConstructors
@@ -641,22 +641,22 @@ class Region extends DiscordObject {
 @InheritConstructors
 @CompileStatic
 class Presence extends DiscordObject {
-	Game getGame(){ null != object.game ? new Game(client, (Map) object.game) : null }
+	Game getGame() { null != object.game ? new Game(client, (Map) object.game) : null }
 	String getStatus() { (String) object.status }
-	Guild getGuild(){ client.guildCache.at(guildId) }
+	Guild getGuild() { client.guildCache.at(guildId) }
 	String getGuildId() { (String) object.guild_id }
 	boolean isFromGuild() { null != guildId }
-	Guild getParent(){ guild }
-	Member getMember(){ guild ? guild.memberCache.at(id) : client.members(id)[0] }
-	String getName(){ member.name }
+	Guild getParent() { guild }
+	Member getMember() { guild ? guild.memberCache.at(id) : client.members(id)[0] }
+	String getName() { member.name }
 	long getLastModified() { (long) object.last_modified }
 }
 
 @InheritConstructors
 @CompileStatic
 class Game extends DiscordObject {
-	String getId(){ type.toString() }
-	int getType(){ null == object.type ? 0 : (int) object.type }
+	String getId() { type.toString() }
+	int getType() { null == object.type ? 0 : (int) object.type }
 	String getUrl() { (String) object.url }
-	String toString(){ type == 0 ? name : "$name ($url)" }
+	String toString() { type == 0 ? name : "$name ($url)" }
 }

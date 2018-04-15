@@ -14,7 +14,7 @@ class BotBuilder {
 		this.options = options
 	}
 
-	def client(Map data = [:], Closure closure){
+	def client(Map data = [:], Closure closure) {
 		ClientBuilder dad = new ClientBuilder(data)
 		closure.delegate = dad
 		closure()

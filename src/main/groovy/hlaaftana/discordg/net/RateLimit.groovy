@@ -9,12 +9,12 @@ import hlaaftana.discordg.DiscordObject
 class RateLimit extends DiscordObject {
 	List<Integer> requests = []
 	
-	int newRequest(){
+	int newRequest() {
 		int x = requests.size() + 1
 		requests.add(x)
 		x
 	}
-	String getMessage(){ (String) object.message }
-	long getRetryTime(){ (long) object.retry_after }
-	boolean isGlobal(){ (boolean) object.global }
+	String getMessage() { (String) object.message }
+	long getRetryTime() { (long) object.retry_after }
+	boolean isGlobal() { (boolean) object.global }
 }

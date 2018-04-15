@@ -14,10 +14,11 @@ class Permissions {
 	static final Permissions PRIVATE_CHANNEL = new Permissions(0b0000000000000011101110000000000)
 	int value
 
-	Permissions(Map<String, Boolean> defaults) { for (e in defaults) each { set(e.key, e.value) } }
-	Permissions(v = 0){ value = v as int }
+	Permissions(Map<String, Boolean> defaults) { for (e in defaults) set(e.key, e.value) }
+	Permissions(int v = 0) { value = v }
+	Permissions(long v) { this((int) v) }
 
-	Map<BitOffsets, Boolean> getOffsetMap(){
+	Map<BitOffsets, Boolean> getOffsetMap() {
 		Map<BitOffsets, Boolean> r = new HashMap<>()
 		for (b in BitOffsets.values()) {
 			r.put(b, get(b.offset))
@@ -25,73 +26,71 @@ class Permissions {
 		r
 	}
 
-	Map<String, Boolean> getLocalizedMap(){
+	Map<String, Boolean> getLocalizedMap() {
 		Map<String, Boolean> a = new HashMap<>()
 		for (e in offsetMap) for (l in e.key.locals) a.put(l, e.value)
 		a
 	}
 
-	Map getMap(){
-		localizedMap
-	}
+	Map<String, Boolean> getMap() { localizedMap }
 
-	Permissions set(String permissionName, boolean truth){
+	Permissions set(String permissionName, boolean truth) {
 		putAt(BitOffsets.get(permissionName).offset, truth)
 		this
 	}
 
-	Permissions plus(Permissions other){
+	Permissions plus(Permissions other) {
 		new Permissions(value | other.value)
 	}
 
-	Permissions minus(Permissions other){
+	Permissions minus(Permissions other) {
 		new Permissions(value & ~other.value)
 	}
 
-	boolean get(BitOffsets bitOffset){
+	boolean get(BitOffsets bitOffset) {
 		getAt(BitOffsets.get(bitOffset).offset)
 	}
 
-	boolean get(bitOffset){
+	boolean get(bitOffset) {
 		getAt(BitOffsets.get(bitOffset).offset)
 	}
 
-	boolean get(int index){
-		((value >> index) & 1) as boolean
+	boolean get(int index) {
+		((value >> index) & 1) == 1
 	}
 
-	boolean getAt(BitOffsets w){
+	boolean getAt(BitOffsets w) {
 		get(w)
 	}
 
-	boolean getAt(int w){
+	boolean getAt(int w) {
 		get(w)
 	}
 
-	boolean getAt(w){
+	boolean getAt(w) {
 		get(w)
 	}
 
-	int putAt(int index, boolean truth){
+	int putAt(int index, boolean truth) {
 		if (truth) value |= (1 << index)
 		else value &= ~(1 << index)
 		value
 	}
 
-	Permissions putAt(String permissionName, boolean truth){
+	Permissions putAt(String permissionName, boolean truth) {
 		set(permissionName, truth)
 	}
 
-	def propertyMissing(String bitOffset){
+	def propertyMissing(String bitOffset) {
 		get(bitOffset)
 	}
 
-	def propertyMissing(String bitOffset, value){
+	def propertyMissing(String bitOffset, value) {
 		set(bitOffset, value as boolean)
 	}
 
-	def asType(Class target){
-		switch (target){
+	def asType(Class target) {
+		switch (target) {
 			case int:
 			case Integer:
 				return value
@@ -103,7 +102,7 @@ class Permissions {
 		}
 	}
 
-	String toString(){ map.toString() }
+	String toString() { map.toString() }
 	int toInteger() { value }
 
 	static enum BitOffsets {
@@ -137,17 +136,17 @@ class Permissions {
 
 		Set<String> locals
 		int offset
-		BitOffsets(List<String> locals, int offset){
+		BitOffsets(List<String> locals, int offset) {
 			this.offset = offset
 			this.locals = new HashSet<>(locals)
 		}
 
-		BitOffsets(String local, int offset){
+		BitOffsets(String local, int offset) {
 			this([local], offset)
 		}
 
 		@Memoized
-		static BitOffsets get(thing){
+		static BitOffsets get(thing) {
 			if (thing instanceof Number) {
 				for (v in values()) if (v.offset == thing as int) return v
 				null

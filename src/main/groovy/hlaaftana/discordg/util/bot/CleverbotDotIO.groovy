@@ -14,24 +14,24 @@ class CleverbotDotIO {
 	String key
 	String nick
 
-	CleverbotDotIO(String u, String k, String n = null){
+	CleverbotDotIO(String u, String k, String n = null) {
 		user = u
 		key = k
 		nick = n
 	}
 
-	def startSession(){
+	def startSession() {
 		nick = post('create', [:]).nick
 	}
 
-	String ask(text){
+	String ask(text) {
 		if (!nick) startSession()
 		post('ask', [nick: nick, text: text]).response
 	}
 
-	Map post(String path, Map body = null){
+	Map post(String path, Map body = null) {
 		Map response
-		if (body != null){
+		if (body != null) {
 			if (!user || !key) noAuth()
 			Map<String, Object> a = new HashMap<>()
 			a.user = user
@@ -42,7 +42,7 @@ class CleverbotDotIO {
 				Unirest.post(baseUrl + path)
 					.fields(a)
 					.asString().body)
-		}else{
+		} else {
 			response = (Map) JSONUtil.parse(
 				Unirest.post(baseUrl + path)
 					.asString().body)
@@ -55,7 +55,7 @@ class CleverbotDotIO {
 			'Go to https://cleverbot.io/keys to get your user and key')
 	}
 
-	private static Map checkResponse(Map response){
+	private static Map checkResponse(Map response) {
 		if (response.status != 'success')
 			throw new APIException("Something messed up: $response.status")
 		else response

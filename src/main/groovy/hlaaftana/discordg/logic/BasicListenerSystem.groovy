@@ -6,7 +6,7 @@ import groovy.transform.CompileStatic
 class BasicListenerSystem<T> extends ListenerSystem<T> {
 	def parseEvent(param) { param }
 
-	def listenerError(event, Throwable ex, Closure closure, T data){
+	void listenerError(event, Throwable ex, Closure closure, T data) {
 		throw new ListenerException(event, ex, closure, data)
 	}
 }
@@ -14,7 +14,7 @@ class BasicListenerSystem<T> extends ListenerSystem<T> {
 @CompileStatic
 class ListenerException extends Exception {
 	def event, data, closure
-	ListenerException(e, Throwable ex, c, d){
+	ListenerException(e, Throwable ex, c, d) {
 		super(ex.toString(), ex)
 		event = e
 		data = d

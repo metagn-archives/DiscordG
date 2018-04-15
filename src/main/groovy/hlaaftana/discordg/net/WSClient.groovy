@@ -74,9 +74,9 @@ class WSClient extends WebSocketAdapter {
 			}
 			if (!careAbout(type)) return
 			Map data = (Map<String, Object>) content.d
-			if (type == 'READY'){
+			if (type == 'READY') {
 				readyingState = LoadState.LOADING
-				if (!opCounts[7]){
+				if (!opCounts[7]) {
 					cachingState = LoadState.LOADING
 					guildCreate = client.confirmedBot || ((Map<String, Object>) data.user).bot ||
 							((List) data.guilds).size() >= 100
@@ -157,9 +157,9 @@ class WSClient extends WebSocketAdapter {
 			if (type == 'RESUMED') {
 				client.log.info 'Successfully resumed.'
 				if (client.copyReady) client.readyData.putAll data
-			} else if (type == 'HEARTBEAT_ACK'){
+			} else if (type == 'HEARTBEAT_ACK') {
 				unackedHeartbeats--
-			} else if (type == 'MESSAGE_DELETE_BULK' && client.spreadBulkDelete){
+			} else if (type == 'MESSAGE_DELETE_BULK' && client.spreadBulkDelete) {
 				for (i in data.ids) {
 					onWebSocketText(/{"op":0,"s":$seq,"t":"MESSAGE_DELETE","d":{/ +
 							/"channel_id":$data.channel_id,"id":$i,"bulk":true}}/)
@@ -211,7 +211,7 @@ class WSClient extends WebSocketAdapter {
 		} else if (op == 10) {
 			guildCreatingState = LoadState.LOADING
 			client.readyData.putAll((Map) content.d)
-			if (justReconnected){
+			if (justReconnected) {
 				dispatch = true
 				justReconnected = false
 				client.log.info 'Successfully reconnected. Resuming events...'
@@ -247,7 +247,7 @@ class WSClient extends WebSocketAdapter {
 		client.log.info "Connection closed. Reason: $reason, code: $code", client.log.name + 'WS'
 		Thread.start { client.dispatchEvent('CLOSE', new HashMap<String, Object>(
 				code: code, reason: reason, json: [code: code, reason: reason])) }
-		if (heartbeatThread){
+		if (heartbeatThread) {
 			heartbeatThread.interrupt()
 			heartbeatThread = null
 		}
@@ -261,8 +261,8 @@ class WSClient extends WebSocketAdapter {
 
 	void reconnect(boolean requestGateway = false) {
 		dispatch = false
-		try { client.closeGateway(false) } catch (ignored) {}
-		while (++reconnectTries){
+		try { client.closeGateway() } catch (ignored) {}
+		while (++reconnectTries) {
 			if (reconnectTries > 5) {
 				client.log.info 'Failed reconnect. Logging out.', client.log.name + 'WS'
 				reconnectTries = 0
@@ -270,7 +270,7 @@ class WSClient extends WebSocketAdapter {
 				return
 			}
 			try {
-				client.connectGateway(requestGateway || reconnectTries > 3, false)
+				client.connectGateway(requestGateway || reconnectTries > 3)
 				reconnectTries = 0
 				justReconnected = true
 				return
@@ -295,11 +295,11 @@ class WSClient extends WebSocketAdapter {
 		String ass = Client.parseEvent(event)
 		if (ass in ['READY', 'GUILD_MEMBERS_CHUNK', 'GUILD_SYNC']) return true
 		if (ass == 'GUILD_CREATE' && (guildCreate || client.bot)) return true
-		if (client.eventWhitelist){
+		if (client.eventWhitelist) {
 			aa = false
 			aa |= ass in client.eventWhitelist.collect { Client.parseEvent(it) }
 		}
-		if (client.eventBlacklist){
+		if (client.eventBlacklist) {
 			aa &= !(ass in client.eventBlacklist.collect { Client.parseEvent(it) })
 		}
 		aa
@@ -307,7 +307,7 @@ class WSClient extends WebSocketAdapter {
 
 	void send(message) {
 		String ass = message instanceof Map ? JSONUtil.json(message) : message
-		client.askPool('wsAnything'){
+		client.askPool('wsAnything') {
 			session.remote.sendString(ass)
 		}
 	}
@@ -365,7 +365,7 @@ class WSClient extends WebSocketAdapter {
 	enum LoadState {
 		NOT_LOADED, LOADING, LOADED
 
-		boolean asBoolean(){ this == LOADED }
+		boolean asBoolean() { this == LOADED }
 	}
 }
 

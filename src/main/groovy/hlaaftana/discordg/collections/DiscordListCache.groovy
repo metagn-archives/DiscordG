@@ -10,7 +10,7 @@ import hlaaftana.discordg.objects.Member
 class DiscordListCache<T extends DiscordObject> extends Cache<String, Map<String, Object>> {
 	Class<T> class_
 	Client client
-	DiscordListCache(List list, Client client, Class<T> class_ = (Class<T>) DiscordObject){
+	DiscordListCache(List list, Client client, Class<T> class_ = (Class<T>) DiscordObject) {
 		super(superlister(list), client)
 		this.client = client
 		this.class_ = class_
@@ -52,14 +52,14 @@ class DiscordListCache<T extends DiscordObject> extends Cache<String, Map<String
 	List<Map<String, Object>> rawList() {
 		try{
 			store.values().collect()
-		}catch (ConcurrentModificationException ignored){
+		}catch (ConcurrentModificationException ignored) {
 			println 'inform me'
 			Thread.sleep 250
 			rawList()
 		}
 	}
 
-	List<Map<String, Object>> rawList(List newList){
+	List<Map<String, Object>> rawList(List newList) {
 		for (it in newList) {
 			if (it instanceof DiscordObject) put(((DiscordObject) it).id, ((DiscordObject) it).object)
 			else if (it instanceof Map) put(((Map) it).id.toString(), it)
@@ -68,19 +68,19 @@ class DiscordListCache<T extends DiscordObject> extends Cache<String, Map<String
 		newList
 	}
 
-	Map get(key){
+	Map get(key) {
 		super.get(DiscordObject.id(key))
 	}
 
-	def add(Map object){
+	def add(Map object) {
 		put((class_ == Member ? ((Map<String, Object>) object.user).id : object.id).toString(), object)
 	}
 
-	def add(DiscordObject uh){
+	def add(DiscordObject uh) {
 		store[uh.id] = uh.object
 	}
 
-	Map<String, Object> remove(key){
+	Map<String, Object> remove(key) {
 		store.remove(DiscordObject.id(key))
 	}
 }
