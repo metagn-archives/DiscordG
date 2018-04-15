@@ -8,51 +8,54 @@ abstract class ListenerSystem<T> {
 
 	abstract parseEvent(param)
 
-	abstract listenerError(event, Throwable ex, Closure closure, T data)
+	abstract void listenerError(event, Throwable ex, Closure closure, T data)
 
-	Closure submit(event, boolean temporary = false, @DelegatesTo(T) Closure closure){
-		addListener(event, temporary, closure)
+	def <R> Closure<R> temporaryListener(event, Closure<R> closure) {
+		return {
+			final result = closure.call(it)
+			listeners.get(event).remove(closure)
+			result
+		}
 	}
 
-	Closure addListener(event, boolean temporary = false, Closure closure) {
+	def <R> Closure<R> addListener(event, Closure<R> closure) {
 		event = parseEvent(event)
-		if (temporary) closure = { Map d -> closure(d); listeners.get(event).remove(closure) }
-		if (listeners.containsKey(event)) listeners[event] = listeners[event] + closure
+		if (listeners.containsKey(event)) listeners[event].add(closure)
 		else listeners[event] = [closure]
 		closure
 	}
 	
-	Closure listen(event, boolean temporary = false, @DelegatesTo(T) Closure closure){
-		Closure ass
-		ass = { T d, Closure internal ->
+	def <R> Closure<R> listen(event, @DelegatesTo(T) Closure<R> closure) {
+		final c = { T d, Closure internal ->
 			Closure copy = (Closure) closure.clone()
 			copy.delegate = d
 			copy.parameterTypes.size() == 2 ? copy(copy.delegate, internal) : copy(copy.delegate)
 		}
-		ass.resolveStrategy = Closure.DELEGATE_FIRST
-		addListener(event, temporary, ass)
+		c.resolveStrategy = Closure.DELEGATE_FIRST
+		addListener(event, c)
 	}
 
-	def removeListener(event, Closure closure) {
-		listeners[parseEvent(event)]?.remove(closure)
+	boolean removeListener(event, Closure closure) {
+		final L = listeners[parseEvent(event)]
+		null == L ? false: L.remove(closure)
 	}
 
-	def removeListenersFor(event){
+	boolean removeListenersFor(event) {
 		listeners.remove(parseEvent(event))
 	}
 
-	def removeAllListeners(){
+	void removeAllListeners() {
 		listeners = [:]
 	}
 
-	def dispatchEvent(type, T data){
+	def dispatchEvent(type, T data) {
 		def x = listeners[parseEvent(type)]
-		if (null != x) for (l in x){
+		if (null != x) for (l in x) {
 			def a = (Closure) l.clone()
 			try{
 				if (a.parameterTypes.length > 1) a.call(data, l)
 				else a.call(data)
-			}catch (ex){
+			}catch (ex) {
 				listenerError(parseEvent(type), ex, l, data)
 			}
 		}

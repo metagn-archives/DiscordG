@@ -70,28 +70,28 @@ class HTTPClient {
 	Map<String, RateLimit> ratelimits = [:].asSynchronized()
 	Client client
 
-	HTTPClient(Client client, String concatUrl = ''){
+	HTTPClient(Client client, String concatUrl = '') {
 		this.client = client
 		if (concatUrl) baseUrl = concatUrlPaths(baseUrl, concatUrl)
 	}
 
-	HTTPClient(HTTPClient http, String concatUrl = ''){
+	HTTPClient(HTTPClient http, String concatUrl = '') {
 		client = http.client
 		baseUrl = http.baseUrl
 		if (concatUrl) baseUrl = concatUrlPaths(baseUrl, concatUrl)
 	}
 
-	def normal(){ baseUrl = discordApi }
-	def normalDiscord(){ baseUrl = discordApi }
-	def canary(){ baseUrl = canaryApi }
-	def ptb(){ baseUrl = ptbApi }
+	def normal() { baseUrl = discordApi }
+	def normalDiscord() { baseUrl = discordApi }
+	def canary() { baseUrl = canaryApi }
+	def ptb() { baseUrl = ptbApi }
 
-	def setBaseUrl(String n){
+	def setBaseUrl(String n) {
 		baseUrl = n
 		latestApi = n
 	}
 
-	def parse(String request){
+	def parse(String request) {
 		def a = request.split(/\s+/, 3)
 		methodMissing(camel.to(constant, a[0]), a.length == 2 ? a[1] : [a[1], a[2]])
 	}
@@ -110,7 +110,7 @@ class HTTPClient {
 	List<Map<String, Object>> jsonPosts(...args) { (List<Map<String, Object>>) methodMissing('jsonPost', args) }
 	List<Map<String, Object>> jsonPatches(...args) { (List<Map<String, Object>>) methodMissing('jsonPatch', args) }
 
-	def methodMissing(String methodName, List argl){
+	def methodMissing(String methodName, List argl) {
 		String url
 		List methodParams = camel.toWords(methodName)
 		boolean global = methodParams.remove('global')
@@ -131,11 +131,11 @@ class HTTPClient {
 		else response
 	}
 
-	def methodMissing(String methodName, Object[] args){
+	def methodMissing(String methodName, Object[] args) {
 		methodMissing(methodName, args.toList())
 	}
 
-	def methodMissing(String methodName, args){
+	def methodMissing(String methodName, args) {
 		methodMissing(methodName, [args])
 	}
 
@@ -150,7 +150,7 @@ class HTTPClient {
 		else throw new UnsupportedOperationException('Unirest does not support HTTP method '.concat(method))
 	}
 
-	BaseRequest headerUp(HttpRequest req){
+	BaseRequest headerUp(HttpRequest req) {
 		if (null != client.token) req = req.header('Authorization', client.token)
 		if (!(req instanceof GetRequest)) req = req.header('Content-Type', 'application/json')
 		req.header('User-Agent', null != client ? client.fullUserAgent : DiscordG.USER_AGENT)
@@ -167,14 +167,14 @@ class HTTPClient {
 		headerUp((HttpURLConnection) url.openConnection())
 	}
 
-	HttpResponse<String> request(BaseRequest req){
+	HttpResponse<String> request(BaseRequest req) {
 		_request(req, 0)
 	}
 	
-	private HttpResponse<String> _request(BaseRequest req, int rid){
+	private HttpResponse<String> _request(BaseRequest req, int rid) {
 		HttpRequest ft = req.httpRequest
 		String rlUrl = ft.url.replaceFirst(Pattern.quote(baseUrl), '')
-		if (ratelimits[ratelimitUrl(rlUrl)]){
+		if (ratelimits[ratelimitUrl(rlUrl)]) {
 			int id = rid < 1 ? ratelimits[ratelimitUrl(rlUrl)].newRequest() : rid
 			while (ratelimits[ratelimitUrl(rlUrl)]?.requests?.contains(id)) Thread.sleep 10
 		}
@@ -183,7 +183,7 @@ class HTTPClient {
 		if ((returned.headers.containsKey('X-RateLimit-Limit') &&
 			returned.headers['X-RateLimit-Remaining'][0].toInteger() < 2) ||
 			returned.headers.containsKey('X-RateLimit-Global') ||
-			status == 429){
+			status == 429) {
 			boolean precaution
 			HttpResponse<String> r
 			Thread.start {
@@ -203,7 +203,7 @@ class HTTPClient {
 				if (!precaution) Thread.start {
 					r = _request(req, xxx)
 				}
-				while (rl.requests){
+				while (rl.requests) {
 					Thread.sleep(rl.retryTime)
 					rl.requests.removeAll(rl.requests.sort().take(
 						returned.headers['X-RateLimit-Limit'][0].toInteger() - 1))
@@ -231,7 +231,7 @@ class HTTPClient {
 	}
 
 	@Memoized
-	static String ratelimitUrl(String url){
+	static String ratelimitUrl(String url) {
 		if (url.indexOf('?') > 0) url = url.substring(url.indexOf('?'))
 		// AAAAAA url.replaceAll(/\/\d+\//) { ...full -> "/@${++i}/" }
 		StringBuilder result = new StringBuilder()
@@ -244,7 +244,7 @@ class HTTPClient {
 	}
 
 	@Memoized
-	static String concatUrlPaths(String...yeah){
+	static String concatUrlPaths(String...yeah) {
 		StringBuilder ass = new StringBuilder(yeah[0])
 		def whoop = yeah.drop(1)
 		for (int i = 0; i < whoop.length; ++i) {

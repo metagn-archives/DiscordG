@@ -69,32 +69,32 @@ class MiscUtil {
 
 	static Random listRandom = new Random()
 
-	static Clipboard getClipboard(){ Toolkit.defaultToolkit.systemClipboard }
+	static Clipboard getClipboard() { Toolkit.defaultToolkit.systemClipboard }
 
-	static copy(String content){
+	static copy(String content) {
 		clipboard.setContents(new StringSelection(content), null)
 	}
 
-	static String paste(){
+	static String paste() {
 		clipboard.getContents(null).getTransferData(DataFlavor.stringFlavor)
 	}
 
 	static <T> T defaultValueOnException(T defaultValue = null,
 	                                     Collection<Class> exceptions = [Exception],
-	                                     Closure<T> expr){
+	                                     Closure<T> expr) {
 		try{
 			expr()
-		}catch (ex){
+		}catch (ex) {
 			if (exceptions.any { it.isAssignableFrom(ex.class) }) defaultValue
 			else throw ex
 		}
 	}
 
-	static String lchop(String s, CharSequence x){
+	static String lchop(String s, CharSequence x) {
 		s.startsWith(x.toString()) ? s.substring(x.size()) : s
 	}
 
-	static String rchop(String s, CharSequence x){
+	static String rchop(String s, CharSequence x) {
 		s.endsWith(x.toString()) ? s.substring(0, s.size() - x.size()) : s
 	}
 
@@ -107,7 +107,7 @@ class MiscUtil {
 		LocalDateTime.ofInstant(date.toInstant(), tz)
 	}
 
-	static <T> List<List<T>> splitWhen(iter, @ClosureParams(FirstParam.FirstGenericType) Closure<Boolean> cond){
+	static <T> List<List<T>> splitWhen(iter, @ClosureParams(FirstParam.FirstGenericType) Closure<Boolean> cond) {
 		List<List<T>> a = [[]]
 		for (it in iter) {
 			if (cond((T) it)) a.add([it])
@@ -116,38 +116,38 @@ class MiscUtil {
 		a
 	}
 
-	static String removeFromStart(String s, CharSequence x){
+	static String removeFromStart(String s, CharSequence x) {
 		s.startsWith(x.toString()) ? s.substring(x.size()) : s
 	}
 
-	static String removeFromEnd(String s, CharSequence x){
+	static String removeFromEnd(String s, CharSequence x) {
 		s.endsWith(x.toString()) ? s.substring(0, s.size() - x.size()) : s
 	}
 
-	static String removeFormatting(String s){
+	static String removeFormatting(String s) {
 		s.replace('~', '\\~').replace('_', '\\_').replace('*', '\\*')
 			.replace('```', '\u200b`\u200b`\u200b`').replace('`', '\\`')
 			.replace(':', '\\:').replace('`', '\\`').replace('/', '\\/')
 			.replace('@', '\\@').replace('<', '\\<').replace('>', '\\>')
 	}
 
-	static String surround(String s, String sur){ sur + s + sur }
-	static String bold(String s){ surround(s, '**') }
-	static String bolden(String s){ surround(s, '**') }
-	static String italic(String s, boolean underscore = false){
+	static String surround(String s, String sur) { sur + s + sur }
+	static String bold(String s) { surround(s, '**') }
+	static String bolden(String s) { surround(s, '**') }
+	static String italic(String s, boolean underscore = false) {
 		surround(s, underscore ? '_' : '*') }
-	static String italicize(String s, boolean underscore = false){
+	static String italicize(String s, boolean underscore = false) {
 		surround(s, underscore ? '_' : '*') }
-	static String underline(String s){ surround(s, '__') }
-	static String strikethrough(String s){ surround(s, '~~') }
-	static String code(String s){ surround(s, '`') }
-	static String block(String s, String language = ''){ "```$language\n$s```" }
+	static String underline(String s) { surround(s, '__') }
+	static String strikethrough(String s) { surround(s, '~~') }
+	static String code(String s) { surround(s, '`') }
+	static String block(String s, String language = '') { "```$language\n$s```" }
 
 	/**
 	 * Registers a bunch of methods to help you with Discord formatting to the String meta class.
 	 */
 	@CompileDynamic
-	static registerStaticMethods(){
+	static registerStaticMethods() {
 		MiscUtil.metaClass.methods.findAll {
 			it.declaringClass.theClass == MiscUtil &&
 				!(it.name in ['getProperty', 'invokeMethod', 'setProperty']) &&
@@ -251,7 +251,7 @@ abstract class CasingType {
 	abstract List<String> toWords(String words)
 	abstract String fromWords(List<String> words)
 	
-	String to(CasingType casing, String text){
+	String to(CasingType casing, String text) {
 		casing.fromWords(toWords(text))
 	}
 }

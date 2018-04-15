@@ -8,9 +8,9 @@ class WhatIs {
 	def value
 	def returnedValue
 
-	WhatIs(gay){ value = gay }
+	WhatIs(gay) { value = gay }
 
-	static whatis(value, @DelegatesTo(WhatIs) Closure tf){
+	static whatis(value, @DelegatesTo(WhatIs) Closure tf) {
 		WhatIs g = new WhatIs(value)
 		tf.delegate = g
 		tf.resolveStrategy = Closure.DELEGATE_FIRST
@@ -18,8 +18,8 @@ class WhatIs {
 		g.returnedValue
 	}
 
-	def when(match, @DelegatesTo(WhatIs) Closure d){
-		if (value in match){
+	def when(match, @DelegatesTo(WhatIs) Closure d) {
+		if (value in match) {
 			guessed = true
 			d.delegate = this
 			d.resolveStrategy = Closure.DELEGATE_FIRST
@@ -27,18 +27,18 @@ class WhatIs {
 		}
 	}
 
-	def when(match, val){
-		if (value in match){
+	def when(match, val) {
+		if (value in match) {
 			guessed = true
 			returnedValue = val
 		}
 	}
 
-	def when(Map a){
+	def when(Map a) {
 		a.each(this.&when)
 	}
 
-	def otherwise(Closure c){
+	def otherwise(Closure c) {
 		if (!guessed) {
 			c.delegate = this
 			c.resolveStrategy = Closure.DELEGATE_FIRST
@@ -46,7 +46,7 @@ class WhatIs {
 		}
 	}
 
-	def otherwise(val){
+	def otherwise(val) {
 		if (!guessed) returnedValue = val
 	}
 }

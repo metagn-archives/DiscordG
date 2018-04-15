@@ -24,11 +24,11 @@ class VoiceWSClient extends WebSocketAdapter {
 	char seq = 0
 	BigInteger timestamp
 
-	VoiceWSClient(VoiceClient v){
+	VoiceWSClient(VoiceClient v) {
 		vc = v
 	}
 
-	void onWebSocketConnect(Session s){
+	void onWebSocketConnect(Session s) {
 		session = s
 		session.policy.maxTextMessageSize = Integer.MAX_VALUE
 		session.policy.maxTextMessageBufferSize = Integer.MAX_VALUE
@@ -37,13 +37,13 @@ class VoiceWSClient extends WebSocketAdapter {
 		identify()
 	}
 
-	void onWebSocketMessage(String message){
+	void onWebSocketMessage(String message) {
 		Map content = JSONUtil.parse(message)
 		def data = content['d']
 		int op = content['op']
 		def o = { it == op }
 		def event = data
-		if (op == 2){
+		if (op == 2) {
 			vc.ssrc = data['ssrc']
 			vc.port = data['port']
 			vc.heartbeatInterval = data['heartbeat_interval']
@@ -61,31 +61,31 @@ class VoiceWSClient extends WebSocketAdapter {
 			threadUdpKeepAlive()
 			selectProtocol(selfIp, selfPort)
 			startHeartbeating(vc.heartbeatInterval)
-		}else if (op == 3){
+		} else if (op == 3) {
 			def interval = System.currentTimeMillis() - data
 			vc.pingIntervals += interval
 			event = [interval: interval, time: data]
-		}else if (op == 4){
+		} else if (op == 4) {
 			secretKey = data.secret_key.collect { (byte) it } as byte[]
 			connected = true
-		}else if (op == 5){
+		} else if (op == 5) {
 			event = [speaking: data.speaking, ssrc: data.ssrc,
 				user: vc.client.user(data.user_id)]
-		}else{
+		} else {
 			vc.log.info "Unhandled voice op code $op. " +
 				"Full content (please report to Hlaaftana):\n$content', vc.log.name + 'WS"
 		}
 		vc.dispatchEvent(op, event << [json: data])
 	}
 
-	void onWebSocketClose(int code, String reason){
+	void onWebSocketClose(int code, String reason) {
 		vc.log.info "Connection closed. Reason: $reason, code: $code', vc.log.name + 'WS"
 		Thread.start { vc.dispatchEvent('CLOSE', [code: code, reason: reason, json: [code: code, reason: reason]]) }
-		if (heartbeatThread){
+		if (heartbeatThread) {
 			heartbeatThread.interrupt()
 			heartbeatThread = null
 		}
-		if (udpKeepAliveThread){
+		if (udpKeepAliveThread) {
 			udpKeepAliveThread.interrupt()
 			udpKeepAliveThread = null
 		}
@@ -94,11 +94,11 @@ class VoiceWSClient extends WebSocketAdapter {
 		Thread.currentThread().close()
 	}
 
-	void onWebSocketError(Throwable t){
+	void onWebSocketError(Throwable t) {
 		t.printStackTrace()
 	}
 
-	void identify(){
+	void identify() {
 		send op: 0, d: [
 			token: vc.client.token,
 			guild_id: vc.id,
@@ -107,7 +107,7 @@ class VoiceWSClient extends WebSocketAdapter {
 		]
 	}
 
-	void selectProtocol(String ip, int port){
+	void selectProtocol(String ip, int port) {
 		send op: 1, d: [
 			protocol: 'udp',
 			data: [
@@ -118,21 +118,21 @@ class VoiceWSClient extends WebSocketAdapter {
 		]
 	}
 
-	void heartbeat(){
+	void heartbeat() {
 		heartbeats++
 		send op: 3, d: System.currentTimeMillis().toString()
 	}
 
-	void startHeartbeating(long interval){
+	void startHeartbeating(long interval) {
 		heartbeatThread = Thread.startDaemon {
-			while (true){
+			while (true) {
 				heartbeat()
-				try{ Thread.sleep(interval) }catch (InterruptedException ex){ return }
+				try{ Thread.sleep(interval) }catch (InterruptedException ex) { return }
 			}
 		}
 	}
 
-	void udpKeepAlive(){
+	void udpKeepAlive() {
 		ByteBuffer buf = ByteBuffer.allocate(Long.BYTES + 1)
 		udpSend bytebuf(65).with {
 			put((byte) 0xC9)
@@ -141,36 +141,36 @@ class VoiceWSClient extends WebSocketAdapter {
 		}
 	}
 
-	void threadUdpKeepAlive(long interval = 5000){
+	void threadUdpKeepAlive(long interval = 5000) {
 		udpKeepAliveThread = Thread.startDaemon {
-			while (true){
+			while (true) {
 				udpKeepAlive()
 				Thread.sleep(interval)
 			}
 		}
 	}
 
-	void send(message){
+	void send(message) {
 		String ass = message instanceof Map ? JSONUtil.json(message) : message.toString()
 		session.remote.sendString(ass)
 	}
 
-	void send(Map ass, int op){
+	void send(Map ass, int op) {
 		send op: op, d: ass
 	}
 
-	void send(int op, Map ass){
+	void send(int op, Map ass) {
 		send ass, op
 	}
 
-	void udpSend(ByteBuffer buf){ udpSend(buf.array()) }
+	void udpSend(ByteBuffer buf) { udpSend(buf.array()) }
 
-	void udpSend(byte[] arr){
+	void udpSend(byte[] arr) {
 		udpSocket.send new DatagramPacket(arr, arr.length)
 	}
 	
-	void sendVoice(ByteBuffer buf){ sendVoice(buf.array()) }
-	void sendVoice(byte[] bytes){
+	void sendVoice(ByteBuffer buf) { sendVoice(buf.array()) }
+	void sendVoice(byte[] bytes) {
 		ByteBuffer x = bytebuf(24).with {
 			put(0x80)
 			put(0x78)

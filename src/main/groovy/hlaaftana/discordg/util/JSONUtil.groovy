@@ -16,29 +16,29 @@ import java.nio.charset.Charset
 class JSONUtil {
 	static JsonSlurper slurper = new JsonSlurper()
 
-	static parse(String string){
+	static parse(String string) {
 		slurper.parseText(string)
 	}
 
-	static parse(File file, String charset = 'UTF-8'){ parse(file.getText(charset)) }
+	static parse(File file, String charset = 'UTF-8') { parse(file.getText(charset)) }
 
-	static String json(thing){
+	static String json(thing) {
 		JsonOutput.toJson(thing instanceof JSONable ? thing.json() : thing)
 	}
 
-	static String pjson(thing){ JsonOutput.prettyPrint(json(thing)) }
+	static String pjson(thing) { JsonOutput.prettyPrint(json(thing)) }
 
-	static File dump(String filename, thing, String charset = 'UTF-8'){ dump(new File(filename), thing, charset) }
+	static File dump(String filename, thing, String charset = 'UTF-8') { dump(new File(filename), thing, charset) }
 
-	static File dump(File file, thing, String charset = 'UTF-8'){
+	static File dump(File file, thing, String charset = 'UTF-8') {
 		if (!file.exists()) file.createNewFile()
 		file.write(pjson(thing), charset)
 		file
 	}
 
-	static File modify(String filename, Map newData){ modify(new File(filename), newData) }
+	static File modify(String filename, Map newData) { modify(new File(filename), newData) }
 
-	static File modify(File file, Map newData){
+	static File modify(File file, Map newData) {
 		if (!file.exists()) return dump(file, newData)
 		def a = parse(file)
 		if (!(a instanceof Map))
@@ -52,7 +52,7 @@ class JSONUtil {
 		dump(file, x)
 	}
 	
-	static Map modifyMaps(Map x, Map y){
+	static Map modifyMaps(Map x, Map y) {
 		def a = null == x ? new HashMap() : new HashMap(x)
 		for (e in y) {
 			def k = e.key, v = e.value
@@ -82,23 +82,23 @@ interface JSONable {
 // it was bad. i replaced it with the Path class in my Kismet language
 
 class JSONSimpleHTTP {
-	static get(String url){
+	static get(String url) {
 		JSONUtil.parse(Unirest.get(url).header('User-Agent', DiscordG.USER_AGENT).asString().getBody())
 	}
 
-	static delete(String url){
+	static delete(String url) {
 		JSONUtil.parse(Unirest.delete(url).header('User-Agent', DiscordG.USER_AGENT).asString().getBody())
 	}
 
-	static post(String url, Map body){
+	static post(String url, Map body) {
 		JSONUtil.parse(Unirest.post(url).header('User-Agent', DiscordG.USER_AGENT).body(JSONUtil.json(body)).asString().getBody())
 	}
 
-	static patch(String url, Map body){
+	static patch(String url, Map body) {
 		JSONUtil.parse(Unirest.patch(url).header('User-Agent', DiscordG.USER_AGENT).body(JSONUtil.json(body)).asString().getBody())
 	}
 
-	static put(String url, Map body){
+	static put(String url, Map body) {
 		JSONUtil.parse(Unirest.put(url).header('User-Agent', DiscordG.USER_AGENT).body(JSONUtil.json(body)).asString().getBody())
 	}
 }

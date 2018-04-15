@@ -8,7 +8,7 @@ import hlaaftana.discordg.dsl.*
 
 @CompileStatic
 class DSLMain {
-	static void main(String[] args){
+	static void main(String[] args) {
 		ImportCustomizer imports = new ImportCustomizer()
 		imports.addStarImports('hlaaftana.discordg', 'hlaaftana.discordg.dsl',
 				'hlaaftana.discordg.objects', 'hlaaftana.discordg.status',
@@ -23,7 +23,7 @@ class DSLMain {
 		script.delegate = dsl
 		script.run()
 		if (null != dsl.bot) dsl.bot.initialize()
-		else if (null != dsl.client) dsl.client.login()
+		else if (null != dsl.client) Thread.start { dsl.client.login() }
 		else throw new IllegalArgumentException('Why run a DSL if you aren\'t going to use it?')
 	}
 }
