@@ -20,7 +20,7 @@ class ActionPool {
 	ActionPool() {}
 
 	ActionPool(long max, long ms) {
-		this.max = max
+		setMax(max)
 		this.ms = ms
 	}
 

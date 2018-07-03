@@ -44,7 +44,7 @@ class Guild extends DiscordObject {
 	String editNick(String newNick) { changeNick(newNick) }
 	String resetNick() { changeNick('') }
 
-	Channel getDefaultChannel() { channel(id) }
+	Channel getDefaultChannel() { channel(id) ?: channels[0] }
 	Channel getAfkChannel() { channel(object.afk_channel_id) }
 	int getAfkTimeout() { (int) object.afk_timeout }
 	Channel getWidgetChannel() { channel(object.embed_channel_id) }

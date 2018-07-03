@@ -1,7 +1,6 @@
 package hlaaftana.discordg
 
 import com.mashape.unirest.http.Unirest
-import com.mashape.unirest.request.body.MultipartBody
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
 import groovy.transform.Memoized
@@ -90,7 +89,9 @@ class Client extends User {
 	static List<String> knownEvents = ['INITIAL_GUILD_CREATE', 'UNRECOGINZED', 'ALL'] + knownDiscordEvents
 
 	String customUserAgent = ''
-	String getFullUserAgent() { "$DiscordG.USER_AGENT $customUserAgent" }
+	String getFullUserAgent() {
+		beAnAsshole ? customUserAgent : "$DiscordG.USER_AGENT $customUserAgent"
+	}
 
 	String tokenPrefix
 	String rawToken
@@ -175,8 +176,9 @@ class Client extends User {
 	 * for shards, [shardId, shardCount]
 	 */
 	Tuple2 shardTuple
+	boolean beAnAsshole = false
 	
-	Log log
+	Log logObj
 	Map<String, Object> extraIdentifyData = [:]
 	Set<String> mutedChannels = []
 	Map<String, ActionPool> pools = [
@@ -227,11 +229,14 @@ class Client extends User {
 		addCacher()
 	}
 
-	Log getLog() { this.@log ?: (log = new Log(logName)) }
+	Log getLog() {
+		if (null == logObj) logObj = new Log(logName)
+		logObj
+	}
 
 	void setLogName(String name) {
 		this.@logName = name
-		getLog()
+		if (null != logObj) logObj.name = name
 	}
 
 	void setRequestMembersOnReady(boolean doso) {
@@ -329,7 +334,7 @@ class Client extends User {
 			gateway += "?encoding=json&v=$gatewayVersion"
 		}
 		WebSocketClient cl = new WebSocketClient(new SslContextFactory())
-		if (null != ws) ws = new WSClient(this)
+		if (null == ws) ws = new WSClient(this)
 		log.info 'Starting websocket connection...'
 		gatewayClosed = false
 		cl.start()
@@ -1465,6 +1470,13 @@ class Client extends User {
 		if (!boundary && cached?.size() > max) return cached.values().sort {
 			it.id }[-1..-max].collect { new Message(this, it) }
 		def l = directRequestChannelLogs(c, max, boundary, boundaryType)
+			.toSorted(new Comparator<Map<String, Object>>() {
+			@Override
+			int compare(Map<String, Object> o1, Map<String, Object> o2) {
+				ConversionUtil.fromJsonDate((String) o2.timestamp).compareTo(
+						ConversionUtil.fromJsonDate((String) o1.timestamp))
+			}
+		})
 		if (boundaryType in ['around', 'after']) l = l.reverse()
 		if (cached) for (a in l) messages[id(c)].add(a)
 		else messages[id(c)] = new DiscordListCache(l, this, Message)

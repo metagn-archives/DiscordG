@@ -17,7 +17,7 @@ class DiscordListCache<T extends DiscordObject> extends Cache<String, Map<String
 	}
 
 	private static Map superlister(List list) {
-		def r = new HashMap(list.size())
+		def r = new LinkedHashMap(list.size())
 		for (a in list) {
 			if (a instanceof DiscordObject) r.put(((DiscordObject) a).id, ((DiscordObject) a).object)
 			else r.put(getIdProperty(a), a)
@@ -33,7 +33,7 @@ class DiscordListCache<T extends DiscordObject> extends Cache<String, Map<String
 
 	Map<String, T> map() {
 		def l = list()
-		Map<String, T> map = new HashMap<>(l.size())
+		Map<String, T> map = new LinkedHashMap<>(l.size())
 		for (it in l) map.put(it.id, it instanceof Map ? class_.newInstance(client, it) : it)
 		map
 	}
