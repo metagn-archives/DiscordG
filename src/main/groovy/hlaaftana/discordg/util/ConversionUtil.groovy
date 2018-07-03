@@ -48,12 +48,17 @@ class ConversionUtil {
 		}
 	}
 
-	static Date fromJsonDate(String string, TimeZone tz = TimeZone.getTimeZone('Etc/UTC')){
+	static Date fromJsonDate(boolean discord = true, String string, TimeZone tz = TimeZone.getTimeZone('Etc/UTC')){
 		Calendar cal = Calendar.getInstance(tz)
 		cal.clear()
 		def x = string.split(/\D+/)
 		for (int i = 0; i < Math.min(x.length, dateFields.length); ++i) {
-			cal.set(dateFields[i], new Integer(x[i]) + (i == 1 ? -1 : 0))
+			final field = dateFields[i]
+			if (discord && field == Calendar.MILLISECOND) {
+				cal.set(field, (int) (Integer.parseInt(x[i]) / 1000))
+			} else {
+				cal.set(field, Integer.parseInt(x[i]) + (i == 1 ? -1 : 0))
+			}
 		}
 		cal.time
 	}

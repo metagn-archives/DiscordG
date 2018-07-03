@@ -73,7 +73,12 @@ class WSClient extends WebSocketAdapter {
 				client.log.warn "Unhandled websocket message: $type. Report to me, preferrably with the data in $file.absolutePath.', client.log.name + 'WS"
 			}
 			if (!careAbout(type)) return
-			Map data = (Map<String, Object>) content.d
+			Map data
+			try {
+				data = (Map<String, Object>) content.d
+			} catch (ClassCastException ignored) {
+				data = [:]
+			}
 			if (type == 'READY') {
 				readyingState = LoadState.LOADING
 				if (!opCounts[7]) {
@@ -198,7 +203,7 @@ class WSClient extends WebSocketAdapter {
 				data.respond = data.sendMessage = ((Channel) data.channel).&sendMessage
 				data.sendFile = ((Channel) data.channel).&sendFile
 			}
-			if (type.startsWith('PRESENCE')) data.presence = ((Guild) data.guild).presence(data.user)
+			if (type.startsWith('PRESENCE_')) data.presence = ((Guild) data.guild).presence(data.user)
 			Map<String, Object> event = new HashMap<>(data)
 			Thread.start("$type-$count") { client.dispatchEvent(guildCreateInitial ? 'INITIAL_GUILD_CREATE' : type, event) }
 			Thread.start("ALL-$opCount") { client.dispatchEvent('ALL', event) }
@@ -256,6 +261,7 @@ class WSClient extends WebSocketAdapter {
 	}
 
 	void onWebSocketError(Throwable t) {
+		client.log.error "Websocket connection errored:"
 		t.printStackTrace()
 	}
 

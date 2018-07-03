@@ -196,8 +196,8 @@ class HTTPClient {
 					client.log.name + 'HTTP'
 				RateLimit rl = new RateLimit(client, precaution ?
 					[global: false, retry_after: 
-						Math.abs((returned.headers['X-RateLimit-Reset'][0].toLong() * 1000) -
-						System.currentTimeMillis()), message: 'Precautionary ratelimit'] : js)
+						Math.abs(returned.headers['x-ratelimit-reset'][0].toLong() -
+						System.currentTimeSeconds()) * 1000, message: 'Precautionary ratelimit'] : js)
 				ratelimits[ratelimitUrl(rlUrl)] = rl
 				int xxx = ratelimits[ratelimitUrl(rlUrl)].newRequest()
 				if (!precaution) Thread.start {
@@ -206,7 +206,7 @@ class HTTPClient {
 				while (rl.requests) {
 					Thread.sleep(rl.retryTime)
 					rl.requests.removeAll(rl.requests.sort().take(
-						returned.headers['X-RateLimit-Limit'][0].toInteger() - 1))
+						returned.headers['x-ratelimit-limit'][0].toInteger() - 1))
 					// remove 1 from the limit just to be safe
 				}
 				ratelimits.remove(ratelimitUrl(rlUrl))

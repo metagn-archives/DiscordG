@@ -16,6 +16,13 @@ import org.codehaus.groovy.runtime.DefaultGroovyMethods
 class Message extends DiscordObject {
 	// this is discord's url pattern (with a little fiddling)
 	static String urlPattern = /https?:\/\/[^\s<]+[^<"{|^~`\[\s]/
+	static Comparator<Message> byTimestamp = new Comparator<Message>() {
+		@Override
+		int compare(Message o1, Message o2) {
+			o1.timestamp.compareTo(o2.timestamp)
+		}
+	}
+	static Comparator<Message> byTimestampAscending = Collections.reverseOrder(byTimestamp)
 
 	Message(Client client, Map object) {
 		super(client, object)
