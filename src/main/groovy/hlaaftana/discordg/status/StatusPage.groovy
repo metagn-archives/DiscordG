@@ -1,7 +1,9 @@
 package hlaaftana.discordg.status
 
+import groovy.transform.CompileStatic
 import hlaaftana.discordg.util.ConversionUtil
 
+@CompileStatic
 class StatusPage extends MapObject {
 	StatusPage(Map object) { super(object) }
 
@@ -9,5 +11,5 @@ class StatusPage extends MapObject {
 	String getName() { (String) object.name }
 	String getUrl() { (String) object.url }
 	String getRawUpdatedAt() { (String) object.updated_at }
-	Date getUpdatedAt() { ConversionUtil.fromJsonDate(object.updated_at) }
+	Date getUpdatedAt() { ConversionUtil.fromJsonDate((String) object.updated_at) }
 }

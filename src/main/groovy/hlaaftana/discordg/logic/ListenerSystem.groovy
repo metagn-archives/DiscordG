@@ -21,13 +21,13 @@ abstract class ListenerSystem<T> {
 	def <R> Closure<R> addListener(event, Closure<R> closure) {
 		event = parseEvent(event)
 		if (listeners.containsKey(event)) listeners[event].add(closure)
-		else listeners[event] = [closure]
+		else listeners[event] = [(Closure) closure]
 		closure
 	}
 	
 	def <R> Closure<R> listen(event, @DelegatesTo(T) Closure<R> closure) {
 		final c = { T d, Closure internal ->
-			Closure copy = (Closure) closure.clone()
+			Closure<R> copy = (Closure<R>) closure.clone()
 			copy.delegate = d
 			copy.parameterTypes.size() == 2 ? copy(copy.delegate, internal) : copy(copy.delegate)
 		}

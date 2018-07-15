@@ -4,6 +4,8 @@ import groovy.transform.CompileStatic
 import hlaaftana.discordg.Client
 import hlaaftana.discordg.logic.EventData
 
+import static groovy.lang.Closure.DELEGATE_FIRST
+
 @CompileStatic
 class ClientBuilder {
 	Map options
@@ -22,7 +24,7 @@ class ClientBuilder {
 	def <T> Closure<T> listener(event, Closure<T> dung) {
 		client.addListener(event) { Map d ->
 			dung.delegate = new EventData(event, d)
-			dung.resolveStrategy = Closure.DELEGATE_FIRST
+			dung.resolveStrategy = DELEGATE_FIRST
 			dung.call()
 		}
 	}

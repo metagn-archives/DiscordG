@@ -272,8 +272,19 @@ class Guild extends DiscordObject {
 
 	Message sendMessage(String message, boolean tts=false) { sendMessage(content: message, tts: tts) }
 	Message sendMessage(Map data) { client.sendMessage(data, this) }
-	Message sendFile(...args) { (Message) client.invokeMethod('sendFile', [this, *args]) }
-	Message sendFile(Map data, ...args) { (Message) client.invokeMethod('sendFile', [data, this, *args]) }
+	Message sendFile(...args) {
+		def x = new Object[args.length + 1]
+		x[0] = this
+		System.arraycopy(args, 0, x, 1, args.length)
+		(Message) client.invokeMethod('sendFile', x)
+	}
+	Message sendFile(Map data, ...args) {
+		def x = new Object[args.length + 2]
+		x[0] = data
+		x[1] = this
+		System.arraycopy(args, 0, x, 2, args.length)
+		(Message) client.invokeMethod('sendFile', x)
+	}
 
 	Embed requestEmbed() { client.requestEmbed(this) }
 

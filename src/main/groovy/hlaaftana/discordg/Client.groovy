@@ -8,6 +8,10 @@ import hlaaftana.discordg.collections.Cache
 import hlaaftana.discordg.collections.DiscordListCache
 
 import hlaaftana.discordg.exceptions.MessageInvalidException
+
+import java.math.MathContext
+import java.math.RoundingMode
+
 import static hlaaftana.discordg.logic.ActionPool.create as newPool
 import hlaaftana.discordg.logic.*
 import hlaaftana.discordg.net.*
@@ -329,9 +333,10 @@ class Client extends User {
 	void connectGateway(boolean requestGateway = true) {
 		if (requestGateway) {
 			log.info 'Requesting gateway...'
-			gateway = http.jsonGet('gateway').url
-			if (!gateway.endsWith('/')) gateway += '/'
-			gateway += "?encoding=json&v=$gatewayVersion"
+			final s = new StringBuilder((String) http.jsonGet('gateway').url)
+			if (s.charAt(s.length() - 1) != (char) '/') s.append((char) '/')
+			s.append('?encoding=json&v=').append(gatewayVersion)
+			gateway = s.toString()
 		}
 		WebSocketClient cl = new WebSocketClient(new SslContextFactory())
 		if (null == ws) ws = new WSClient(this)
@@ -342,7 +347,7 @@ class Client extends User {
 	}
 
 	void logout() {
-		if (!bot) http.post('auth/logout', [token: token])
+		if (!bot) http.discardPost('auth/logout', [token: token])
 		closeGateway()
 		ws = null
 	}
@@ -960,11 +965,11 @@ class Client extends User {
 	}
 
 	void addRole(s, m, r) {
-		http.put("guilds/${id(s)}/members/${id(m)}/roles/${id(r)}")
+		http.discardPut("guilds/${id(s)}/members/${id(m)}/roles/${id(r)}")
 	}
 
 	void removeRole(s, m, r) {
-		http.delete("guilds/${id(s)}/members/${id(m)}/roles/${id(r)}")
+		http.discardDelete("guilds/${id(s)}/members/${id(m)}/roles/${id(r)}")
 	}
 
 	String changeOwnGuildNick(s, String nick) {
@@ -979,7 +984,7 @@ class Client extends User {
 	}
 
 	void kick(s, m) {
-		http.delete("guilds/${id(s)}/members/${id(m)}")
+		http.discardDelete("guilds/${id(s)}/members/${id(m)}")
 	}
 
 	List<Guild.Ban> requestBans(s) {
@@ -1004,11 +1009,11 @@ class Client extends User {
 	}
 
 	void ban(s, u, int d = 0) {
-		http.put("guilds/${id(s)}/bans/${id(u)}?delete-message-days=$d", [:])
+		http.discardPut("guilds/${id(s)}/bans/${id(u)}?delete-message-days=$d", [:])
 	}
 
 	void unban(s, u) {
-		http.delete("guilds/${id(s)}/bans/${id(u)}")
+		http.discardDelete("guilds/${id(s)}/bans/${id(u)}")
 	}
 
 	int checkPrune(s, int d) {
@@ -1033,7 +1038,7 @@ class Client extends User {
 	}
 
 	void deleteRole(s, r) {
-		http.delete("guilds/${id(s)}/roles/${id(r)}")
+		http.discardDelete("guilds/${id(s)}/roles/${id(r)}")
 	}
 	
 	List<Role> editRolePositions(Map mods, s) {
@@ -1050,14 +1055,17 @@ class Client extends User {
 		http.jsonGets("guilds/${s}/webhooks").collect { new Webhook(this, it) }
 	}
 
+	private static final MathContext ceilmathcontext = new MathContext(0, RoundingMode.CEILING)
+	private static final BigDecimal ceil(BigDecimal dec) { dec.round(ceilmathcontext) }
+
 	List<Member> requestMembers(s, int max=1000, boolean updateCache=true) {
 		def i = id(s)
-		List<Map> members = http.jsonGets("guilds/$i/members?limit=${max}")
+		final members = http.jsonGets("guilds/$i/members?limit=${max}")
 		if (max > 1000) {
-			for (int m = 1; m < (int) Math.ceil(max / 1000) - 1; m++) {
-				members += http.jsonGets("guilds/$i/members?after=${(m * 1000) + 1}&limit=1000")
+			for (int m = 1; m < ceil(max / 1000).intValue() - 1; m++) {
+				members.addAll http.jsonGets("guilds/$i/members?after=${(m * 1000) + 1}&limit=1000")
 			}
-			members += http.jsonGets("guilds/$i/members?after=${(int)((Math.ceil(max / 1000) - 1) * 1000)+1}&limit=1000")
+			members.addAll http.jsonGets("guilds/$i/members?after=${((ceil(max / 1000).intValue() - 1) * 1000)+1}&limit=1000")
 		}
 		if (updateCache) {
 			guildCache[i].members = new DiscordListCache(members.collect {
@@ -1107,7 +1115,7 @@ class Client extends User {
 	}
 	
 	void deleteInvite(i) {
-		http.delete("invite/${Invite.parseId(i)}")
+		http.discardDelete("invite/${Invite.parseId(i)}")
 	}
 
 	Guild.Embed requestEmbed(s) { new Guild.Embed(this, http.jsonGet("guilds/${id(s)}/embed")) }
@@ -1155,7 +1163,7 @@ class Client extends User {
 	}
 
 	void deleteApplication(a) {
-		http.delete("oauth2/applications/${id(a)}")
+		http.discardDelete("oauth2/applications/${id(a)}")
 	}
 
 	Application createApplication(Map data) {
@@ -1188,11 +1196,11 @@ class Client extends User {
 	}
 
 	void leaveGuild(s) {
-		http.delete("users/@me/guilds/${id(s)}")
+		http.discardDelete("users/@me/guilds/${id(s)}")
 	}
 
 	void deleteGuild(s) {
-		http.delete("guilds/${id(s)}")
+		http.discardDelete("guilds/${id(s)}")
 	}
 
 	Channel createTextChannel(s, String name) {
@@ -1223,33 +1231,33 @@ class Client extends User {
 	}
 
 	void deleteIntegration(s, i) {
-		http.delete("guilds/${id(s)}/integrations/${id(i)}")
+		http.discardDelete("guilds/${id(s)}/integrations/${id(i)}")
 	}
 
 	void syncIntegration(s, i) {
-		http.post("guilds/${id(s)}/integrations/${id(i)}/sync")
+		http.discardPost("guilds/${id(s)}/integrations/${id(i)}/sync")
 	}
 
 	void editMember(Map data, s, m) {
-		askPool('editMembers', id(s)){
-			http.patch("guilds/${id(s)}/members/${id(m)}", data)
+		askPool('editMembers', id(s)) {
+			http.discardPatch("guilds/${id(s)}/members/${id(m)}", data)
 		}
 	}
 
 	void addChannelRecipient(c, u) {
-		http.put("channels/${id(c)}/recipients/${id(u)}")
+		http.discardPut("channels/${id(c)}/recipients/${id(u)}")
 	}
 
 	void removeChannelRecipient(c, u) {
-		http.delete("channels/${id(c)}/recipients/${id(u)}")
+		http.discardDelete("channels/${id(c)}/recipients/${id(u)}")
 	}
 
 	void addRelationship(u, type) {
-		http.put("users/@me/relationships/${id(u)}", [type: type.invokeMethod('toInteger', null)])
+		http.discardPut("users/@me/relationships/${id(u)}", [type: type.invokeMethod('toInteger', null)])
 	}
 
 	void removeRelationship(u) {
-		http.delete("users/@me/relationships/${id(u)}")
+		http.discardDelete("users/@me/relationships/${id(u)}")
 	}
 
 	List<Invite> requestChannelInvites(c) {
@@ -1257,11 +1265,11 @@ class Client extends User {
 	}
 
 	void startTyping(c) {
-		http.post("channels/${id(c)}/typing")
+		http.discardPost("channels/${id(c)}/typing")
 	}
 
 	void deleteChannel(c) {
-		http.delete("channels/${id(c)}")
+		http.discardDelete("channels/${id(c)}")
 	}
 
 	Channel editChannel(Map data, c) {
@@ -1274,12 +1282,12 @@ class Client extends User {
 		String type = data.type ?: (role(i) ? 'role' : 'member')
 		int allowBytes = null == data.allow ? 0 : (int) data.allow.invokeMethod('toInteger', null)
 		int denyBytes = null == data.deny ? 0 : (int) data.deny.invokeMethod('toInteger', null)
-		http.put("channels/${id(c)}/permissions/${i}",
+		http.discardPut("channels/${id(c)}/permissions/${i}",
 			[allow: allowBytes, deny: denyBytes, id: i, type: type])
 	}
 
 	void deleteChannelOverwrite(c, o) {
-		http.delete("channels/${id(c)}/permissions/${id(o)}")
+		http.discardDelete("channels/${id(c)}/permissions/${id(o)}")
 	}
 
 	Webhook createWebhook(Map data = [:], c) {
@@ -1299,13 +1307,17 @@ class Client extends User {
 		new Webhook(this, http.jsonGet("webhooks/${this.id(id)}/$token"))
 	}
 
-	Message sendMessage(Map data, c) {
-		if (data.containsKey('content')){
+	void checkMessageData(Map data) {
+		if (data.containsKey('content')) {
 			def s = data.content.toString()
 			s = filterMessage(s)
 			if (!s || s.size() > 2000) throw new MessageInvalidException(s)
 			data.content = s
 		}
+	}
+
+	Message sendMessage(Map data, c) {
+		checkMessageData(data)
 		boolean isWebhook = MiscUtil.defaultValueOnException new Closure(this) {
 			@CompileDynamic
 			def call() {
@@ -1315,28 +1327,52 @@ class Client extends User {
 		Closure<Message> clos = {
 			new Message(this, http.jsonPost(isWebhook ?
 				"webhooks/${id(c)}/${c instanceof Map ? c.token : ((Webhook) c).token}" :
-				"channels/${id(c)}/messages", [channel_id: id] << data))
+				"channels/${id(c)}/messages", data))
 		}
-		isWebhook ? clos() : askPool('sendMessages', getChannelQueueName(c), clos)
+		isWebhook ? clos() : poolMessage(c, clos)
 	}
 
 	Message sendMessage(c, content, tts = false) { sendMessage(c, content: content, tts: tts) }
 
-	Message editMessage(Map data, c, m) {
-		if (data.containsKey('content')){
-			def s = data.content.toString()
-			s = filterMessage(s)
-			if (!s || s.size() > 2000) throw new MessageInvalidException(s)
-			data.content = s
+	void discardSendMessage(Map data, c) {
+		checkMessageData(data)
+		boolean isWebhook = MiscUtil.defaultValueOnException new Closure(this) {
+			@CompileDynamic
+			def call() {
+				data.webhook && c?.id && c?.token
+			}
 		}
-		askPool('sendMessages', getChannelQueueName(c)){ // that's right, they're in the same bucket
+		final clos = {
+			http.discardPost(isWebhook ?
+					"webhooks/${id(c)}/${c instanceof Map ? c.token : ((Webhook) c).token}" :
+					"channels/${id(c)}/messages", data)
+		}
+		isWebhook ? clos() : poolMessage(c, clos)
+	}
+
+	void discardSendMessage(c, content, tts = false) { discardSendMessage(c, content: content, tts: tts) }
+
+	def <T> T poolMessage(c, Closure<T> closure) {
+		askPool('sendMessages', getChannelQueueName(c), closure)
+	}
+
+	Message editMessage(Map data, c, m) {
+		checkMessageData(data)
+		poolMessage(c) { // that's right, they're in the same bucket
 			new Message(this, http.jsonPatch("channels/${id(c)}/messages/${id(m)}", data))
+		}
+	}
+
+	void discardEditMessage(Map data, c, m) {
+		checkMessageData(data)
+		poolMessage(c) { // that's right, they're in the same bucket
+			http.discardPatch("channels/${id(c)}/messages/${id(m)}", data)
 		}
 	}
 
 	void deleteMessage(c, m) {
 		askPool('deleteMessages',
-			getChannelQueueName(c)){ http.delete("channels/${id(c)}/messages/${id(m)}") }
+			getChannelQueueName(c)) { http.discardDelete("channels/${id(c)}/messages/${id(m)}") }
 	}
 
 	Map sendFileRaw(Map data = [:], c, file) {
@@ -1346,9 +1382,9 @@ class Client extends User {
 				data.webhook && c?.id && c?.token
 			}
 		}
-		File f
-		String fn
-		byte[] bytes
+		File f = null
+		String fn = null
+		byte[] bytes = null
 		if (file instanceof File) {
 			if (data.filename) {
 				bytes = ((File) file).bytes
@@ -1375,7 +1411,7 @@ class Client extends User {
 		Closure<Map> clos = {
 			(Map) JSONUtil.parse(aa.asString().body)
 		}
-		isWebhook ? clos() : askPool('sendMessages', getChannelQueueName(c), clos)
+		isWebhook ? clos() : poolMessage(c, clos)
 	}
 
 	Message sendFile(Map data, c, implicatedFile, filename) {
@@ -1424,11 +1460,11 @@ class Client extends User {
 	}
 
 	def pinMessage(c, m) {
-		http.put("channels/${id(c)}/pins/${id(m)}")
+		http.discardPut("channels/${id(c)}/pins/${id(m)}")
 	}
 
 	def unpinMessage(c, m) {
-		http.delete("channels/${id(c)}/pins/${id(m)}")
+		http.discardDelete("channels/${id(c)}/pins/${id(m)}")
 	}
 
 	Collection<Message> requestPinnedMessages(c) {
@@ -1436,12 +1472,12 @@ class Client extends User {
 	}
 
 	void reactToMessage(c, m, e) {
-		http.put("channels/${id(c)}/messages/${id(m)}/" +
+		http.discardPut("channels/${id(c)}/messages/${id(m)}/" +
 			"reactions/${translateEmoji(e)}/@me")
 	}
 
 	void unreactToMessage(c, m, e, u = '@me') {
-		http.delete("channels/{id(c)}/messages/${id(m)}/" +
+		http.discardDelete("channels/{id(c)}/messages/${id(m)}/" +
 			"reactions/${translateEmoji(e)}/${id(u)}")
 	}
 
@@ -1466,7 +1502,7 @@ class Client extends User {
 
 	List<Message> requestChannelLogs(c, int max = 100, boundary = null,
 		String boundaryType = 'before') {
-		Map<String, Map> cached = messages[id(c)]
+		final cached = messages[id(c)]
 		if (!boundary && cached?.size() > max) return cached.values().sort {
 			it.id }[-1..-max].collect { new Message(this, it) }
 		def l = directRequestChannelLogs(c, max, boundary, boundaryType)
@@ -1486,6 +1522,9 @@ class Client extends User {
 	List<Message> forceRequestChannelLogs(c, int m = 100, b = null,
 		String bt = 'before') { directRequestChannelLogs(c, m, b, bt).collect { new Message(this, it) } }
 
+	private static final MathContext floormathcontext = new MathContext(0, RoundingMode.FLOOR)
+	private static final BigDecimal floor(BigDecimal dec) { dec.round(floormathcontext) }
+
 	// after and around sorted old-new
 	// before sorted new-old
 
@@ -1500,7 +1539,7 @@ class Client extends User {
 		List<Map<String, Object>> messages = directRequestChannelLogs(params, c)
 		if (max > 100) {
 			if (boundaryType == 'after') {
-				for (int m = 1; m < Math.floor(max / 100); m++) {
+				for (int m = 1; m < floor(max / 100).intValue(); m++) {
 					messages.addAll directRequestChannelLogs(c,
 							after: messages.last().id, limit: 100)
 				}
@@ -1510,19 +1549,19 @@ class Client extends User {
 				int age = max - 100
 				int af = age.intdiv(2).intValue()
 				int bef = age.intdiv(2).intValue() + (age % 2)
-				for (int m = 1; m < Math.floor(bef / 100); m++) {
+				for (int m = 1; m < floor(bef / 100).intValue(); m++) {
 					messages.addAll 0, directRequestChannelLogs(c, before: messages.first().id,
 							limit: 100).reverse()
 				}
 				if (bef % 100 != 0) messages.addAll 0, directRequestChannelLogs(c, before: messages.first().id,
 						limit: bef % 100).reverse()
-				for (int m = 1; m < Math.floor(af / 100); m++) {
+				for (int m = 1; m < floor(af / 100).intValue(); m++) {
 					messages.addAll directRequestChannelLogs((Map<String, Object>) [after: messages.last().id, limit: 100], c)
 				}
 				if (af % 100 != 0) messages.addAll directRequestChannelLogs([before: messages.last().id,
 						limit: af % 100], c)
 			} else {
-				for (int m = 1; m < Math.floor(max / 100); m++) {
+				for (int m = 1; m < floor(max / 100).intValue(); m++) {
 					messages.addAll directRequestChannelLogs(c,
 							before: messages.last().id, limit: 100)
 				}
@@ -1542,7 +1581,7 @@ class Client extends User {
 
 	def bulkDeleteMessages(c, Collection ids) {
 		askPool('bulkDeleteMessages') {
-			http.post("channels/${id(c)}/messages/bulk-delete",
+			http.discardPost("channels/${id(c)}/messages/bulk-delete",
 				[messages: ids.collect { id(it) }])
 		}
 	}
@@ -1553,7 +1592,7 @@ class Client extends User {
 	}
 
 	void deleteWebhook(w) {
-		http.delete("webhooks/${id(w)}")
+		http.discardDelete("webhooks/${id(w)}")
 	}
 
 	Channel createPrivateChannel(u) {

@@ -11,7 +11,7 @@ class ActionPool {
 	long max
 	long ms
 	ExecutorService waitPool
-	Map<String, AtomicInteger> actions = [:].asSynchronized()
+	Map<String, AtomicInteger> actions = new HashMap<String, AtomicInteger>().asSynchronized()
 	Closure<Boolean> suspend = { String it ->
 		final t = actions[it]
 		(null == t ? t : 0) >= max

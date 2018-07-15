@@ -56,6 +56,9 @@ class Message extends DiscordObject {
 	}
 
 	List<URL> getUrlObjects() { urls.collect(DefaultGroovyMethods.&toURL) }
+	String getAuthorId() {
+		(String) ((Map<String, Object>) object.author).id
+	}
 	User getAuthor() { getAuthor(false) }
 	User getAuthor(boolean member) {
 		resolveMember((Map) object.author, member)
@@ -115,7 +118,9 @@ class Message extends DiscordObject {
 	def pin() { client.pinMessage(channelId, id) }
 	def unpin() { client.unpinMessage(channelId, id) }
 
-	List<Reaction> getReactions() { ((List<Map>) object.reactions).collect { new Reaction(client, it) } }
+	List<Reaction> getReactions() { ((List<Map>) object.reactions)?.collect { new Reaction(client, it) } }
+	List<Reaction> getCachedReactions() { client.reactions[id]?.collect { new Reaction(client, it) } }
+	List<Reaction> getAnyReactions() { reactions ?: cachedReactions }
 
 	void react(emoji) {
 		client.reactToMessage(channelId, this, emoji)

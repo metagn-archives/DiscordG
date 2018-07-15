@@ -80,7 +80,7 @@ class MiscUtil {
 	}
 
 	static <T> T defaultValueOnException(T defaultValue = null,
-	                                     Collection<Class> exceptions = [Exception],
+	                                     Collection<? extends Class> exceptions = [Exception],
 	                                     Closure<T> expr) {
 		try{
 			expr()
@@ -108,7 +108,7 @@ class MiscUtil {
 	}
 
 	static <T> List<List<T>> splitWhen(iter, @ClosureParams(FirstParam.FirstGenericType) Closure<Boolean> cond) {
-		List<List<T>> a = [[]]
+		def a = new ArrayList<List<T>>()
 		for (it in iter) {
 			if (cond((T) it)) a.add([it])
 			else a.last().add((T) it)

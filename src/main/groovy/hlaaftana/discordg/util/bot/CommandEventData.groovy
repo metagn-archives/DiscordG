@@ -48,7 +48,7 @@ class CommandEventData {
 		(Message) chan.invokeMethod('sendMessage', arguments)
 	}
 
-	Message sendFile(Channel chan, ...arguments) {
+	static Message sendFile(Channel chan, ...arguments) {
 		(Message) chan.invokeMethod('sendFile', arguments)
 	}
 

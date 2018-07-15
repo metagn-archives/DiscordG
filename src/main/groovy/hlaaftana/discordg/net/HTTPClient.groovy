@@ -1,6 +1,9 @@
 package hlaaftana.discordg.net
 
+import com.mashape.unirest.http.HttpMethod
 import com.mashape.unirest.http.HttpResponse
+import com.mashape.unirest.http.async.Callback
+import com.mashape.unirest.http.exceptions.UnirestException
 import com.mashape.unirest.request.GetRequest
 import com.mashape.unirest.request.HttpRequestWithBody
 import groovy.transform.CompileStatic
@@ -15,7 +18,6 @@ import hlaaftana.discordg.util.JSONUtil
 
 import static hlaaftana.discordg.util.CasingType.*
 
-import com.mashape.unirest.http.Unirest
 import com.mashape.unirest.request.BaseRequest
 import com.mashape.unirest.request.HttpRequest
 
@@ -67,7 +69,7 @@ class HTTPClient {
 		50016: 'Provided too few or too many messages to delete. Must provide at least 2 and fewer than 100 messages to delete.',
 	].asImmutable()
 	String baseUrl = defaultApi
-	Map<String, RateLimit> ratelimits = [:].asSynchronized()
+	Map<String, RateLimit> ratelimits = new HashMap<String, RateLimit>().asSynchronized()
 	Client client
 
 	HTTPClient(Client client, String concatUrl = '') {
@@ -96,34 +98,49 @@ class HTTPClient {
 		methodMissing(camel.to(constant, a[0]), a.length == 2 ? a[1] : [a[1], a[2]])
 	}
 
-	def get(...args) { methodMissing('get', args) }
-	def post(...args) { methodMissing('post', args) }
-	def put(...args) { methodMissing('put', args) }
-	def patch(...args) { methodMissing('patch', args) }
-	def delete(...args) { methodMissing('delete', args) }
-	Map<String, Object> jsonGet(...args) { (Map<String, Object>) methodMissing('jsonGet', args) }
-	Map<String, Object> jsonPut(...args) { (Map<String, Object>) methodMissing('jsonPut', args) }
-	Map<String, Object> jsonPost(...args) { (Map<String, Object>) methodMissing('jsonPost', args) }
-	Map<String, Object> jsonPatch(...args) { (Map<String, Object>) methodMissing('jsonPatch', args) }
-	List<Map<String, Object>> jsonGets(...args) { (List<Map<String, Object>>) methodMissing('jsonGet', args) }
-	List<Map<String, Object>> jsonPuts(...args) { (List<Map<String, Object>>) methodMissing('jsonPut', args) }
-	List<Map<String, Object>> jsonPosts(...args) { (List<Map<String, Object>>) methodMissing('jsonPost', args) }
-	List<Map<String, Object>> jsonPatches(...args) { (List<Map<String, Object>>) methodMissing('jsonPatch', args) }
+	HttpResponse<String> get(String path, data = null) { request('get', path, data) }
+	HttpResponse<String> post(String path, data = null) { request('post', path, data) }
+	HttpResponse<String> put(String path, data = null) { request('put', path, data) }
+	HttpResponse<String> patch(String path, data = null) { request('patch', path, data) }
+	HttpResponse<String> delete(String path, data = null) { request('delete', path, data) }
+	void discardGet(String path, data = null) { request('get', path, data, true) }
+	void discardPost(String path, data = null) { request('post', path, data, true) }
+	void discardPut(String path, data = null) { request('put', path, data, true) }
+	void discardPatch(String path, data = null) { request('patch', path, data, true) }
+	void discardDelete(String path, data = null) { request('delete', path, data, true) }
+	Map<String, Object> jsonGet(String path, data = null) {
+		(Map<String, Object>) JSONUtil.parse(get(path, data).body)
+	}
+	Map<String, Object> jsonPut(String path, data = null) {
+		(Map<String, Object>) JSONUtil.parse(put(path, data).body)
+	}
+	Map<String, Object> jsonPost(String path, data = null) {
+		(Map<String, Object>) JSONUtil.parse(post(path, data).body)
+	}
+	Map<String, Object> jsonPatch(String path, data = null) {
+		(Map<String, Object>) JSONUtil.parse(patch(path, data).body)
+	}
+	List<Map<String, Object>> jsonGets(String path, data = null) {
+		(List<Map<String, Object>>) JSONUtil.parse(get(path, data).body)
+	}
+	List<Map<String, Object>> jsonPuts(String path, data = null) {
+		(List<Map<String, Object>>) JSONUtil.parse(put(path, data).body)
+	}
+	List<Map<String, Object>> jsonPosts(String path, data = null) {
+		(List<Map<String, Object>>) JSONUtil.parse(post(path, data).body)
+	}
+	List<Map<String, Object>> jsonPatches(String path, data = null) {
+		(List<Map<String, Object>>) JSONUtil.parse(patch(path, data).body)
+	}
 
 	def methodMissing(String methodName, List argl) {
-		String url
-		List methodParams = camel.toWords(methodName)
+		final methodParams = camel.toWords(methodName)
 		boolean global = methodParams.remove('global')
 		boolean json = methodParams.remove('json')
 		boolean body = methodParams.remove('body')
 		boolean request = methodParams.remove('request')
-		if (global) url = argl[0]
-		else url = concatUrlPaths(baseUrl, argl[0].toString())
-		BaseRequest aa = headerUp(startreq(methodParams[0].toString(), url))
-		if (argl.size() > 1) {
-			def data = argl[1] instanceof CharSequence ? argl[1].toString() : JSONUtil.json(argl[1])
-			aa = ((HttpRequestWithBody) aa).body(data)
-		}
+		final url = global ? (String) argl[0] : concatUrlPaths(baseUrl, argl[0].toString())
+		BaseRequest aa = buildRequest(methodParams[0], url, argl[1])
 		if (request) return aa
 		HttpResponse<String> response = this.request(aa)
 		if (json) JSONUtil.parse(response.body)
@@ -139,15 +156,24 @@ class HTTPClient {
 		methodMissing(methodName, [args])
 	}
 
+	BaseRequest buildRequest(String method, String url, data = null) {
+		BaseRequest aa = headerUp(startreq(method, url))
+		if (null != data)
+			aa = ((HttpRequestWithBody) aa).body(data instanceof String ? (String) data : JSONUtil.json(data))
+		aa
+	}
+
 	private static HttpRequest startreq(String method, String url) {
-		if (method == 'get') Unirest.get(url)
-		else if (method == 'head') Unirest.head(url)
-		else if (method == 'post') Unirest.post(url)
-		else if (method == 'delete') Unirest.delete(url)
-		else if (method == 'put') Unirest.put(url)
-		else if (method == 'options') Unirest.options(url)
-		else if (method == 'patch') Unirest.patch(url)
-		else throw new UnsupportedOperationException('Unirest does not support HTTP method '.concat(method))
+		switch (method) {
+		case 'post': return new HttpRequestWithBody(HttpMethod.POST, url)
+		case 'get': return new GetRequest(HttpMethod.GET, url)
+		case 'patch': return new HttpRequestWithBody(HttpMethod.PATCH, url)
+		case 'delete': return new HttpRequestWithBody(HttpMethod.DELETE, url)
+		case 'put': return new HttpRequestWithBody(HttpMethod.PUT, url)
+		case 'head': return new GetRequest(HttpMethod.HEAD, url)
+		case 'options': return new HttpRequestWithBody(HttpMethod.OPTIONS, url)
+		default: throw new UnsupportedOperationException('Unirest does not support HTTP method '.concat(method))
+		}
 	}
 
 	BaseRequest headerUp(HttpRequest req) {
@@ -158,7 +184,7 @@ class HTTPClient {
 
 	HttpURLConnection headerUp(HttpURLConnection req) {
 		if (null != client.token) req.setRequestProperty('Authorization', client.token)
-		if (!(req.requestMethod == 'GET')) req.setRequestProperty('Content-Type', 'application/json')
+		if (req.requestMethod != 'GET') req.setRequestProperty('Content-Type', 'application/json')
 		req.setRequestProperty('User-Agent', null != client ? client.fullUserAgent : DiscordG.USER_AGENT)
 		req
 	}
@@ -167,46 +193,48 @@ class HTTPClient {
 		headerUp((HttpURLConnection) url.openConnection())
 	}
 
-	HttpResponse<String> request(BaseRequest req) {
-		_request(req, 0)
+	HttpResponse<String> requestGlobal(String method, String url, data = null, boolean discard = false) {
+		request(buildRequest(method, url, data), discard)
 	}
-	
-	private HttpResponse<String> _request(BaseRequest req, int rid) {
-		HttpRequest ft = req.httpRequest
-		String rlUrl = ft.url.replaceFirst(Pattern.quote(baseUrl), '')
-		if (ratelimits[ratelimitUrl(rlUrl)]) {
-			int id = rid < 1 ? ratelimits[ratelimitUrl(rlUrl)].newRequest() : rid
-			while (ratelimits[ratelimitUrl(rlUrl)]?.requests?.contains(id)) Thread.sleep 10
-		}
-		def returned = ft.asString()
+
+	HttpResponse<String> request(String method, String path, data = null, boolean discard = false) {
+		request(buildRequest(method, concatUrlPaths(baseUrl, path), data), discard)
+	}
+
+	HttpResponse<String> request(BaseRequest req, boolean discard = false) {
+		_request(req, discard, 0)
+	}
+
+	private HttpResponse<String> handleResponse(BaseRequest req, String rlUrl, HttpResponse<String> returned) {
+		final ft = req.httpRequest
 		int status = returned.status
 		if ((returned.headers.containsKey('X-RateLimit-Limit') &&
-			returned.headers['X-RateLimit-Remaining'][0].toInteger() < 2) ||
-			returned.headers.containsKey('X-RateLimit-Global') ||
-			status == 429) {
+				returned.headers['X-RateLimit-Remaining'][0].toInteger() < 2) ||
+				returned.headers.containsKey('X-RateLimit-Global') ||
+				status == 429) {
 			boolean precaution
 			HttpResponse<String> r
 			Thread.start {
 				if (ratelimits[ratelimitUrl(rlUrl)]) return
 				def js = returned.body ? (Map) JSONUtil.parse(returned.body) : [:]
 				precaution = !js.containsKey('retry-after')
-				client.log.debug precaution ? 
-					"Ratelimited when trying to $ft.httpMethod to $ft.url" :
-					"Precautioning a ratelimit for $ft.httpMethod $ft.url",
-					client.log.name + 'HTTP'
+				client.log.debug precaution ?
+						"Ratelimited when trying to $ft.httpMethod to $ft.url" :
+						"Precautioning a ratelimit for $ft.httpMethod $ft.url",
+						client.log.name + 'HTTP'
 				RateLimit rl = new RateLimit(client, precaution ?
-					[global: false, retry_after: 
-						Math.abs(returned.headers['x-ratelimit-reset'][0].toLong() -
-						System.currentTimeSeconds()) * 1000, message: 'Precautionary ratelimit'] : js)
+						[global: false, retry_after:
+								Math.abs(returned.headers['x-ratelimit-reset'][0].toLong() -
+										System.currentTimeSeconds()) * 1000, message: 'Precautionary ratelimit'] : js)
 				ratelimits[ratelimitUrl(rlUrl)] = rl
 				int xxx = ratelimits[ratelimitUrl(rlUrl)].newRequest()
 				if (!precaution) Thread.start {
-					r = _request(req, xxx)
+					r = _request(req, false, xxx)
 				}
 				while (rl.requests) {
 					Thread.sleep(rl.retryTime)
 					rl.requests.removeAll(rl.requests.sort().take(
-						returned.headers['x-ratelimit-limit'][0].toInteger() - 1))
+							returned.headers['x-ratelimit-limit'][0].toInteger() - 1))
 					// remove 1 from the limit just to be safe
 				}
 				ratelimits.remove(ratelimitUrl(rlUrl))
@@ -219,21 +247,37 @@ class HTTPClient {
 		else if (status == 403) throw new NoPermissionException(ft.url, (Map<String, Object>) JSONUtil.parse(returned.body))
 		else if (status == 404) throw new NotFoundException(ft.url, (Map<String, Object>) JSONUtil.parse(returned.body))
 		else if (status == 405) client.log
-			.warn "$ft.httpMethod not allowed for $ft.url. Report to hlaaf", client.log.name + 'HTTP'
+				.warn "$ft.httpMethod not allowed for $ft.url. Report to hlaaf", client.log.name + 'HTTP'
 		else if (status == 502)
 			if (client.retryOn502) return request(req)
 			else throw new HTTP5xxException(ft.url, (Map<String, Object>) JSONUtil.parse(returned.body))
 		else if (status.intdiv(100) == 5) throw new HTTP5xxException(ft.url, (Map<String, Object>) JSONUtil.parse(returned.body))
 		else if (status.intdiv(100) >= 3) client.log
-			.warn "Got status code $status while ${ft.httpMethod}ing to $ft.url, " +
-				"this isn't an error but just a warning.', client.log.name + 'HTTP"
+				.warn "Got status code $status while ${ft.httpMethod}ing to $ft.url, " +
+				"this isn't an error but just a warning.", client.log.name + 'HTTP'
 		returned
+	}
+	
+	private HttpResponse<String> _request(BaseRequest req, boolean discard, int rid) {
+		HttpRequest ft = req.httpRequest
+		String rlUrl = ft.url.replaceFirst(Pattern.quote(baseUrl), '')
+		if (ratelimits[ratelimitUrl(rlUrl)]) {
+			int id = rid < 1 ? ratelimits[ratelimitUrl(rlUrl)].newRequest() : rid
+			while (ratelimits[ratelimitUrl(rlUrl)]?.requests?.contains(id)) Thread.sleep 10
+		}
+		if (discard) {
+			Thread.start { ft.asStringAsync(new Callback<String>() {
+				void completed(HttpResponse<String> response) { handleResponse(req, rlUrl, response) }
+				void failed(UnirestException e) { throw e }
+				void cancelled() {}
+			}).get() }
+			null
+		} else handleResponse(req, rlUrl, ft.asString())
 	}
 
 	@Memoized
 	static String ratelimitUrl(String url) {
 		if (url.indexOf('?') > 0) url = url.substring(url.indexOf('?'))
-		// AAAAAA url.replaceAll(/\/\d+\//) { ...full -> "/@${++i}/" }
 		StringBuilder result = new StringBuilder()
 		def arr = url.split(/\/\d+\//)
 		result.append(arr[0])
@@ -244,7 +288,7 @@ class HTTPClient {
 	}
 
 	@Memoized
-	static String concatUrlPaths(String...yeah) {
+	static String concatUrlPaths(String... yeah) {
 		StringBuilder ass = new StringBuilder(yeah[0])
 		def whoop = yeah.drop(1)
 		for (int i = 0; i < whoop.length; ++i) {
@@ -252,7 +296,7 @@ class HTTPClient {
 			if (a.empty) continue
 			boolean y = ass.charAt(0) == ((char) '/')
 			if (ass.charAt(ass.length() - 1) == ((char) '/')) {
-				if (y) ass.append a.substring(1)
+				if (y) ass.append a, 1, a.length()
 				else ass.append a
 			}
 			else if (y) ass.append a
