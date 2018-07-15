@@ -70,7 +70,7 @@ class WSClient extends WebSocketAdapter {
 				File file = new File("dumps/${type}_${System.currentTimeMillis()}.json")
 				new File('dumps').mkdir()
 				JSONUtil.dump(file, content.d)
-				client.log.warn "Unhandled websocket message: $type. Report to me, preferrably with the data in $file.absolutePath.', client.log.name + 'WS"
+				client.log.warn "Unhandled websocket message: $type. Report to me, preferrably with the data in $file.absolutePath.", client.log.name + 'WS'
 			}
 			if (!careAbout(type)) return
 			Map data
@@ -91,6 +91,7 @@ class WSClient extends WebSocketAdapter {
 							d.unavailable = false
 							if (client.guildCache.containsKey(d.id)) client.guildCache[(String) d.id].putAll d
 							else client.guildCache.add(d)
+							Guild.construct(client, client.guildCache[(String) d.id])
 						} }
 					}
 					client.userObject = client.object = (Map<String, Object>) data.user
@@ -229,7 +230,7 @@ class WSClient extends WebSocketAdapter {
 			File file = new File("dumps/op_${op}_${System.currentTimeMillis()}.json")
 			new File('dumps').mkdir()
 			JSONUtil.dump(file, content)
-			client.log.warn "Unsupported OP code $op. Report to me, preferrably with the data in $file.absolutePath.', client.log.name + 'WS"
+			client.log.warn "Unsupported OP code $op. Report to me, preferrably with the data in $file.absolutePath.", client.log.name + 'WS'
 		}
 	}
 
@@ -289,11 +290,10 @@ class WSClient extends WebSocketAdapter {
 	boolean canDispatch(event) {
 		String ass = Client.parseEvent(event)
 		if (ass == 'READY') return true
-		dispatch ||
+		(dispatch ||
 			(guildCreate &&
 				ass == 'GUILD_CREATE' &&
-				cachingState &&
-				guildCreatingState == LoadState.LOADING)
+				guildCreatingState == LoadState.LOADING)) && cachingState
 	}
 
 	boolean careAbout(event) {

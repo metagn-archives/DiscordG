@@ -219,8 +219,12 @@ abstract class CommandType {
 trait Restricted {
 	boolean black = false
 	boolean white = false
-	Map<String, Set> blacklist = [guild: [], channel: [], author: [], role: []]
-	Map<String, Set> whitelist = [guild: [], channel: [], author: [], role: []]
+	Map<String, Set<String>> blacklist = [guild: new HashSet<>(),
+			channel: new HashSet<>(), author: new HashSet<>(),
+			role: new HashSet<>()]
+	Map<String, Set<String>> whitelist = [guild: new HashSet<>(),
+			channel: new HashSet<>(), author: new HashSet<>(),
+			role: new HashSet<>()]
 
 	def whitelist() { white = true; this }
 	def blacklist() { black = true; this }
@@ -279,9 +283,9 @@ trait Restricted {
 trait Triggerable {
 	Set<CommandPattern> triggers = []
 
-	def setTrigger(trigger) { triggers.clear(); addTrigger(trigger) }
+	def setTrigger(trigger) { triggers.clear(); invokeMethod('addTrigger', trigger) }
 
-	def setTriggers(trigger) { triggers.clear(); addTriggers(trigger) }
+	def setTriggers(trigger) { triggers.clear(); invokeMethod('addTriggers', trigger) }
 	
 	def addTrigger(trigger) {
 		triggers.add(new CommandPattern(trigger))
@@ -306,9 +310,9 @@ trait Triggerable {
 trait Aliasable {
 	Set<CommandPattern> aliases = []
 
-	def setAlias(alias) { aliases.clear(); addAlias(alias) }
+	def setAlias(alias) { aliases.clear(); invokeMethod('addAlias', alias) }
 
-	def setAliases(alias) { aliases.clear(); addAliases(alias) }
+	def setAliases(alias) { aliases.clear(); invokeMethod('addAliases', alias) }
 
 	def addAlias(alias) {
 		aliases.add(new CommandPattern(alias))
@@ -412,7 +416,7 @@ class Command implements Triggerable, Aliasable, Restricted {
 		String[] rid = []
 		if (aa instanceof String) rid = [aa]
 		else if (null != aa[0])
-			if (aa[0] instanceof String) rid = [aa[0]]
+			if (aa[0] instanceof String) rid = [(String) aa[0]]
 			else rid = aa[0] as String[]
 		List<String> res = []
 		for (int i = 1; i < rid.size(); ++i) {
@@ -438,7 +442,7 @@ class Command implements Triggerable, Aliasable, Restricted {
  */
 @CompileStatic
 class ResponseCommand extends Command {
-	Closure response
+	Closure<String> response
 
 	/**
 	 * @param response - a string to respond with to this command. <br>
@@ -446,7 +450,11 @@ class ResponseCommand extends Command {
 	 */
 	ResponseCommand(CommandBot parentT, alias, trigger = [], response) {
 		super(parentT, alias, trigger)
-		this.response = response instanceof Closure ? (Closure) response : { CommandEventData d -> "$response" }
+		if (response instanceof Closure<String>) this.response = (Closure<String>) response
+		else {
+			final s = response.toString()
+			this.response = { s }
+		}
 		this.response.delegate = this
 	}
 

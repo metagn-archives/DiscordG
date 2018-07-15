@@ -24,9 +24,8 @@ class ConversionUtil {
 		else encodeImageBase64(getBytes(imagable))
 	}
 
-	@CompileDynamic
 	static byte[] getBytes(thing) {
-		try { getBytes$(thing) }
+		try { (byte[]) invokeMethod('getBytes$', [thing] as Object[]) }
 		catch (MissingMethodException ignore) { try { getBytesProperty(thing) }
 		catch (ex) { throw new UnsupportedOperationException("Cannot get byte array of $thing", ex) } }
 	}
@@ -49,6 +48,7 @@ class ConversionUtil {
 	}
 
 	static Date fromJsonDate(boolean discord = true, String string, TimeZone tz = TimeZone.getTimeZone('Etc/UTC')){
+		if (null == string) return null
 		Calendar cal = Calendar.getInstance(tz)
 		cal.clear()
 		def x = string.split(/\D+/)

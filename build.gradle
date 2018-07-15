@@ -1,10 +1,8 @@
 apply plugin: 'groovy'
-apply plugin: 'eclipse'
-apply plugin: 'maven'
 apply plugin: 'idea'
 apply plugin: 'application'
 
-version = "5.0.4"
+version = "5.1.0"
 group = "hlaaftana"
 archivesBaseName = "DiscordG"
 mainClassName = "hlaaftana.discordg.DSLMain"
@@ -21,7 +19,8 @@ repositories {
 }
 
 dependencies {
-	compile 'org.codehaus.groovy:groovy-all:2.4.12'
+	//compile 'org.codehaus.groovy:groovy-all:2.5.1'
+	compile fileTree(dir: 'C:\\Program Files (x86)\\Groovy\\groovy-2.5.1\\lib', include: '*.jar')
 	compile 'org.eclipse.jetty.websocket:websocket-client:9.3.7.v20160115'
 	compile 'com.mashape.unirest:unirest-java:1.4.7'
 	/*compile 'net.tomp2p:opus-wrapper:1.3'

@@ -5,7 +5,7 @@ import groovy.transform.CompileStatic
 import java.time.LocalDateTime
 
 @CompileStatic
-class Log {
+class Log<T extends Message> {
 	static class Level {
 		String name
 		boolean enabled = true
@@ -15,13 +15,18 @@ class Log {
 		boolean equals(Level other) { name == other.name }
 	}
 
-	static class Message {
+	interface Message {
+		boolean isEnabled()
+	}
+
+	static class SimpleMessage implements Message {
 		String by
 		Level level
 		String content
 		LocalDateTime time = LocalDateTime.now()
 		Map info = [:]
 
+		boolean isEnabled() { level.enabled }
 		String toString() { toString(defaultFormatter) }
 		String toString(Log log) { toString(log.formatter) }
 		String toString(Closure formatter) { formatter(this) }
@@ -35,7 +40,7 @@ class Log {
 		new Level(name: 'trace').disable()
 	]
 
-	static Closure<String> defaultFormatter = { Message message ->
+	static Closure<String> defaultFormatter = { SimpleMessage message ->
 		String.format('<%s|%s> [%s] [%s]: %s',
 			message.time.toLocalDate(),
 			message.time.toLocalTime(),
@@ -47,14 +52,14 @@ class Log {
 
 	List<Level> levels = defaultLevels
 
-	List<Message> messages = []
+	List<T> messages = []
 
-	List<Closure> listeners = [{ Message it -> if (it.level.enabled) println formatter.call(it) }]
+	List<Closure<Void>> listeners = [{ T it -> if (it.enabled) println formatter.call(it) }]
 
 	String name
 	Log(String name) { this.name = name }
 
-	Log(Log parent) {
+	Log(Log<T> parent) {
 		formatter = parent.formatter
 		name = parent.name
 	}
@@ -63,7 +68,7 @@ class Log {
 		listeners.add ass
 	}
 
-	def call(Message message) {
+	def call(T message) {
 		for (it in listeners) { it message }
 	}
 
@@ -92,20 +97,22 @@ class Log {
 		Level level = (Level) propertyMissing(name)
 		if (args.class.array) args = ((Object[]) args).toList()
 		boolean argsIsMultiple = args instanceof Collection
-		if (args instanceof Message || (argsIsMultiple && args.first() instanceof Message)){
+		if (args instanceof Message ||
+			(argsIsMultiple && ((Collection) args).first() instanceof Message)){
 			invokeMethod('log', args)
 		} else {
-			def ahh = argsIsMultiple ? [level, *args] : [level, args]
+			def ahh = argsIsMultiple ? [level] + ((Collection) args) : [level, args]
 			invokeMethod('log', ahh)
 		}
 	}
 
+	/// requires T to be SimpleMessage or just Message
 	def log(Level level, content, String by = name) {
-		Message ass = new Message(level: level, content: content.toString(), by: by)
-		log(ass)
+		SimpleMessage ass = new SimpleMessage(level: level, content: content.toString(), by: by)
+		log((T) ass)
 	}
 
-	def log(Message message) {
+	def log(T message) {
 		messages += message
 		call(message)
 	}

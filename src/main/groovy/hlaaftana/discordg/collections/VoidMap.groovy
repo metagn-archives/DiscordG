@@ -15,5 +15,5 @@ class VoidMap<K, V> implements Map<K, V> {
 	void clear() {}
 	Set<K> keySet() { (Set<K>) Collections.emptySet() }
 	Collection<V> values() { (Collection<V>) Collections.emptyList() }
-	Set<Map.Entry<K, V>> entrySet() { (Set<Map.Entry<K, V>>) Collections.emptySet() }
+	Set<Entry<K, V>> entrySet() { (Set<Entry<K, V>>) Collections.emptySet() }
 }

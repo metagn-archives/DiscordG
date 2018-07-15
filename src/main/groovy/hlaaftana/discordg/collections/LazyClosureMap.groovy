@@ -8,12 +8,12 @@ import java.util.concurrent.FutureTask
 
 @CompileStatic
 class LazyClosureMap<K, V> implements Map<K, V> {
-	List<LazyEntry<K, V>> entries = Collections.synchronizedList([])
+	List<LazyEntry<K, V>> entries = new ArrayList<LazyEntry<K, V>>().asSynchronized()
 
 	LazyClosureMap() {}
 	LazyClosureMap(Map<K, V> map) { putAll(map) }
 
-	static LazyClosureMap create(Map<K, V> initial = [:], Closure c) {
+	static LazyClosureMap create(Map<?, ?> initial = [:], Closure c) {
 		c.delegate = new LazyClosureMapBuilder(initial)
 		c.resolveStrategy = Closure.OWNER_FIRST
 		c()
@@ -40,7 +40,7 @@ class LazyClosureMap<K, V> implements Map<K, V> {
 		addEntry(new LazyEntry(this, key, lazy ? value : { (V) value })).rawValue
 	}
 
-	Closure<V> put(K key, boolean lazy = true, V value) {
+	Closure<V> put(K key, V value) {
 		put(key, Closure.IDENTITY.curry(value))
 	}
 
@@ -52,20 +52,12 @@ class LazyClosureMap<K, V> implements Map<K, V> {
 		put(key, lazy, value)
 	}
 
-	Closure<V> putAt(K key, boolean lazy = true, V ass) {
-		put(key, lazy, ass)
-	}
-
-	Closure<V> putAt(String key, boolean lazy = true, Closure<V> value) {
-		put((K) key, lazy, value)
-	}
-
-	Closure<V> putAt(String key, boolean lazy = true, V ass) {
-		put((K) key, lazy, ass)
+	Closure<V> putAt(K key, V ass) {
+		put(key, ass)
 	}
 
 	void putAll(Map m) {
-		for (e in m) put((K) e.key, false, (V) e.value)
+		for (e in m) put((K) e.key, (V) e.value)
 	}
 
 	void putAll(LazyClosureMap<K, V> map) {
@@ -139,11 +131,11 @@ class LazyClosureMap<K, V> implements Map<K, V> {
 	}
 
 	List<Tuple2<K, V>> entryTuples() {
-		entrySet().collect { [it.key, it.value] as Tuple2 }
+		entrySet().collect { new Tuple2<K, V>(it.key, it.value) }
 	}
 
 	List<Tuple2<K, Closure<V>>> rawEntryTuples() {
-		entrySet().collect { [it.key, it.rawValue] as Tuple2 }
+		entrySet().collect { new Tuple2<K, Closure<V>>(it.key, it.rawValue) }
 	}
 
 	Set<K> keySet() {
@@ -172,15 +164,10 @@ class LazyClosureMap<K, V> implements Map<K, V> {
 		get(key)
 	}
 
-	V getAt(String key) {
-		get((K) key)
-	}
-
 	V getProperty(String key) {
 		get((K) key)
 	}
 
-	@CompileDynamic
 	void setProperty(String key, value) {
 		put((K) key, (V) value)
 	}
@@ -246,7 +233,7 @@ class LazyClosureMap<K, V> implements Map<K, V> {
 		entries*.refresh()
 	}
 
-	static class LazyEntry<K, V> implements Map.Entry<K, V> {
+	static class LazyEntry<K, V> implements Entry<K, V> {
 		LazyClosureMap<K, V> map
 		private K key
 		private Closure<V> value
@@ -283,7 +270,7 @@ class LazyClosureMap<K, V> implements Map<K, V> {
 			evaluatedValue
 		}
 
-		boolean equals(Map.Entry<K, V> other) {
+		boolean equals(Entry<K, V> other) {
 			other.key == this.key && (
 				(other instanceof LazyEntry ?
 					((LazyEntry) other).rawValue == this.rawValue :
@@ -292,15 +279,15 @@ class LazyClosureMap<K, V> implements Map<K, V> {
 		}
 
 		boolean equals(other) {
-			other instanceof Map.Entry<K, V> &&
-					equals((Map.Entry<K, V>) other)
+			other instanceof Entry<K, V> &&
+					equals((Entry<K, V>) other)
 		}
 	}
 }
 
 @CompileStatic
 class LazyClosureMapBuilder {
-	LazyClosureMap result = [:]
+	LazyClosureMap result = new LazyClosureMap()
 	LazyClosureMapBuilder() {}
 	LazyClosureMapBuilder(Map initial) { result << initial }
 
@@ -311,17 +298,18 @@ class LazyClosureMapBuilder {
 	def methodMissing(String name, args) {
 		if (args.class.array) args = ((Object[]) args).toList()
 		if (args instanceof Collection) {
-			if (args[0] instanceof Closure) {
-				result[name] = args[0]
-			} else if (args[0] instanceof Boolean && args[1] instanceof Closure) {
-				result.put(name, (boolean) args[0], (Closure) args[1])
-			} else if (args[0] instanceof Closure) {
-				result.put(name, true, args[0])
+			final col = (Collection) args
+			if (col[0] instanceof Closure) {
+				result[name] = col[0]
+			} else if (col[0] instanceof Boolean && col[1] instanceof Closure) {
+				result.put(name, (boolean) col[0], (Closure) col[1])
+			} else if (col[0] instanceof Closure) {
+				result.put(name, true, (Closure) col[0])
 			} else {
-				result.put(name, args[0])
+				result.put(name, col[0])
 			}
 		} else {
-			methodMissing(name, [args])
+			methodMissing(name, [args] as Object[])
 		}
 	}
 
