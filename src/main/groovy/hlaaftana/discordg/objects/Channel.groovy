@@ -4,9 +4,9 @@ import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 import groovy.transform.stc.ClosureParams
 import groovy.transform.stc.SimpleType
-import hlaaftana.discordg.Client
 import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.Permissions
+import hlaaftana.discordg.Snowflake
 import hlaaftana.discordg.collections.DiscordListCache
 
 import java.util.regex.Pattern
@@ -15,20 +15,76 @@ import java.util.regex.Pattern
  * A Discord channel.
  * @author Hlaaftana
  */
-@InheritConstructors
 @SuppressWarnings('GroovyUnusedDeclaration')
 @CompileStatic
+@InheritConstructors
 class Channel extends DiscordObject {
 	static final Pattern MENTION_REGEX = ~/<#(\d+)>/
 
+	Snowflake id, guildId, lastMessageId
+	Integer position, type, bitrate, userLimit
+	boolean isPrivateField, nsfw
+	String name, categoryId, topic
+	DiscordListCache<User> recipientCache
+	DiscordListCache<PermissionOverwrite> permissionOverwriteCache
+
+	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
+			id: 1, name: 2, topic: 3, guild_id: 4, last_message_id: 5,
+			position: 6, type: 7, bitrate: 8, user_limit: 9,
+			is_private: 10, nsfw: 11, recipients: 12, permission_overwrites: 13)
+
+	void jsonField(String name, value) {
+		jsonField(FIELDS.get(name), value)
+	}
+
+	void jsonField(Integer field, value) {
+		if (null == field) return
+		int f = field.intValue()
+		if (f == 1) {
+			id = Snowflake.swornString(value)
+		} else if (f == 2) {
+			name = (String) value
+		} else if (f == 3) {
+			topic = (String) value
+		} else if (f == 4) {
+			guildId = Snowflake.swornString(value)
+		} else if (f == 5) {
+			lastMessageId = Snowflake.swornString(value)
+		} else if (f == 6) {
+			position = (int) value
+		} else if (f == 7) {
+			type = (int) value
+		} else if (f == 8) {
+			bitrate = (int) value
+		} else if (f == 9) {
+			userLimit = (int) value
+		} else if (f == 10) {
+			isPrivateField = (boolean) value
+		} else if (f == 11) {
+			nsfw = (boolean) value
+		} else if (f == 12) {
+			if (null == recipientCache)
+				recipientCache = new DiscordListCache<>(Collections.emptyList(), client)
+			final rs = (List<Map>) value
+			for (r in rs) recipientCache.add(new User(client, r))
+		} else if (f == 13) {
+			if (null == permissionOverwriteCache)
+				permissionOverwriteCache = new DiscordListCache<>(Collections.emptyList(), client)
+			final rs = (List<Map>) value
+			for (r in rs) {
+				def po = new PermissionOverwrite(client, r)
+				po.channelId = id
+				permissionOverwriteCache.add(po)
+			}
+		} else println("Unknown field number $field for ${this.class}")
+	}
+
 	String getMention() { "<#$id>" }
-	Integer getPosition() { (Integer) object.position }
-	Integer getType() { (Integer) object.type }
 	/**
 	 * Only for guild channels.
 	 */
 	boolean isText() { type == 0 }
-	boolean isPrivate() { (boolean) object.is_private || dm || group }
+	boolean isPrivate() { isPrivateField || dm || group }
 	boolean isDm() { type == 1 }
 	/**
 	 * Only for guild channels.
@@ -37,23 +93,18 @@ class Channel extends DiscordObject {
 	boolean isGroup() { type == 3 }
 	boolean isInGuild() { text || voice || category }
 	boolean isCategory() { type == 4 }
-	String getCategoryId() { (String) object.parent_id }
 	Channel getCategory() { null == categoryId ? null : guild.channel(categoryId) }
-	boolean isNsfw() { (boolean) object.nsfw }
-	String getTopic() { (String) object.topic }
-	Guild getGuild() { dm || group ? null : client.guildCache.at(guildId) }
-	String getGuildId() { (String) object.guild_id }
+	Guild getGuild() { dm || group ? null : client.guildCache.get(guildId) }
 	List<User> getUsers() {
 		(List<User>) (inGuild ? members : (recipients + client.user))
 	}
-	DiscordListCache<User> getRecipientCache() { (DiscordListCache<User>) object.recipients }
 	List<User> getRecipients() { recipientCache?.list() }
-	Map<String, User> getRecipientMap() { recipientCache?.map() }
+	Map<Snowflake, User> getRecipientMap() { recipientCache?.map() }
 	User getUser() { recipients[0] }
 	User getRecipient() { user }
 	String getName() {
-		dm ? user.name : group ? (recipientCache.rawList()*.get('name').join(', ')
-				?: 'Unnamed') : (String) object.name
+		dm ? user.name : group ? (recipientCache.list()*.name.join(', ')
+				?: 'Unnamed') : this.@name
 	}
 
 	void addRecipient(user) {
@@ -64,21 +115,17 @@ class Channel extends DiscordObject {
 		client.removeChannelRecipient(this, user)
 	}
 
-	DiscordListCache<PermissionOverwrite> getPermissionOverwriteCache() {
-		(DiscordListCache<PermissionOverwrite>) object.permission_overwrites
-	}
-
 	DiscordListCache<PermissionOverwrite> getOverwriteCache() { permissionOverwriteCache }
 
 	List<PermissionOverwrite> getPermissionOverwrites() { overwrites }
 
 	List<PermissionOverwrite> getOverwrites() { overwriteCache.list() }
 
-	Map<String, PermissionOverwrite> getPermissionOverwriteMap() {
+	Map<Snowflake, PermissionOverwrite> getPermissionOverwriteMap() {
 		overwriteCache.map()
 	}
 
-	Map<String, PermissionOverwrite> getOverwriteMap() { permissionOverwriteMap }
+	Map<Snowflake, PermissionOverwrite> getOverwriteMap() { permissionOverwriteMap }
 
 	PermissionOverwrite permissionOverwrite(ass) {
 		(PermissionOverwrite) find(overwriteCache, ass)
@@ -96,19 +143,19 @@ class Channel extends DiscordObject {
 		def owMap = overwriteCache
 		def everyoneOw = owMap[id]
 		if (everyoneOw) {
-			doodle &= ~((int) everyoneOw.deny)
-			doodle |= (int) everyoneOw.allow
+			doodle &= ~everyoneOw.deniedValue
+			doodle |= everyoneOw.allowedValue
 		}
-		def roleOws = new ArrayList<Map<String, Object>>()
+		def roleOws = new ArrayList<PermissionOverwrite>()
 		for (r in member.roleIds) if (owMap.containsKey(r)) roleOws.add(owMap[r])
 		if (roleOws) for (r in roleOws) {
-			doodle &= ~((int) r.deny)
-			doodle |= (int) r.allow
+			doodle &= ~r.deniedValue
+			doodle |= r.allowedValue
 		}
-		if (owMap.containsKey(id(user))){
-			def userOw = owMap[id(user)]
-			doodle &= ~((int) userOw.deny)
-			doodle |= (int) userOw.allow
+		final userOw = owMap[member.id]
+		if (null != userOw) {
+			doodle &= ~userOw.deniedValue
+			doodle |= userOw.allowedValue
 		}
 		new Permissions(doodle)
 	}
@@ -118,8 +165,8 @@ class Channel extends DiscordObject {
 	}
 
 	boolean canSee(user) {
-		if (this.private) recipientCache.containsKey(id(user))
-		else permissionsFor(user)['readMessages']
+		if (this.private) recipientCache.containsKey(Snowflake.from(user))
+		else permissionsFor(user)[Permissions.BitOffsets.READ_MESSAGES]
 	}
 
 	List<Invite> requestInvites() {
@@ -161,7 +208,7 @@ class Channel extends DiscordObject {
 		client.requestChannelWebhooks(this)
 	}
 
-	Message sendMessage(content, boolean tts=false) {
+	Message sendMessage(content, boolean tts = false) {
 		client.sendMessage(content: content, tts: tts, this)
 	}
 
@@ -226,7 +273,7 @@ class Channel extends DiscordObject {
 		client.forceRequestChannelLogs(this, m, b, bt) }
 
 	List<Message> getCachedLogs() { (List<Message>) (client.messages[id]?.list() ?: []) }
-	Map<String, Message> getCachedLogMap() { (Map<String, Message>) (client.messages[id]?.map() ?: [:]) }
+	Map<Snowflake, Message> getCachedLogMap() { (Map<Snowflake, Message>) (client.messages[id]?.map() ?: [:]) }
 
 	def clear(int number = 100) { clear(logs(number)*.id) }
 
@@ -237,7 +284,7 @@ class Channel extends DiscordObject {
 	}
 
 	def clear(user, int number = 100) {
-		clear(number) { Message it -> ((String) ((Map<String, Object>) it.object.author).id) == id(user) }
+		clear(number) { Message it -> it.author.id == Snowflake.from(user) }
 	}
 
 	Message find(int number = 100, int maxTries = 10,
@@ -256,8 +303,6 @@ class Channel extends DiscordObject {
 		}
 	}
 
-	String getLastMessageId() { (String) object.last_message_id }
-
 	List<VoiceState> getVoiceStates() {
 		int hash = id.hashCode()
 		guild.voiceStates.findAll {
@@ -270,14 +315,14 @@ class Channel extends DiscordObject {
 		inGuild ? (text ? guild.members.findAll { canSee(it) } : voiceStates*.member) : null
 	}
 
-	Map<String, VoiceState> getVoiceStateMap() {
+	Map<Snowflake, VoiceState> getVoiceStateMap() {
 		def vs = voiceStates
 		def res = new HashMap<>(vs.size())
 		for (v in vs) res.put(v.id, v)
 		res
 	}
 
-	Map<String, Member> getMemberMap() {
+	Map<Snowflake, Member> getMemberMap() {
 		def vs = members
 		def res = new HashMap<>(vs.size())
 		for (v in vs) res.put(v.id, v)
@@ -285,11 +330,8 @@ class Channel extends DiscordObject {
 	}
 
 	VoiceState voiceState(thing) { findBuilt(voiceStateMap, thing) }
-	User member(thing) { findBuilt(memberMap, thing) }
+	Member member(thing) { findBuilt(memberMap, thing) }
 	Call getOngoingCall() { client.ongoingCall(id) }
-
-	int getBitrate() { (int) object.bitrate }
-	int getUserLimit() { (int) object.user_limit }
 
 	boolean isFull() {
 		voiceStates.size() == userLimit
@@ -297,7 +339,7 @@ class Channel extends DiscordObject {
 
 	boolean canJoin() {
 		Permissions ass = guild.me.permissionsFor(this)
-		ass['connect'] && (userLimit ? (!full || ass['moveMembers']) : true )
+		ass[Permissions.BitOffsets.CONNECT] && (userLimit ? (!full || ass[Permissions.BitOffsets.MOVE_MEMBERS]) : true )
 	}
 
 	void move(member) {
@@ -320,35 +362,40 @@ class Channel extends DiscordObject {
 		}
 		vc
 	}*/
-
-	static Map construct(Client client, Map c, String guildId = null) {
-		if (guildId) c.guild_id = guildId
-		if (c.guild_id) {
-			def po = c.permission_overwrites
-			if (po instanceof List<Map<String, Object>>) {
-				def a = new ArrayList<Map<String, Object>>(po.size())
-				for (x in po) {
-					def j = new HashMap((Map) x)
-					j.put('channel_id', c.id)
-					a.add(j)
-				}
-				c.permission_overwrites = new DiscordListCache(a, client, PermissionOverwrite)
-			}
-		} else if (c.recipients != null) {
-			c.recipients = new DiscordListCache((List<Map>) c.recipients, client, User)
-		}
-		c
-	}
 }
 
 @InheritConstructors
 @CompileStatic
 class PermissionOverwrite extends DiscordObject {
-	int getAllowedValue() { def x = object.allow; null == x ? 0 : (int) x }
-	int getDeniedValue() { def x = object.deny; null == x ? 0 : (int) x }
+	int allowedValue, deniedValue
+	String type
+	Snowflake channelId, id
+
+	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
+			id: 1, channel_id: 2, allow: 3, deny: 4, type: 5)
+
+	void jsonField(String name, value) {
+		jsonField(FIELDS.get(name), value)
+	}
+
+	void jsonField(Integer field, value) {
+		if (null == field) return
+		int f = field.intValue()
+		if (f == 1) {
+			id = Snowflake.swornString(value)
+		} else if (f == 2) {
+			channelId = Snowflake.swornString(value)
+		} else if (f == 3) {
+			allowedValue = (int) value
+		} else if (f == 4) {
+			deniedValue = (int) value
+		} else if (f == 5) {
+			type = (String) value
+		} else println("Unknown field number $field for ${this.class}")
+	}
+
 	Permissions getAllowed() { new Permissions(allowedValue) }
 	Permissions getDenied() { new Permissions(deniedValue) }
-	String getType() { (String) object.type }
 	DiscordObject getAffected() {
 		if (type == 'role') {
 			channel.guild.role(id)
@@ -356,12 +403,11 @@ class PermissionOverwrite extends DiscordObject {
 			channel.guild.member(id)
 		} else null
 	}
-	String getChannelId() { (String) object.channel_id }
 	Channel getChannel() { client.channel(channelId) }
 	Channel getParent() { channel }
 	void edit(Map a) {
 		def de = [allow: allowed, deny: denied]
-		client.editChannelOverwrite(a, channelId, id)
+		client.editChannelOverwrite(de << a, channelId, id)
 	}
 	void delete() { client.deleteChannelOverwrite(channelId, id) }
 	String getName() { affected.name }
@@ -380,11 +426,38 @@ class PermissionOverwrite extends DiscordObject {
 @InheritConstructors
 @CompileStatic
 class Call extends DiscordObject {
-	String getId() { (String) object.channel_id }
-	String getMessageId() { (String) object.message_id }
-	String getRegionId() { (String) object.region }
-	List<String> getRingingUserIds() { (List<String>) object.ringing }
+	Snowflake channelId, messageId
+	String regionId
+	List<String> ringingUserIds
+	List<VoiceState> voiceStates
+	boolean unavailable
+
+	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
+			channel_id: 1, message_id: 2, region_id: 3, ringing: 4, voice_states: 5)
+
+	void jsonField(String name, value) {
+		jsonField(FIELDS.get(name), value)
+	}
+
+	void jsonField(Integer field, value) {
+		if (null == field) return
+		int f = field.intValue()
+		if (f == 1) {
+			channelId = Snowflake.swornString(value)
+		} else if (f == 2) {
+			messageId = Snowflake.swornString(value)
+		} else if (f == 3) {
+			regionId = (String) value
+		} else if (f == 4) {
+			if (null == ringingUserIds) ringingUserIds = new ArrayList<>(ringingUserIds.size())
+			ringingUserIds.addAll((List<String>) value)
+		} else if (f == 5) {
+			if (null == voiceStates) voiceStates = new ArrayList<>(voiceStates.size())
+			for (m in ((List<Map>) value)) voiceStates.add(new VoiceState(client, m))
+		} else println("Unknown field number $field for ${this.class}")
+	}
+
+	Snowflake getId() { channelId }
+	String getName() { null }
 	List<User> getRingingUsers() { ringingUserIds.collect(client.&user) }
-	List<VoiceState> getVoiceStates() { ((List<Map>) object.voice_states).collect { new VoiceState(client, it) } }
-	boolean isUnavailable() { (boolean) object.unavailable }
 }

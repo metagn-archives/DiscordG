@@ -101,8 +101,8 @@ class VoiceWSClient extends WebSocketAdapter {
 	void identify() {
 		send op: 0, d: [
 			token: vc.client.token,
-			guild_id: vc.id,
-			user_id: vc.client.user.id,
+			guild_id: vc.from,
+			user_id: vc.client.user.from,
 			session_id: vc.client.sessionId
 		]
 	}
