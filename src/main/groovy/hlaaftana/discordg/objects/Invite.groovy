@@ -3,6 +3,7 @@ package hlaaftana.discordg.objects
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.DiscordObject
+import hlaaftana.discordg.Snowflake
 import hlaaftana.discordg.util.*
 
 /**
@@ -12,22 +13,54 @@ import hlaaftana.discordg.util.*
 @InheritConstructors
 @CompileStatic
 class Invite extends DiscordObject {
-	int getMaxAge() { (int) object.max_age }
-	String getCode() { (String) object.code }
-	String getId() { (String) object.code }
-	String getUrl() { "https://discord.gg/${id}" }
-	Guild getGuild() { client.guild((String) guildObject.id) }
-	Map getGuildObject() { (Map) object.guild }
-	boolean isRevoked() { (boolean) object.revoked }
+	int maxAge, uses, maxUses
+	String code, rawCreatedAt /*created_at*/
+	Map guildObject /*guild*/, channelObject /*channel*/
+	boolean revoked, temporary
+	User inviter
+
+	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
+			max_age: 1, uses: 2, max_uses: 3, code: 4, created_at: 5,
+			guild: 6, channel: 7, revoked: 8, temporary: 9,
+			inviter: 10)
+
+	void jsonField(String name, value) {
+		jsonField(FIELDS.get(name), value)
+	}
+
+	void jsonField(Integer field, value) {
+		if (null == field) return
+		int f = field.intValue()
+		if (f == 1) {
+			maxAge = (int) value
+		} else if (f == 2) {
+			uses = (int) value
+		} else if (f == 3) {
+			maxUses = (int) value
+		} else if (f == 4) {
+			code = (String) value
+		} else if (f == 5) {
+			rawCreatedAt = (String) value
+		} else if (f == 6) {
+			guildObject = (Map) value
+		} else if (f == 7) {
+			channelObject = (Map) value
+		} else if (f == 8) {
+			revoked = (boolean) value
+		} else if (f == 9) {
+			temporary = (boolean) value
+		} else if (f == 10) {
+			inviter = new User(client, (Map) value)
+		} else println("Unknown field number $field for ${this.class}")
+	}
+
+	String getName() { code }
+	Snowflake getId() { null }
+	String getUrl() { "https://discord.gg/".concat(name) }
+	Guild getGuild() { client.guild(Snowflake.swornString(guildObject.id)) }
 	boolean isDeleted() { revoked }
-	String getRawCreatedAt() { (String) object.created_at }
 	Date getCreatedAt() { ConversionUtil.fromJsonDate(rawCreatedAt) }
-	boolean isTemporary() { (boolean) object.temporary }
-	int getUses() { (int) object.uses }
-	int getMaxUses() { (int) object.max_uses }
-	User getInviter() { new User(client, (Map) object.inviter) }
-	Channel getChannel() { client.channel((String) channelObject.id) }
-	Map getChannelObject() { (Map) object.channel }
+	Channel getChannel() { client.channel(Snowflake.swornString(channelObject.id)) }
 	DiscordObject getParent() { channel }
 	String toString() { url }
 	

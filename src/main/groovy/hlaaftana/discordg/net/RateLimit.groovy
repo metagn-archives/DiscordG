@@ -3,10 +3,14 @@ package hlaaftana.discordg.net
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.DiscordObject
+import hlaaftana.discordg.Snowflake
 
 @InheritConstructors
 @CompileStatic
 class RateLimit extends DiscordObject {
+	String message
+	long retryTime
+	boolean global
 	List<Integer> requests = []
 	
 	int newRequest() {
@@ -14,7 +18,15 @@ class RateLimit extends DiscordObject {
 		requests.add(x)
 		x
 	}
-	String getMessage() { (String) object.message }
-	long getRetryTime() { (long) object.retry_after }
-	boolean isGlobal() { (boolean) object.global }
+
+	Snowflake getId() { null }
+	String getName() { null }
+
+	void jsonField(String name, Object value) {
+		switch (name) {
+		case 'global': global = (boolean) value; break
+		case 'retry_after': retryTime = value as long; break
+		case 'message': message = (String) value; break
+		}
+	}
 }

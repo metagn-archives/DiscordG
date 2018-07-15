@@ -99,8 +99,9 @@ class Client extends User {
 
 	String tokenPrefix
 	String rawToken
-	String email
-	String getEmail() { userObject.getOrDefault('email', this.@email) }
+	boolean botField
+	String email, emailField
+	String getEmail() { emailField ?: email }
 	String password
 	boolean confirmedBot
 	void setBot(boolean x) { if (x && !confirmedBot) confirmedBot = true }
@@ -129,7 +130,7 @@ class Client extends User {
 	 */
 	String tokenCachePath = 'token.json'
 	/**
-	 * maximum amount of events that can be handled at the same time
+	 * maximum amount of events that can be handled get the same time
 	 * increasing might help with lag but takes up more CPU
 	 */
 	int threadPoolSize = 3
@@ -165,7 +166,7 @@ class Client extends User {
 	boolean spreadBulkDelete = true
 	/**
 	 * timeout for waiting for guild_create events after the READY
-	 * only for bots and accounts at or over 100 guilds
+	 * only for bots and accounts get or over 100 guilds
 	 */
 	long guildTimeout = 30_000
 	/**
@@ -184,7 +185,7 @@ class Client extends User {
 	
 	Log logObj
 	Map<String, Object> extraIdentifyData = [:]
-	Set<String> mutedChannels = []
+	Set<Snowflake> mutedChannels = []
 	Map<String, ActionPool> pools = [
 		sendMessages: newPool(5, 5_000),
 		deleteMessages: newPool(5, 1_000),
@@ -211,17 +212,17 @@ class Client extends User {
 	}
 	HTTPClient http = new HTTPClient(this)
 	WSClient ws
-	Cache<String, Object> readyData = Cache.empty(this)
+	Cache<Snowflake, Object> readyData = Cache.empty(this)
 	boolean cacheMessages = true
-	Cache<String, DiscordListCache<Message>> messages = Cache.empty(this)
+	Cache<Snowflake, DiscordListCache<Message>> messages = Cache.empty(this)
 	boolean cacheReactions = false
-	Cache<String, List<Map<String, Object>>> reactions = Cache.empty(this)
-	Cache<String, Map<String, Object>> calls = Cache.empty(this)
+	Cache<Snowflake, List<Reaction>> reactions = Cache.empty(this)
+	Cache<Snowflake, Call> calls = Cache.empty(this)
 	DiscordListCache<Guild> guildCache
 	DiscordListCache<Presence> presenceCache
 	DiscordListCache<Channel> privateChannelCache
 	DiscordListCache<Relationship> relationshipCache
-	Cache<String, Map<String, Object>> userGuildSettingCache
+	Cache<Snowflake, Map<String, Object>> userGuildSettingCache
 	Map<String, Object> userObject
 	String gateway
 	String sessionId
@@ -266,7 +267,7 @@ class Client extends User {
 	}
 	
 	boolean isBot() {
-		boolean ass = confirmedBot || object.bot
+		boolean ass = confirmedBot || botField
 		tokenPrefix = ass ? 'Bot' : ''
 		ass
 	}
@@ -283,11 +284,11 @@ class Client extends User {
 		File tokenCache = new File(tokenCachePath)
 		if (!cacheTokens) token = requestToken(email, password)
 		else try {
-			token = ((Map) JSONUtil.parse(tokenCache)[(email)]).token.toString()
+			token = (String) ((Map) JSONUtil.parse(tokenCache)[(email)]).token
 		} catch (ignored) {
 			JSONUtil.modify(tokenCache,
 				[(email): [token: requestToken(email, password)]])
-			token = ((Map) JSONUtil.parse(tokenCache)[(email)]).token.toString()
+			token = (String) ((Map) JSONUtil.parse(tokenCache)[(email)]).token
 		}
 		log.info 'Got token.'
 		login(token, false)
@@ -304,14 +305,14 @@ class Client extends User {
 		File tokenFile = new File(tokenCachePath)
 		if (!tokenFile.exists()) JSONUtil.dump(tokenFile, [bots: [:]])
 		Map original = (Map<String, Map<String, Map<String, String>>>) JSONUtil.parse(tokenFile)
-		if (!original.bots) original.bots = [:]
-		if (!original.bots[customBotName]) original.bots[customBotName] = [:]
-		def x = (Map<String, String>) original.bots[customBotName]
-		if (x.token) {
-			try{
+		if (null == original.bots) original.bots = [:]
+		if (null == original.bots[customBotName]) original.bots[customBotName] = [:]
+		def x = original.bots[customBotName]
+		if (null != x.token) {
+			try {
 				token = x.token
-			}catch (ignored) {
-				String newToken = requestToken()
+			} catch (ignored) {
+				final newToken = requestToken()
 				JSONUtil.dump(tokenFile, original)
 				token = newToken
 			}
@@ -354,7 +355,7 @@ class Client extends User {
 
 	void closeGateway() {
 		gatewayClosed = true
-		if (ws) {
+		if (null != ws) {
 			ws.heartbeatThread?.interrupt()
 			ws.session?.close(1000, 'Close')
 		}
@@ -362,7 +363,7 @@ class Client extends User {
 
 	static String parseEvent(str) {
 		def r = str.toString().toUpperCase().replaceAll(/\s+/, '_')
-			.replace('CHANGE', 'UPDATE').replaceAll(/^(?!VOICE_)GUILD/, 'GUILD')
+			.replace('CHANGE', 'UPDATE').replaceAll(/^(?!VOICE_)SERVER/, 'GUILD')
 		knownEvents.contains(r) ? r : (eventAliases[r] ?: 'UNRECOGNIZED')
 	}
 
@@ -395,33 +396,33 @@ class Client extends User {
 	}
 
 	boolean isPrivateChannel(c) {
-		privateChannelCache.containsKey(id(c))
+		privateChannelCache.containsKey(Snowflake.from(c))
 	}
 
 	List<Channel> getPrivateChannels() {
 		(List<Channel>) (privateChannelCache?.list() ?: [])
 	}
 
-	Map<String, Channel> getPrivateChannelMap() {
-		(Map<String, Channel>) (privateChannelCache?.map() ?: [:])
+	Map<Snowflake, Channel> getPrivateChannelMap() {
+		privateChannelCache?.map() ?: Collections.emptyMap()
 	}
 
 	Channel privateChannel(c) { find(privateChannelCache, c) }
 	List<Channel> privateChannels(c) { findAll(privateChannelCache, c) }
 
 	DiscordListCache<Channel> getUserDmChannelCache() {
-		DiscordListCache dlc = new DiscordListCache([], this, Channel)
+		def dlc = new DiscordListCache<Channel>([], this)
 		for (e in privateChannelCache) if (e.value.type == 1)
-			dlc.put(((DiscordListCache<User>) e.value.recipients).keySet()[0], e.value)
+			dlc.put(e.value.recipientCache.keySet()[0], e.value)
 		dlc
 	}
 
-	Map<String, Channel> getUserDmChannelMap() {
+	Map<Snowflake, Channel> getUserDmChannelMap() {
 		userDmChannelCache.map()
 	}
 
 	DiscordListCache<Channel> getDmChannelCache() {
-		DiscordListCache dlc = new DiscordListCache([], this, Channel)
+		def dlc = new DiscordListCache<Channel>([], this)
 		for (e in privateChannelCache) if (e.value.type == 1) dlc.add(e.value)
 		dlc
 	}
@@ -430,7 +431,7 @@ class Client extends User {
 		privateChannels.findAll { it.dm }
 	}
 
-	Map<String, Channel> getDmChannelMap() {
+	Map<Snowflake, Channel> getDmChannelMap() {
 		privateChannelMap.findAll { k, v -> v.dm }
 	}
 
@@ -442,7 +443,7 @@ class Client extends User {
 		privateChannels.findAll { it.group }
 	}
 
-	Map<String, Channel> getGroupMap() {
+	Map<Snowflake, Channel> getGroupMap() {
 		privateChannelMap.findAll { k, v -> v.group }
 	}
 
@@ -453,43 +454,37 @@ class Client extends User {
 		(List<Channel>) (guildChannels + privateChannels ?: [])
 	}
 
-	Map<String, Channel> getChannelMap() {
-		(Map<String, Channel>) (guildChannelMap + privateChannelMap ?: [:])
+	Map<Snowflake, Channel> getChannelMap() {
+		(Map<Snowflake, Channel>) (guildChannelMap + privateChannelMap ?: [:])
 	}
 
 	List<Channel> getGuildChannels() {
 		def result = new ArrayList<Channel>()
-		for (e in guildCache) {
-			def c = (DiscordListCache<Channel>) e.value.channels
-			result.addAll(c.list())
-		}
+		for (e in guildCache) result.addAll(e.value.channelCache.list())
 		result
 	}
 
-	Map<String, Channel> getGuildChannelMap() {
-		def result = new HashMap<String, Channel>()
-		for (e in guildCache) {
-			def c = (DiscordListCache<Channel>) e.value.channels
-			result.putAll(c.map())
-		}
+	Map<Snowflake, Channel> getGuildChannelMap() {
+		def result = new HashMap<Snowflake, Channel>()
+		for (e in guildCache) result.putAll(e.value.channelCache.map())
 		result
 	}
 
-	Map<String, String> getChannelGuildIdMap() {
-		def result = new HashMap<String, String>()
+	Map<Snowflake, Snowflake> getChannelGuildIdMap() {
+		def result = new HashMap<Snowflake, Snowflake>()
 		for (e in guildCache) for (ce in (DiscordListCache<Channel>) e.value.channels) {
 			result.put ce.key, e.key
 		}
 		result
 	}
 
-	Member member(t) { (Member) findNested(guildCache, "members", t) }
-	List<Member> members(t) { findAllNested(guildCache, "members", t) }
-	Member member(s, u) { find((DiscordListCache<Member>) guildCache[id(s)].members, u) }
-	List<Member> members(s, u) { findAll((DiscordListCache<Member>) guildCache[id(s)].members, u) }
+	Member member(t) { (Member) findNested(guildCache, "memberCache", t) }
+	List<Member> members(t) { findAllNested(guildCache, "memberCache", t) }
+	Member member(s, u) { find(guildCache[Snowflake.from(s)].memberCache, u) }
+	List<Member> members(s, u) { findAll(guildCache[Snowflake.from(s)].memberCache, u) }
 
 	User user(u) { (User) (member(u)?.user ?:
-			findNested(privateChannelCache, 'recipients', u) ?:
+			findNested(privateChannelCache, 'recipientCache', u) ?:
 					relation(u)?.user) }
 	Relationship relationship(u) { find(relationshipCache, u) }
 	Relationship relation(u) { relationship(u) }
@@ -503,26 +498,26 @@ class Client extends User {
 
 	Channel channel(c) { guildChannel(c) ?: privateChannel(c) }
 	List<Channel> channels(c) { guildChannels(c) ?: privateChannels(c) }
-	Channel guildChannel(c) { (Channel) findNested(guildCache, "channels", c) }
-	List<Channel> guildChannels(c) { findAllNested(guildCache, "channels", c) }
-	Channel channel(s, c) { find((DiscordListCache<Channel>) guildCache[id(s)].channels, c) }
-	List<Channel> channels(s, c) { findAll((DiscordListCache<Channel>) guildCache[id(s)].channels, c) }
+	Channel guildChannel(c) { (Channel) findNested(guildCache, "channelCache", c) }
+	List<Channel> guildChannels(c) { findAllNested(guildCache, "channelCache", c) }
+	Channel channel(s, c) { find(guildCache[Snowflake.from(s)].channelCache, c) }
+	List<Channel> channels(s, c) { findAll(guildCache[Snowflake.from(s)].channelCache, c) }
 
-	Role role(r) { (Role) findNested(guildCache, "roles", r) }
-	List<Role> roles(r) { findAllNested(guildCache, "roles", r) }
-	Role role(s, r) { find((DiscordListCache<Role>) guildCache[id(s)].roles, r) }
-	List<Role> roles(s, r) { findAll((DiscordListCache<Role>) guildCache[id(s)].roles, r) }
+	Role role(r) { (Role) findNested(guildCache, "roleCache", r) }
+	List<Role> roles(r) { findAllNested(guildCache, "roleCache", r) }
+	Role role(s, r) { find(guildCache[Snowflake.from(s)].roleCache, r) }
+	List<Role> roles(s, r) { findAll(guildCache[Snowflake.from(s)].roleCache, r) }
 
-	Call ongoingCall(c) { calls[id(c)] ? new Call(this, calls[id(c)]) : null }
+	Call ongoingCall(c) { calls[Snowflake.from(c)] }
 
 	List<Relationship> getRelationships() { relationshipCache.list() }
-	Map<String, Relationship> getRelationshipMap() { relationshipCache.map() }
+	Map<Snowflake, Relationship> getRelationshipMap() { relationshipCache.map() }
 
 	List<Guild> getGuilds() { (List<Guild>) (guildCache?.list() ?: []) }
-	Map<String, Guild> getGuildMap() { (Map<String, Guild>) (guildCache?.map() ?: [:]) }
+	Map<Snowflake, Guild> getGuildMap() { (Map<Snowflake, Guild>) (guildCache?.map() ?: [:]) }
 
 	List<Presence> getGlobalPresences() { (List<Presence>) (presenceCache?.list() ?: []) }
-	Map<String, Presence> getGlobalPresenceMap() { (Map<String, Presence>) (presenceCache?.map() ?: [:]) }
+	Map<Snowflake, Presence> getGlobalPresenceMap() { (Map<Snowflake, Presence>) (presenceCache?.map() ?: [:]) }
 
 	List<User> getAllUsers() { userMap.values().toList() }
 	List<Member> getAllMembers() { (List<Member>) memberMap.values()*.values().flatten().toList() }
@@ -534,37 +529,37 @@ class Client extends User {
 	List<Role> getRoles() { allRoles }
 	List<Emoji> getEmojis() { allEmojis }
 
-	Map<String, User> getUserMap() {
-		def result = new HashMap<String, User>()
+	Map<Snowflake, User> getUserMap() {
+		def result = new HashMap<Snowflake, User>()
 		for (e in guildCache) {
-			def m = (DiscordListCache<Member>) e.value.members
-			for (me in m) result.put(me.key, m.at(me.key).user)
+			def m = e.value.memberCache
+			for (me in m) result.put(me.key, m.get(me.key).user)
 		}
 		for (e in privateChannelCache) {
-			def m = (DiscordListCache<User>) e.value.recipients
-			for (me in m) result.put(me.key, m.at(me.key))
+			def m = e.value.recipientCache
+			for (me in m) result.put(me.key, m.get(me.key))
 		}
 		if (null != relationshipCache) for (e in relationshipCache) {
-			def r = relationshipCache.at(e.key).user
+			def r = relationshipCache.get(e.key).user
 			result.put(r.id, r)
 		}
 		result
 	}
 
-	Map<String, Map<String, Member>> getMemberMap() {
-		Map doo = [:]
+	Map<Snowflake, Map<Snowflake, Member>> getMemberMap() {
+		def doo = new HashMap<Snowflake, Map<Snowflake, Member>>()
 		guilds.each { doo[it.id] = it.memberMap }
 		doo
 	}
 
-	Map<String, Role> getRoleMap() {
-		def result = new HashMap<String, Role>()
+	Map<Snowflake, Role> getRoleMap() {
+		def result = new HashMap<Snowflake, Role>()
 		for (e in guilds) result.putAll(e.roleMap)
 		result
 	}
 
-	Map<String, Emoji> getEmojiIdMap() {
-		def result = new HashMap<String, Emoji>()
+	Map<Snowflake, Emoji> getEmojiIdMap() {
+		def result = new HashMap<Snowflake, Emoji>()
 		for (e in guilds) result.putAll(e.emojiIdMap)
 		result
 	}
@@ -583,8 +578,8 @@ class Client extends User {
 
 	def syncGuilds(g) {
 		final g1 = g instanceof Collection ?
-			g.collect(DiscordObject.&id).collate(25) :
-			[[id(g)]]
+			g.collect(Snowflake.&from)*.toString().collate(25) :
+			[[Snowflake.from(g).toString()]]
 		for (c in g1) {
 			ws.send op: 12, d: c
 			Thread.sleep 1000
@@ -593,8 +588,8 @@ class Client extends User {
 
 	def chunkMembersFor(guilds, String query = '', int limit = 0) {
 		final g = guilds instanceof Collection ?
-			guilds.collect(DiscordObject.&id).collate(25) :
-			[id(guilds)]
+			guilds.collect(Snowflake.&from)*.toString().collate(25) :
+			[Snowflake.from(guilds).toString()]
 		for (it in g) {
 			ws.send op: 8, d: [
 				guild_id: it,
@@ -619,7 +614,7 @@ class Client extends User {
 	}
 
 	static String getApplicationLink(app, Permissions perms = null) {
-		"https://discordapp.com/oauth2/authorize?client_id=${id(app)}&scope=bot" +
+		"https://discordapp.com/oauth2/authorize?client_id=${Snowflake.from(app)}&scope=bot" +
 			(perms ? "&permissions=$perms.value" : '')
 	}
 
@@ -628,41 +623,41 @@ class Client extends User {
 	static String appLink(app, Permissions perms = null) { getApplicationLink(app, perms) }
 
 	void mute(t) {
-		if (t.class.array || t instanceof Collection) mutedChannels.addAll(t.collect(this.&id))
-		else mutedChannels.add(id(t))
+		if (t.class.array || t instanceof Collection) mutedChannels.addAll(t.collect(Snowflake.&from))
+		else mutedChannels.add(Snowflake.from(t))
 	}
 
 	void changePresence(Map<String, Object> data) {
 		def oldPresence = presences.find { it.id == id }
 		def dg = data.game
+		def game = dg instanceof Game ? (Game) dg : null == dg ? oldPresence?.game : new Game(this)
+		if (dg instanceof String) game.name = dg
+		else if (dg instanceof Map) game.fill(dg)
+		else if (null != dg) game.name = dg.toString()
 		def payload = [
-			status: data.status ?: oldPresence?.status ?: 'online',
-			game: null != dg ?
-				dg instanceof String ? [name: dg, type: 0] :
-				dg instanceof DiscordObject ? ((DiscordObject) dg).object :
-				dg instanceof Map ? dg :
-				[name: dg.toString()] :
-				oldPresence?.game?.object ?: null,
-			since: data.since ?: 0,
-			afk: data.afk ?: false,
+			status: (String) data.status ?: oldPresence?.status ?: 'online',
+			game: null == game ? null : [name: game.name, type: game.type],
+			since: (int) data.since ?: 0,
+			afk: (boolean) data.afk ?: false,
 		]
 		askPool('changePresence') {
 			ws.send(3, payload)
 		}
+
 		for (s in guildCache) {
-			((DiscordListCache) s.value.presences).add(
-				user: userObject,
-				game: payload.game,
-				status: payload.status,
-				guild_id: s.key
-			)
+			def presence = new Presence(this)
+			presence.user = this
+			presence.game = game
+			presence.status = (String) payload.status
+			presence.guildId = s.key
+			s.value.presenceCache.add(presence)
 		}
-		presenceCache.add(
-			user: userObject,
-			game: payload.game,
-			status: payload.status,
-			last_modified: System.currentTimeMillis()
-		)
+		def presence = new Presence(this)
+		presence.user = this
+		presence.game = game
+		presence.status = (String) payload.status
+		presence.lastModified = System.currentTimeMillis()
+		presenceCache.add(presence)
 	}
 
 	void status(status) { changePresence(status: status) }
@@ -679,174 +674,169 @@ class Client extends User {
 			@Override
 			@CompileStatic
 			void fire(String type, Map<String, Object> d) {
-				def g = (String) d.guild_id
+				final g = Snowflake.from(d.guild_id)
+				final anyG = null != g
+				final gu = anyG ? guildCache[g] : null
+				final ch = Snowflake.from(d.channel_id)
 				switch (type) {
 				case 'GUILD_MEMBER_ADD':
-					((DiscordListCache) guildCache[g].members).add(d)
-					((int) guildCache[g].member_count)++
+					gu.memberCache.add(new Member(Client.this, d))
+					gu.memberCount++
 					break
 				case 'GUILD_MEMBER_REMOVE':
-					if (guildCache[g]) {
-						((DiscordListCache<Member>) guildCache[g].members).remove((String) ((Map) d.user).id)
-						((int) guildCache[g].member_count)--
+					if (anyG) {
+						gu.memberCache.remove(Snowflake.swornString(((Map) d.user).id))
+						gu.memberCount--
 					}
 					break
 				case 'GUILD_ROLE_CREATE':
-					((DiscordListCache<Role>) guildCache[g].roles).add((Map) d.role + [guild_id: g])
+					def r = new Role(Client.this)
+					r.guildId = g
+					r.fill((Map) d.role)
+					gu.roleCache.add(r)
 					break
 				case 'GUILD_ROLE_DELETE':
-					((DiscordListCache<Role>) guildCache[g].roles).remove((String) d.role_id)
+					gu.roleCache.remove(Snowflake.swornString(d.role_id))
 					break
 				case 'CHANNEL_CREATE':
-					(null == g ? privateChannelCache :
-							((DiscordListCache<Channel>) guildCache[g].channels)).add(d)
+					(anyG ? gu.channelCache : privateChannelCache).add(new Channel(Client.this, d))
 					break
 				case 'CHANNEL_DELETE':
-					(null == g ? privateChannelCache :
-							((DiscordListCache<Channel>) guildCache[g].channels)).remove((String) d.id)
+					(anyG ? gu.channelCache : privateChannelCache).remove(Snowflake.swornString(d.id))
 					break
 				case 'CHANNEL_UPDATE':
-					final map = (null == g ? privateChannelCache :
-							((DiscordListCache<Channel>) guildCache[g].channels))[(String) d.id]
-					for (e in d) {
-						if (e.key == 'permission_overwrites') {
-							final po = (List<Map<String, Object>>) e.value
-							def a = new ArrayList<Map<String, Object>>(po.size())
-							for (x in po) {
-								def j = new HashMap((Map) x)
-								j.put('channel_id', (String) d.id)
-								a.add(j)
-							}
-							map.permission_overwrites = new DiscordListCache(a, Client.this, PermissionOverwrite)
-						} else map[e.key] = e.value
-					}
+					(anyG ? gu.channelCache : privateChannelCache)[Snowflake.swornString(d.id)].fill(d)
 					break
 				case 'MESSAGE_CREATE':
 					if (!cacheMessages) break
-					if (messages[(String) d.channel_id]) {
-						messages[(String) d.channel_id].add(d)
+					final m = messages[ch]
+					if (null != m) {
+						final id = Snowflake.swornString(d.id)
+						m[id] = new Message(Client.this, d)
 					} else {
-						def a = new DiscordListCache([d], Client.this, Message)
-						a.setRoot channel((String) d.channel_id)
-						messages[(String) d.channel_id] = a
+						def msg = new Message(Client.this, d)
+						def a = new DiscordListCache([msg], Client.this)
+						a.setRoot msg.channel
+						messages[ch] = a
 					}
 					break
 				case 'MESSAGE_UPDATE':
 					if (!cacheMessages) break
-					if (messages[(String) d.channel_id]) {
-						if (messages[(String) d.channel_id][(String) d.id]) {
-							messages[(String) d.channel_id][(String) d.id] << d
-						} else {
-							messages[(String) d.channel_id].add(d)
-						}
+					final m = messages[ch]
+					if (null != m) {
+						final id = Snowflake.swornString(d.id)
+						final msg = m[id] ?: (m[id] = new Message(Client.this))
+						msg.fill(d)
 					} else {
-						def a = new DiscordListCache([d], Client.this, Message)
-						a.setRoot channel((String) d.channel_id)
-						messages[(String) d.channel_id] = a
+						def msg = new Message(Client.this, d)
+						def a = new DiscordListCache([msg], Client.this)
+						a.setRoot msg.channel
+						messages[ch] = a
 					}
 					break
 				case 'MESSAGE_DELETE':
 					if (!cacheMessages) break
-					messages[(String) d.channel_id]?.remove((String) d.id)
+					messages[ch]?.remove(Snowflake.swornString(d.id))
 					break
 				case 'GUILD_CREATE':
-					if (guildCache[(String) d.id]) guildCache[(String) d.id].putAll(d)
-					else guildCache.add(d)
+					final guild = guildCache[Snowflake.swornString(d.id)]
+					if (null == guild) guildCache.add(new Guild(Client.this, d))
+					else guild.fill(d)
 					break
 				case 'GUILD_DELETE':
-					guildCache.remove((String) d.id)
+					guildCache.remove(Snowflake.swornString(d.id))
 					break
 				case 'GUILD_MEMBER_UPDATE':
-					((DiscordListCache<Member>) guildCache[g].members)[(String) ((Map) d.user).id]?.putAll(d)
+					gu.memberCache[Snowflake.swornString(((Map) d.user).id)]?.fill(d)
 					break
 				case 'GUILD_ROLE_UPDATE':
-					def r = (String) ((Map) d.role).id
-					def rc = (DiscordListCache<Role>) guildCache[g].roles
-					if (rc.containsKey(r)) rc[r].putAll((Map) d.role)
+					def r = Snowflake.swornString(((Map) d.role).id)
+					def rc = gu.roleCache
+					final role = rc[r]
+					if (null != role) role.fill((Map) d.role)
 					else {
-						def x = new HashMap<String, Object>((Map) d.role)
-						x.put('guild_id', g)
-						rc.put r, x
+						def rol = new Role(Client.this)
+						rol.guildId = g
+						rol.fill((Map) d.role)
+						rc.add(rol)
 					}
 					break
 				case 'GUILD_UPDATE':
-					guildCache[(String) d.id] << d
+					guildCache[Snowflake.swornString(d.id)].fill d
 					break
 				case 'PRESENCE_UPDATE':
 					if (null == g) {
 						def m = (Map) d.user
-						def i = (String) m.id
+						def i = Snowflake.swornString(m.id)
 						if (null == user(i)) for (e in privateChannelCache) {
-							def v = (DiscordListCache<User>) e.value.recipients
-							if (v.containsKey(i)) v[i] = m
+							def v = e.value.recipientCache
+							if (v.containsKey(i)) v[i] = new User(Client.this, m)
 						}
 						if (d.status == 'offline') presenceCache.remove(i)
-						else {
-							def x = new HashMap<String, Object>(d)
-							x.put('id', i)
-							presenceCache[i] = x
-						}
+						else presenceCache[i] = new Presence(Client.this, m)
 					} else {
 						if (guildCache[g].unavailable) break
+						def id = Snowflake.swornString(((Map) d.user).id)
 						if (((Map) d.user).avatar) {
-							def m = (DiscordListCache<Member>) guildCache[g].members
-							if (m.containsKey((String) ((Map) d.user).id)) {
-								((Map) m[(String) ((Map) d.user).id].user).putAll((Map) d.user)
-							} else {
-								Map di = new HashMap(d)
-								di.remove 'status'
-								di.remove 'game'
-								if (allowMemberRequesting) di.putAll(requestMember(g, (String) ((Map) d.user).id).object)
-								m.add(di)
-							}
+							def m = guildCache[g].memberCache
+							def mem = m[id]
+							if (null != mem) mem.fill((Map) d.user)
+							else m.add(new Member(Client.this, d))
 						}
-						def pc = (DiscordListCache<Presence>) guildCache[g].presences
-						if (d.status == 'offline') pc?.remove((String) ((Map) d.user).id)
-						else {
-							Map di = new HashMap(d)
-							di.remove 'roles'
-							di.remove 'nick'
-							di.put 'id', ((Map) d.user).id
-							pc?.add(di)
-						}
+						def pc = guildCache[g].presenceCache
+						if (d.status == 'offline') pc?.remove(id)
+						else pc?.add(new Presence(Client.this, d))
 					}
 					break
 				case 'CHANNEL_RECIPIENT_ADD':
-					((DiscordListCache<User>) privateChannelCache[(String) d.channel_id].recipients)
-							.add((Map) d.user)
+					privateChannelCache[ch].recipientCache.add(new User(Client.this, (Map) d.user))
 					break
 				case 'CHANNEL_RECIPIENT_REMOVE':
-					((DiscordListCache<User>) privateChannelCache[(String) d.channel_id].recipients)
-							.remove((String) ((Map) d.user).id)
+					privateChannelCache[ch].recipientCache.remove(Snowflake.swornString(((Map) d.user).id))
 					break
 				case 'VOICE_STATE_UPDATE':
 					def gi = g
 					if (null == g) {
-						for (e in guildCache) if (((DiscordListCache<Channel>) e.value.channels)
-								.containsKey((String) d.channel_id)) gi = e.key
+						for (e in guildCache) if (e.value.channelCache
+								.containsKey(ch)) gi = e.key
 					}
-					def x = (DiscordListCache<VoiceState>) guildCache[gi].voice_states
-					if ((String) d.channel_id) {
-						if (x.containsKey((String) d.id)) x[(String) d.id].putAll d
-						else x[(String) d.id] = d
-					} else x.remove((String) d.id)
+					def x = guildCache[gi].voiceStateCache
+					def id = Snowflake.swornString(d.id)
+					if (null != ch) {
+						final it = x[id]
+						if (null != it) it.fill d
+						else x[id] = new VoiceState(Client.this, d)
+					} else x.remove(id)
 					break
 				case 'GUILD_EMOJIS_UPDATE':
-					guildCache[g].emojis = d.emojis
+					gu.jsonField('emojis', d.emojis)
 					break
 				case 'USER_UPDATE':
 					userObject.putAll d
+					fill d
 					break
 				case 'GUILD_MEMBERS_CHUNK':
-					for (x in (List<Map>) d.members)
-						((DiscordListCache<Member>) guildCache[g].members).add(x + [guild_id: g])
+					for (x in (List<Map>) d.members) {
+						def mem = new Member(Client.this)
+						mem.guildId = g
+						mem.fill x
+						gu.memberCache.add(mem)
+					}
 					break
 				case 'GUILD_SYNC':
-					for (x in (List<Map>) d.members)
-						((DiscordListCache<Member>) guildCache[g].members).add(x + [guild_id: g])
-					for (x in (List<Map>) d.presences)
-						((DiscordListCache<Presence>) guildCache[g].presences).add(x + [guild_id: g])
-					guildCache[(String) d.id].large = d.large
+					for (x in (List<Map>) d.members) {
+						def mem = new Member(Client.this)
+						mem.guildId = g
+						mem.fill x
+						gu.memberCache.add(mem)
+					}
+					for (x in (List<Map>) d.presences) {
+						def pres = new Presence(Client.this)
+						pres.guildId = g
+						pres.fill x
+						gu.presenceCache.add(pres)
+					}
+					guildCache[Snowflake.swornString(d.id)].large = d.large
 					break
 				case 'USER_NOTE_UPDATE':
 					def n = ((Map<String, Object>) readyData.notes)
@@ -854,15 +844,21 @@ class Client extends User {
 					break
 				case 'MESSAGE_REACTION_ADD':
 					if (!cacheReactions) break
-					def fabricated = [user_id: (String) d.user_id,
+					def fabricated = [user_id: Snowflake.swornString(d.user_id),
 							emoji  : d.emoji]
-					reactions.containsKey((String) d.message_id) ?
-							reactions[(String) d.message_id].add(fabricated) :
-							reactions.put((String) d.message_id, [(Map) fabricated])
+					final mi = Snowflake.swornString(d.message_id)
+					def reacs = reactions[mi]
+					if (null == reacs) {
+						def reac = new Reaction(Client.this)
+						reac.
+					}
+					reactions.containsKey(Snowflake.swornString(d.message_id)) ?
+							reactions[Snowflake.swornString(d.message_id)].add(fabricated) :
+							reactions.put(Snowflake.swornString(d.message_id), [(Map) fabricated])
 					break
 				case 'MESSAGE_REACTION_REMOVE':
 					if (!cacheReactions) break
-					def x = reactions[(String) d.message_id]
+					def x = reactions[Snowflake.swornString(d.message_id)]
 					if (null == x) break
 					int i = 0
 					for (a in x) {
@@ -875,19 +871,19 @@ class Client extends User {
 					break
 				case 'MESSAGE_REACTION_REMOVE_ALL':
 					if (!cacheReactions) break
-					reactions.remove((String) d.message_id)
+					reactions.remove(Snowflake.swornString(d.message_id))
 					break
 				case 'RELATIONSHIP_ADD':
 					relationshipCache.add(d)
 					break
 				case 'RELATIONSHIP_REMOVE':
-					relationshipCache.remove((String) d.id)
+					relationshipCache.remove(Snowflake.swornString(d.id))
 					break
 				case 'CALL_CREATE':
-					calls[(String) d.channel_id] = d
+					calls[Snowflake.swornString(d.channel_id)] = d
 					break
 				case 'CALL_UPDATE':
-					calls[(String) d.channel_id] << d
+					calls[Snowflake.swornString(d.channel_id)] << d
 					break
 				case 'CALL_DELETE':
 					calls.remove((String) d.channel_id)
@@ -953,28 +949,28 @@ class Client extends User {
 	}
 
 	void moveMemberVoiceChannel(s, u, vc) {
-		editMember(channel_id: id(vc), s, u)
+		editMember(channel_id: Snowflake.from(vc), s, u)
 	}
 
 	void editRoles(s, u, Collection r) {
-		editMember(roles: r.collect(this.&id), s, u)
+		editMember(roles: r.collect(Snowflake.&from), s, u)
 	}
 
 	void addRoles(s, u, Collection r) {
-		editRoles(s, u, (List) ((DiscordListCache<Member>) guildCache[id(s)].members)[id(u)].roles + r)
+		editRoles(s, u, guildCache[Snowflake.from(s)].memberCache[Snowflake.from(u)].roleIds + r)
 	}
 
 	void addRole(s, m, r) {
-		http.discardPut("guilds/${id(s)}/members/${id(m)}/roles/${id(r)}")
+		http.discardPut("guilds/${Snowflake.from(s)}/members/${Snowflake.from(m)}/roles/${Snowflake.from(r)}")
 	}
 
 	void removeRole(s, m, r) {
-		http.discardDelete("guilds/${id(s)}/members/${id(m)}/roles/${id(r)}")
+		http.discardDelete("guilds/${Snowflake.from(s)}/members/${Snowflake.from(m)}/roles/${Snowflake.from(r)}")
 	}
 
 	String changeOwnGuildNick(s, String nick) {
 		askPool('changeNick') {
-			http.jsonPatch("guilds/${id(s)}/members/@me/nick",
+			http.jsonPatch("guilds/${Snowflake.from(s)}/members/@me/nick",
 				[nick: nick]).nick
 		}
 	}
@@ -984,71 +980,71 @@ class Client extends User {
 	}
 
 	void kick(s, m) {
-		http.discardDelete("guilds/${id(s)}/members/${id(m)}")
+		http.discardDelete("guilds/${Snowflake.from(s)}/members/${Snowflake.from(m)}")
 	}
 
 	List<Guild.Ban> requestBans(s) {
-		http.jsonGets("guilds/${id(s)}/bans").collect { new Guild.Ban(this, it) }
+		http.jsonGets("guilds/${Snowflake.from(s)}/bans").collect { new Guild.Ban(this, it) }
 	}
 
 	List<Invite> requestGuildInvites(s) {
-		http.jsonGets("guilds/${id(s)}/invites").collect { new Invite(this, it) }
+		http.jsonGets("guilds/${Snowflake.from(s)}/invites").collect { new Invite(this, it) }
 	}
 
 	List<Region> requestRegions(s) {
-		http.jsonGets("guilds/${id(s)}/regions").collect { new Region(this, it) }
+		http.jsonGets("guilds/${Snowflake.from(s)}/regions").collect { new Region(it) }
 	}
 
 	List<Integration> requestIntegrations(s) {
-		http.jsonGets("guilds/${id(s)}/integrations").collect { new Integration(this, it) }
+		http.jsonGets("guilds/${Snowflake.from(s)}/integrations").collect { new Integration(this, it) }
 	}
 
 	Integration createIntegration(s, type, id) {
-		new Integration(this, http.jsonPost("guilds/${this.id(s)}/integrations",
+		new Integration(this, http.jsonPost("guilds/${Snowflake.from(s)}/integrations",
 			[type: type.toString(), id: id.toString()]))
 	}
 
 	void ban(s, u, int d = 0) {
-		http.discardPut("guilds/${id(s)}/bans/${id(u)}?delete-message-days=$d", [:])
+		http.discardPut("guilds/${Snowflake.from(s)}/bans/${Snowflake.from(u)}?delete-message-days=$d", [:])
 	}
 
 	void unban(s, u) {
-		http.discardDelete("guilds/${id(s)}/bans/${id(u)}")
+		http.discardDelete("guilds/${Snowflake.from(s)}/bans/${Snowflake.from(u)}")
 	}
 
 	int checkPrune(s, int d) {
-		(int) http.jsonGet("guilds/${id(s)}/prune?days=$d").pruned
+		(int) http.jsonGet("guilds/${Snowflake.from(s)}/prune?days=$d").pruned
 	}
 
 	int prune(s, int d) {
-		(int) http.jsonPost("guilds/${id(s)}/prune?days=$d").pruned
+		(int) http.jsonPost("guilds/${Snowflake.from(s)}/prune?days=$d").pruned
 	}
 
 	Role createRole(Map data, s) {
 		if (data.color instanceof Color) data.color = ((Color) data.color).RGB
 		if (data.permissions instanceof Permissions) data.permissions = ((Permissions) data.permissions).value
-		Role createdRole = new Role(this, http.jsonPost("guilds/${id(s)}/roles", [:]))
+		Role createdRole = new Role(this, http.jsonPost("guilds/${Snowflake.from(s)}/roles", [:]))
 		editRole(data, s, createdRole)
 	}
 
 	Role editRole(Map data, s, r) {
 		if (data.color instanceof Color) data.color = ((Color) data.color).RGB
 		if (data.permissions instanceof Permissions) data.permissions = ((Permissions) data.permissions).value
-		new Role(this, http.jsonPatch("guilds/${id(s)}/roles/${id(r)}", data))
+		new Role(this, http.jsonPatch("guilds/${Snowflake.from(s)}/roles/${Snowflake.from(r)}", data))
 	}
 
 	void deleteRole(s, r) {
-		http.discardDelete("guilds/${id(s)}/roles/${id(r)}")
+		http.discardDelete("guilds/${Snowflake.from(s)}/roles/${Snowflake.from(r)}")
 	}
 	
 	List<Role> editRolePositions(Map mods, s) {
-		http.jsonPatches("guilds/${id(s)}/roles", mods.collect { k, v ->
-			[id: id(k), position: v]}).collect { new Role(this, it + [guild_id: (Object) id(s)]) }
+		http.jsonPatches("guilds/${Snowflake.from(s)}/roles", mods.collect { k, v ->
+			[id: Snowflake.from(k), position: v]}).collect { new Role(this, it + [guild_id: (Object) Snowflake.from(s)]) }
 	}
 	
 	List<Channel> editChannelPositions(Map mods, s) {
-		http.jsonPatches("guilds/${id(s)}/channels", mods.collect { k, v ->
-			[id: id(k), position: v]}).collect { new Channel(this, Channel.construct(this, it, id(s))) }
+		http.jsonPatches("guilds/${Snowflake.from(s)}/channels", mods.collect { k, v ->
+			[id: Snowflake.from(k), position: v]}).collect { new Channel(this, Channel.construct(this, it, Snowflake.from(s))) }
 	}
 
 	List<Webhook> requestGuildWebhooks(s) {
@@ -1059,7 +1055,7 @@ class Client extends User {
 	private static final BigDecimal ceil(BigDecimal dec) { dec.round(ceilmathcontext) }
 
 	List<Member> requestMembers(s, int max=1000, boolean updateCache=true) {
-		def i = id(s)
+		def i = Snowflake.from(s)
 		final members = http.jsonGets("guilds/$i/members?limit=${max}")
 		if (max > 1000) {
 			for (int m = 1; m < ceil(max / 1000).intValue() - 1; m++) {
@@ -1068,13 +1064,13 @@ class Client extends User {
 			members.addAll http.jsonGets("guilds/$i/members?after=${((ceil(max / 1000).intValue() - 1) * 1000)+1}&limit=1000")
 		}
 		if (updateCache) {
-			guildCache[i].members = new DiscordListCache(members.collect {
-				def r = new HashMap<String, Object>(it)
-				r.put('guild_id', i)
-				r.putAll((Map<String, Object>) it.user)
-				new Member(this, r)
+			guildCache[i].memberCache = new DiscordListCache(members.collect {
+				def r = new Member(this)
+				r.guildId = r
+				r.fill((Map) it.user)
+				r
 			}, this, Member)
-			guildCache[i].member_count = members.size()
+			guildCache[i].memberCount = members.size()
 		}
 		members.collect {
 			def r = new HashMap(it)
@@ -1084,22 +1080,22 @@ class Client extends User {
 	}
 
 	Member requestMember(s, m) { new Member(this,
-		http.jsonGet("guilds/${id(s)}/members/${id(m)}")) }
+		http.jsonGet("guilds/${Snowflake.from(s)}/members/${Snowflake.from(m)}")) }
 
-	List<Emoji> requestEmojis(s) { http.jsonGets("guilds/${id(s)}/emojis")
+	List<Emoji> requestEmojis(s) { http.jsonGets("guilds/${Snowflake.from(s)}/emojis")
 		.collect { new Emoji(this, it) } }
 
 	Emoji createEmoji(Map data, s) {
-		new Emoji(this, http.jsonPost("guilds/${id(s)}/emojis",
+		new Emoji(this, http.jsonPost("guilds/${Snowflake.from(s)}/emojis",
 			patchData(data, 'image')))
 	}
 
 	Emoji editEmoji(Map data, s, emoji) {
-		new Emoji(this, http.jsonPatch("guilds/${id(s)}/emojis/${id(emoji)}", data))
+		new Emoji(this, http.jsonPatch("guilds/${Snowflake.from(s)}/emojis/${Snowflake.from(emoji)}", data))
 	}
 
 	Webhook requestGuildWebhook(s, w) {
-		new Webhook(this, http.jsonGet("guilds/${id(s)}/webhooks/${id(w)}"))
+		new Webhook(this, http.jsonGet("guilds/${Snowflake.from(s)}/webhooks/${Snowflake.from(w)}"))
 	}
 
 	Invite acceptInvite(i) {
@@ -1111,17 +1107,17 @@ class Client extends User {
 	}
 
 	Invite createInvite(Map data = [:], c) {
-		new Invite(this, http.jsonPost("channels/${id(c)}/invites", data))
+		new Invite(this, http.jsonPost("channels/${Snowflake.from(c)}/invites", data))
 	}
 	
 	void deleteInvite(i) {
 		http.discardDelete("invite/${Invite.parseId(i)}")
 	}
 
-	Guild.Embed requestEmbed(s) { new Guild.Embed(this, http.jsonGet("guilds/${id(s)}/embed")) }
+	Guild.Embed requestEmbed(s) { new Guild.Embed(this, http.jsonGet("guilds/${Snowflake.from(s)}/embed")) }
 
 	Guild.Embed editEmbed(Map data, s, e) { new Guild.Embed(this,
-		http.jsonPatch("guilds/${id(s)}/embed", data)) }
+		http.jsonPatch("guilds/${Snowflake.from(s)}/embed", data)) }
 
 	List<Connection> requestConnections() {
 		http.jsonGets('users/@me/connections').collect { new Connection(this, it) }
@@ -1143,7 +1139,7 @@ class Client extends User {
 	}
 
 	Profile requestProfile(a) {
-		new Profile(this, http.jsonGet("users/${id(a)}/profile"))
+		new Profile(this, http.jsonGet("users/${Snowflake.from(a)}/profile"))
 	}
 
 	Application requestApplication() {
@@ -1155,15 +1151,15 @@ class Client extends User {
 	}
 
 	Application requestApplication(a) {
-		new Application(this, http.jsonGet("oauth2/applications/${id(a)}"))
+		new Application(this, http.jsonGet("oauth2/applications/${Snowflake.from(a)}"))
 	}
 
 	Application editApplication(Map data, a) {
-		new Application(this, http.jsonPut("oauth2/applications/${id(a)}", patchData(data)))
+		new Application(this, http.jsonPut("oauth2/applications/${Snowflake.from(a)}", patchData(data)))
 	}
 
 	void deleteApplication(a) {
-		http.discardDelete("oauth2/applications/${id(a)}")
+		http.discardDelete("oauth2/applications/${Snowflake.from(a)}")
 	}
 
 	Application createApplication(Map data) {
@@ -1173,12 +1169,12 @@ class Client extends User {
 	}
 
 	BotAccount createApplicationBotAccount(a, String oldAccountToken = null) {
-		new BotAccount(this, http.jsonPost("oauth2/applications/${id(a)}/bot",
+		new BotAccount(this, http.jsonPost("oauth2/applications/${Snowflake.from(a)}/bot",
 			(oldAccountToken == null) ? [:] : [token: oldAccountToken]))
 	}
 
 	List<Region> requestRegions() {
-		http.jsonGets('voice/regions').collect { new Region(this, it) }
+		http.jsonGets('voice/regions').collect { new Region(it) }
 	}
 
 	List<User> queueUsers(String query, int limit=25) {
@@ -1186,125 +1182,124 @@ class Client extends User {
 			.collect { new User(this, it) }
 	}
 
-	User requestUser(i) { new User(this, http.jsonGet("users/${id(i)}")) }
-	Guild requestGuild(i) { new Guild(this, http.jsonGet("guilds/${id(i)}")) }
-	Channel requestChannel(i) { new Channel(this, http.jsonGet("channels/${id(i)}")) }
+	User requestUser(i) { new User(this, http.jsonGet("users/${Snowflake.from(i)}")) }
+	Guild requestGuild(i) { new Guild(this, http.jsonGet("guilds/${Snowflake.from(i)}")) }
+	Channel requestChannel(i) { new Channel(this, http.jsonGet("channels/${Snowflake.from(i)}")) }
 
 	Guild editGuild(Map data, s) {
-		new Guild(this, object << http.jsonPatch("guilds/${id(s)}",
+		new Guild(this, http.jsonPatch("guilds/${Snowflake.from(s)}",
 			patchData(data)))
 	}
 
 	void leaveGuild(s) {
-		http.discardDelete("users/@me/guilds/${id(s)}")
+		http.discardDelete("users/@me/guilds/${Snowflake.from(s)}")
 	}
 
 	void deleteGuild(s) {
-		http.discardDelete("guilds/${id(s)}")
+		http.discardDelete("guilds/${Snowflake.from(s)}")
 	}
 
 	Channel createTextChannel(s, String name) {
-		new Channel(this, http.jsonPost("guilds/${id(s)}/channels",
+		new Channel(this, http.jsonPost("guilds/${Snowflake.from(s)}/channels",
 			[name: name, type: 0]))
 	}
 
 	Channel createVoiceChannel(s, String name) {
-		new Channel(this, http.jsonPost("guilds/${id(s)}/channels",
+		new Channel(this, http.jsonPost("guilds/${Snowflake.from(s)}/channels",
 			[name: name, type: 2]))
 	}
 	
 	Channel createChannel(Map data = [:], s) {
-		new Channel(this, http.jsonPost("guilds/${id(s)}/channels", data))
+		new Channel(this, http.jsonPost("guilds/${Snowflake.from(s)}/channels", data))
 	}
 
 	Channel requestGuildChannel(s, c) {
-		new Channel(this, http.jsonGet("guilds/${id(s)}/channels/${id(c)}"))
+		new Channel(this, http.jsonGet("guilds/${Snowflake.from(s)}/channels/${Snowflake.from(c)}"))
 	}
 
 	List<Channel> requestGuildChannels(s) {
-		http.jsonGets("guilds/${id(s)}/channels").collect { new Channel(this, it) }
+		http.jsonGets("guilds/${Snowflake.from(s)}/channels").collect { new Channel(this, it) }
 	}
 
 	Integration editIntegration(Map data, s, i) {
 		new Integration(this,
-			http.jsonPatch("guilds/${id(s)}/integrations/${id(i)}", data))
+			http.jsonPatch("guilds/${Snowflake.from(s)}/integrations/${Snowflake.from(i)}", data))
 	}
 
 	void deleteIntegration(s, i) {
-		http.discardDelete("guilds/${id(s)}/integrations/${id(i)}")
+		http.discardDelete("guilds/${Snowflake.from(s)}/integrations/${Snowflake.from(i)}")
 	}
 
 	void syncIntegration(s, i) {
-		http.discardPost("guilds/${id(s)}/integrations/${id(i)}/sync")
+		http.discardPost("guilds/${Snowflake.from(s)}/integrations/${Snowflake.from(i)}/sync")
 	}
 
 	void editMember(Map data, s, m) {
-		askPool('editMembers', id(s)) {
-			http.discardPatch("guilds/${id(s)}/members/${id(m)}", data)
+		askPool('editMembers', Snowflake.from(s)) {
+			http.discardPatch("guilds/${Snowflake.from(s)}/members/${Snowflake.from(m)}", data)
 		}
 	}
 
 	void addChannelRecipient(c, u) {
-		http.discardPut("channels/${id(c)}/recipients/${id(u)}")
+		http.discardPut("channels/${Snowflake.from(c)}/recipients/${Snowflake.from(u)}")
 	}
 
 	void removeChannelRecipient(c, u) {
-		http.discardDelete("channels/${id(c)}/recipients/${id(u)}")
+		http.discardDelete("channels/${Snowflake.from(c)}/recipients/${Snowflake.from(u)}")
 	}
 
 	void addRelationship(u, type) {
-		http.discardPut("users/@me/relationships/${id(u)}", [type: type.invokeMethod('toInteger', null)])
+		http.discardPut("users/@me/relationships/${Snowflake.from(u)}", [type: type.invokeMethod('toInteger', null)])
 	}
 
 	void removeRelationship(u) {
-		http.discardDelete("users/@me/relationships/${id(u)}")
+		http.discardDelete("users/@me/relationships/${Snowflake.from(u)}")
 	}
 
 	List<Invite> requestChannelInvites(c) {
-		http.jsonGets("channels/${id(c)}/invites").collect { new Invite(this, it) }
+		http.jsonGets("channels/${Snowflake.from(c)}/invites").collect { new Invite(this, it) }
 	}
 
 	void startTyping(c) {
-		http.discardPost("channels/${id(c)}/typing")
+		http.discardPost("channels/${Snowflake.from(c)}/typing")
 	}
 
 	void deleteChannel(c) {
-		http.discardDelete("channels/${id(c)}")
+		http.discardDelete("channels/${Snowflake.from(c)}")
 	}
 
 	Channel editChannel(Map data, c) {
-		new Channel(this, http.jsonPatch("channels/${id(c)}",
-			patchableObject << patchData(data)))
+		new Channel(this, http.jsonPatch("channels/${Snowflake.from(c)}", patchData(data)))
 	}
 
 	void editChannelOverwrite(Map data, c, o) {
-		String i = id(o)
-		String type = data.type ?: (role(i) ? 'role' : 'member')
+		final i = Snowflake.from(o)
+		String type = (String) data.type ?: (role(i) ? 'role' : 'member')
 		int allowBytes = null == data.allow ? 0 : (int) data.allow.invokeMethod('toInteger', null)
 		int denyBytes = null == data.deny ? 0 : (int) data.deny.invokeMethod('toInteger', null)
-		http.discardPut("channels/${id(c)}/permissions/${i}",
+		http.discardPut("channels/${Snowflake.from(c)}/permissions/${i}",
 			[allow: allowBytes, deny: denyBytes, id: i, type: type])
 	}
 
 	void deleteChannelOverwrite(c, o) {
-		http.discardDelete("channels/${id(c)}/permissions/${id(o)}")
+		http.discardDelete("channels/${Snowflake.from(c)}/permissions/${Snowflake.from(o)}")
 	}
 
 	Webhook createWebhook(Map data = [:], c) {
-		new Webhook(this, http.jsonPost("channels/${id(c)}/webhooks",
+		new Webhook(this, http.jsonPost("channels/${Snowflake.from(c)}/webhooks",
 			patchData(data)))
 	}
 
 	List<Webhook> requestChannelWebhooks(c) {
-		http.jsonGets("channels/${id(c)}/webhooks").collect { new Webhook(this, it) }
+		http.jsonGets("channels/${Snowflake.from(c)}/webhooks").collect { new Webhook(this, it) }
 	}
 
 	Webhook requestWebhook(w) {
-		new Webhook(this, http.jsonGet("webhooks/${id(w)}"))
+		new Webhook(this, http.jsonGet("webhooks/${Snowflake.from(w)}"))
 	}
 
 	Webhook requestWebhook(id, token) {
-		new Webhook(this, http.jsonGet("webhooks/${this.id(id)}/$token"))
+		new Webhook(this, http.jsonGet("webhooks/${Snowflake.from(id)}/$token"))
 	}
 
 	void checkMessageData(Map data) {
@@ -1326,8 +1321,8 @@ class Client extends User {
 		}
 		Closure<Message> clos = {
 			new Message(this, http.jsonPost(isWebhook ?
-				"webhooks/${id(c)}/${c instanceof Map ? c.token : ((Webhook) c).token}" :
-				"channels/${id(c)}/messages", data))
+				"webhooks/${Snowflake.from(c)}/${c instanceof Map ? c.token : ((Webhook) c).token}" :
+				"channels/${Snowflake.from(c)}/messages", data))
 		}
 		isWebhook ? clos() : poolMessage(c, clos)
 	}
@@ -1344,8 +1339,8 @@ class Client extends User {
 		}
 		final clos = {
 			http.discardPost(isWebhook ?
-					"webhooks/${id(c)}/${c instanceof Map ? c.token : ((Webhook) c).token}" :
-					"channels/${id(c)}/messages", data)
+					"webhooks/${Snowflake.from(c)}/${c instanceof Map ? c.token : ((Webhook) c).token}" :
+					"channels/${Snowflake.from(c)}/messages", data)
 		}
 		isWebhook ? clos() : poolMessage(c, clos)
 	}
@@ -1359,20 +1354,20 @@ class Client extends User {
 	Message editMessage(Map data, c, m) {
 		checkMessageData(data)
 		poolMessage(c) { // that's right, they're in the same bucket
-			new Message(this, http.jsonPatch("channels/${id(c)}/messages/${id(m)}", data))
+			new Message(this, http.jsonPatch("channels/${Snowflake.from(c)}/messages/${Snowflake.from(m)}", data))
 		}
 	}
 
 	void discardEditMessage(Map data, c, m) {
 		checkMessageData(data)
 		poolMessage(c) { // that's right, they're in the same bucket
-			http.discardPatch("channels/${id(c)}/messages/${id(m)}", data)
+			http.discardPatch("channels/${Snowflake.from(c)}/messages/${Snowflake.from(m)}", data)
 		}
 	}
 
 	void deleteMessage(c, m) {
 		askPool('deleteMessages',
-			getChannelQueueName(c)) { http.discardDelete("channels/${id(c)}/messages/${id(m)}") }
+			getChannelQueueName(c)) { http.discardDelete("channels/${Snowflake.from(c)}/messages/${Snowflake.from(m)}") }
 	}
 
 	Map sendFileRaw(Map data = [:], c, file) {
@@ -1396,8 +1391,8 @@ class Client extends User {
 			fn = (String) data.filename
 		}
 		def url = http.baseUrl + (isWebhook ?
-			"webhooks/${id(c)}/${((Webhook) c).token}" :
-			"channels/${id(c)}/messages")
+			"webhooks/${Snowflake.from(c)}/${((Webhook) c).token}" :
+			"channels/${Snowflake.from(c)}/messages")
 		def aa = Unirest.post(url)
 			.header('Authorization', token)
 			.header('User-Agent', fullUserAgent)
@@ -1434,9 +1429,9 @@ class Client extends User {
 	}
 
 	Message requestMessage(c, ms, boolean addToCache = true) {
-		def ch = id(c)
+		def ch = Snowflake.from(c)
 		def m = new Message(this,
-			http.jsonGet("channels/$ch/messages/${id(ms)}"))
+			http.jsonGet("channels/$ch/messages/${Snowflake.from(ms)}"))
 		if (addToCache) {
 			if (messages[ch]) messages[ch].add(m)
 			else {
@@ -1449,40 +1444,40 @@ class Client extends User {
 	}
 
 	Message message(c, m, boolean request = true) {
-		boolean inCache = messages[id(c)].containsKey(id(m))
-		if (inCache) new Message(this, messages[id(c)][id(m)])
+		boolean inCache = messages[Snowflake.from(c)].containsKey(Snowflake.from(m))
+		if (inCache) new Message(this, messages[Snowflake.from(c)][Snowflake.from(m)])
 		else if (request) requestMessage(c, m)
 		else null
 	}
 
 	String getChannelQueueName(c) {
-		guildChannel(id(c)) ?: 'dm'
+		guildChannel(Snowflake.from(c)) ?: 'dm'
 	}
 
 	def pinMessage(c, m) {
-		http.discardPut("channels/${id(c)}/pins/${id(m)}")
+		http.discardPut("channels/${Snowflake.from(c)}/pins/${Snowflake.from(m)}")
 	}
 
 	def unpinMessage(c, m) {
-		http.discardDelete("channels/${id(c)}/pins/${id(m)}")
+		http.discardDelete("channels/${Snowflake.from(c)}/pins/${Snowflake.from(m)}")
 	}
 
 	Collection<Message> requestPinnedMessages(c) {
-		http.jsonGets("channels/${id(c)}/pins").collect { new Message(this, it) }
+		http.jsonGets("channels/${Snowflake.from(c)}/pins").collect { new Message(this, it) }
 	}
 
 	void reactToMessage(c, m, e) {
-		http.discardPut("channels/${id(c)}/messages/${id(m)}/" +
+		http.discardPut("channels/${Snowflake.from(c)}/messages/${Snowflake.from(m)}/" +
 			"reactions/${translateEmoji(e)}/@me")
 	}
 
 	void unreactToMessage(c, m, e, u = '@me') {
-		http.discardDelete("channels/{id(c)}/messages/${id(m)}/" +
-			"reactions/${translateEmoji(e)}/${id(u)}")
+		http.discardDelete("channels/{from(c)}/messages/${Snowflake.from(m)}/" +
+			"reactions/${translateEmoji(e)}/${Snowflake.from(u)}")
 	}
 
 	List<User> requestReactors(c, m, e, int limit = 100) {
-		http.jsonGets("channels/${id(c)}/messages/${id(m)}/reactions/" +
+		http.jsonGets("channels/${Snowflake.from(c)}/messages/${Snowflake.from(m)}/reactions/" +
 			translateEmoji(e) + "?limit=$limit").collect { new User(this, it) }
 	}
 
@@ -1502,7 +1497,7 @@ class Client extends User {
 
 	List<Message> requestChannelLogs(c, int max = 100, boundary = null,
 		String boundaryType = 'before') {
-		final cached = messages[id(c)]
+		final cached = messages[Snowflake.from(c)]
 		if (!boundary && cached?.size() > max) return cached.values().sort {
 			it.id }[-1..-max].collect { new Message(this, it) }
 		def l = directRequestChannelLogs(c, max, boundary, boundaryType)
@@ -1514,8 +1509,8 @@ class Client extends User {
 			}
 		})
 		if (boundaryType in ['around', 'after']) l = l.reverse()
-		if (cached) for (a in l) messages[id(c)].add(a)
-		else messages[id(c)] = new DiscordListCache(l, this, Message)
+		if (cached) for (a in l) messages[Snowflake.from(c)].add(a)
+		else messages[Snowflake.from(c)] = new DiscordListCache(l, this, Message)
 		l.collect { new Message(this, it) }
 	}
 
@@ -1534,7 +1529,7 @@ class Client extends User {
 		if (boundary) {
 			if (boundaryType && boundaryType != 'before' && boundaryType != 'after' && boundaryType != 'around')
 				throw new IllegalArgumentException('Boundary type has to be before, after or around')
-			params.put boundaryType ?: 'before', id(boundary)
+			params.put boundaryType ?: 'before', Snowflake.from(boundary)
 		}
 		List<Map<String, Object>> messages = directRequestChannelLogs(params, c)
 		if (max > 100) {
@@ -1576,27 +1571,27 @@ class Client extends User {
 		String parameters = data ? '?' + data.collect { k, v ->
 			URLEncoder.encode(k.toString(), 'UTF-8') + '=' + URLEncoder.encode(v.toString(), 'UTF-8')
 		}.join('&') : ''
-		http.jsonGets("channels/${id(c)}/messages$parameters")
+		http.jsonGets("channels/${Snowflake.from(c)}/messages$parameters")
 	}
 
 	def bulkDeleteMessages(c, Collection ids) {
 		askPool('bulkDeleteMessages') {
-			http.discardPost("channels/${id(c)}/messages/bulk-delete",
-				[messages: ids.collect { id(it) }])
+			http.discardPost("channels/${Snowflake.from(c)}/messages/bulk-delete",
+				[messages: ids.collect { Snowflake.from(it) }])
 		}
 	}
 
 	Webhook editWebhook(Map data, w) {
-		new Webhook(this, http.jsonPatch("webhooks/${id(w)}",
+		new Webhook(this, http.jsonPatch("webhooks/${Snowflake.from(w)}",
 			patchData(data)))
 	}
 
 	void deleteWebhook(w) {
-		http.discardDelete("webhooks/${id(w)}")
+		http.discardDelete("webhooks/${Snowflake.from(w)}")
 	}
 
 	Channel createPrivateChannel(u) {
 		new Channel(this, http.jsonPost('users/@me/channels',
-			[recipient_id: id(u)]))
+			[recipient_id: Snowflake.from(u)]))
 	}
 }

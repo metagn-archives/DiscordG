@@ -66,7 +66,7 @@ class HTTPClient {
 		50013: 'Missing Permissions',
 		50014: 'Invalid authentication token',
 		50015: 'Note is too long',
-		50016: 'Provided too few or too many messages to delete. Must provide at least 2 and fewer than 100 messages to delete.',
+		50016: 'Provided too few or too many messages to delete. Must provide get least 2 and fewer than 100 messages to delete.',
 	].asImmutable()
 	String baseUrl = defaultApi
 	Map<String, RateLimit> ratelimits = new HashMap<String, RateLimit>().asSynchronized()
@@ -219,13 +219,16 @@ class HTTPClient {
 				def js = returned.body ? (Map) JSONUtil.parse(returned.body) : [:]
 				precaution = !js.containsKey('retry-after')
 				client.log.debug precaution ?
-						"Ratelimited when trying to $ft.httpMethod to $ft.url" :
-						"Precautioning a ratelimit for $ft.httpMethod $ft.url",
+						"Precautioning a ratelimit for $ft.httpMethod $ft.url" :
+						"Ratelimited when trying to $ft.httpMethod to $ft.url",
 						client.log.name + 'HTTP'
-				RateLimit rl = new RateLimit(client, precaution ?
-						[global: false, retry_after:
-								Math.abs(returned.headers['x-ratelimit-reset'][0].toLong() -
-										System.currentTimeSeconds()) * 1000, message: 'Precautionary ratelimit'] : js)
+				def rl = new RateLimit(client)
+				if (precaution) rl.fill(js)
+				else {
+					rl.retryTime = Math.abs(returned.headers['x-ratelimit-reset'][0].toLong() -
+											System.currentTimeSeconds()) * 1000
+					rl.message = 'Precautionary ratelimit'
+				}
 				ratelimits[ratelimitUrl(rlUrl)] = rl
 				int xxx = ratelimits[ratelimitUrl(rlUrl)].newRequest()
 				if (!precaution) Thread.start {

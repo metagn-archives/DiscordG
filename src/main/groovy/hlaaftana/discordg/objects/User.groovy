@@ -64,7 +64,7 @@ class User extends DiscordObject{
 	}
 
 	Relationship getRelationship() {
-		client.relationshipCache.at(id)
+		client.relationshipCache.get(id)
 	}
 
 	void addRelationship(type) {

@@ -1,6 +1,5 @@
 package hlaaftana.discordg.collections
 
-import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
 
 import java.util.concurrent.Future

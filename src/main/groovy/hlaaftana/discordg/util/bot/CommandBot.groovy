@@ -2,7 +2,7 @@ package hlaaftana.discordg.util.bot
 
 import groovy.transform.*
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.DiscordObject
+import hlaaftana.discordg.Snowflake
 import hlaaftana.discordg.logic.BasicListenerSystem
 import hlaaftana.discordg.logic.ListenerSystem
 import hlaaftana.discordg.objects.Message
@@ -239,9 +239,9 @@ trait Restricted {
 		if (thing instanceof Collection || thing.class.array)
 			thing.each { allow(type, it) }
 		if (white)
-			whitelist[type].add(DiscordObject.id(thing))
+			whitelist[type].add(Snowflake.from(thing))
 		if (black)
-			blacklist[type].remove(DiscordObject.id(thing))
+			blacklist[type].remove(Snowflake.from(thing))
 		this
 	}
 
@@ -251,9 +251,9 @@ trait Restricted {
 		if (thing instanceof Collection || thing.class.array)
 			thing.each { disallow(type, it) }
 		if (white)
-			whitelist[type].remove(DiscordObject.id(thing))
+			whitelist[type].remove(Snowflake.from(thing))
 		if (black)
-			blacklist[type].add(DiscordObject.id(thing))
+			blacklist[type].add(Snowflake.from(thing))
 		this
 	}
 

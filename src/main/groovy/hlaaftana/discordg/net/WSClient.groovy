@@ -88,52 +88,44 @@ class WSClient extends WebSocketAdapter {
 					if (guildCreate) {
 						client.addListener new DiscordRawWSListener() { void fire(String t, Map d) {
 							if (t != 'INITIAL_GUILD_CREATE') return
-							d.unavailable = false
-							if (client.guildCache.containsKey(d.id)) client.guildCache[(String) d.id].putAll d
-							else client.guildCache.add(d)
-							Guild.construct(client, client.guildCache[(String) d.id])
+							def id = Snowflake.swornString(d.id)
+							def gc = client.guildCache[id] ?: (client.guildCache[id] = new Guild(client))
+							gc.fill(d)
+							gc.unavailable = false
 						} }
 					}
-					client.userObject = client.object = (Map<String, Object>) data.user
+					client.fill(client.userObject = (Map<String, Object>) data.user)
 					client.sessionId = (String) data.session_id
 					if (client.copyReady) client.readyData = new Cache<>(data, client)
 
 					def gl = (List<Map<String, Object>>) data.guilds
-					def ga = new ArrayList(gl.size())
-					for (g in gl) ga.add(guildCreate ? g : Guild.construct(client, g))
-					client.guildCache = new DiscordListCache(ga, client, Guild)
+					def ga = new ArrayList<Guild>(gl.size())
+					for (g in gl) ga.add(new Guild(client, g))
+					client.guildCache = new DiscordListCache(ga, client)
 
 					def pcl = (List<Map<String, Object>>) data.private_channels
-					def pca = new ArrayList(pcl.size())
-					for (pc in pcl) pca.add(Channel.construct(client, pc))
-					client.privateChannelCache = new DiscordListCache(pca, client, Channel)
+					def pca = new ArrayList<Channel>(pcl.size())
+					for (pc in pcl) pca.add(new Channel(client, pc))
+					client.privateChannelCache = new DiscordListCache(pca, client)
 
 					def pl = (List<Map<String, Object>>) data.presences
-					def pa = new ArrayList(pl.size())
-					for (p in pl) {
-						def b = new HashMap<String, Object>(p)
-						b.put('id', ((Map<String, Object>) p.user).id)
-						pa.add(b)
-					}
-					client.presenceCache = new DiscordListCache(pa, client, Presence)
+					def pa = new ArrayList<Presence>(pl.size())
+					for (p in pl) pa.add(new Presence(client, p))
+					client.presenceCache = new DiscordListCache(pa, client)
 
 					def r = data.relationships
 					if (r) {
 						def mr = (List<Map<String, Object>>) r
-						def x = new ArrayList(mr.size())
-						for (a in mr) {
-							def b = new HashMap<String, Object>(a)
-							b.put('id', ((Map<String, Object>) a.user).id)
-							x.add(b)
-						}
-						client.relationshipCache = new DiscordListCache<>(x, client, Relationship)
+						def x = new ArrayList<Relationship>(mr.size())
+						for (a in mr) x.add(new Relationship(client, a))
+						client.relationshipCache = new DiscordListCache<>(x, client)
 					}
 
 					def ugs = data.user_guild_settings
 					if (ugs) {
 						def mugs = (List<Map<String, Object>>) ugs
-						def x = new HashMap<String, Map<String, Object>>(mugs.size())
-						for (a in mugs) x.put((String) a.guild_id, a)
+						def x = new HashMap<Snowflake, Map<String, Object>>(mugs.size())
+						for (a in mugs) x.put(Snowflake.swornString(a.guild_id), a)
 						client.userGuildSettingCache = new Cache<>(x, client)
 					}
 
@@ -168,14 +160,14 @@ class WSClient extends WebSocketAdapter {
 			} else if (type == 'MESSAGE_DELETE_BULK' && client.spreadBulkDelete) {
 				for (i in data.ids) {
 					onWebSocketText(/{"op":0,"s":$seq,"t":"MESSAGE_DELETE","d":{/ +
-							/"channel_id":$data.channel_id,"id":$i,"bulk":true}}/)
+							/"channel_id":$data.channel_id,"from":$i,"bulk":true}}/)
 				}
 			}
 			boolean guildCreateInitial = false
-			if (type == 'CHANNEL_CREATE') Channel.construct(client, data)
+			if (type == 'CHANNEL_CREATE') thruChannel(data)
 			else if (type == 'GUILD_CREATE') {
 				guildCreateInitial = client.guildCache.containsKey(data.id)
-				Guild.construct(client, data)
+				thruGuild(data)
 			}
 			for (l in client.rawListeners) l.fire(type, data)
 			if (!client.listenerSystem.listeners[type]) return
@@ -372,6 +364,79 @@ class WSClient extends WebSocketAdapter {
 		NOT_LOADED, LOADING, LOADED
 
 		boolean asBoolean() { this == LOADED }
+	}
+
+
+	Map thruChannel(Map c, String guildId = null) {
+		if (guildId) c.guild_id = guildId
+		if (c.guild_id) {
+			def po = c.permission_overwrites
+			if (po instanceof List<Map<String, Object>>) {
+				def a = new ArrayList<PermissionOverwrite>(po.size())
+				for (x in po) {
+					def j = new PermissionOverwrite(client, x)
+					j.channelId = Snowflake.swornString(c.id)
+					a.add(j)
+				}
+				c.permission_overwrites = new DiscordListCache<PermissionOverwrite>(a, client)
+			}
+		} else if (c.recipients != null) {
+			c.recipients = new DiscordListCache<User>(((List<Map>) c.recipients).collect { new User(client, this) }, client)
+		}
+		c
+	}
+
+	Map thruGuild(Map g) {
+		def gid = (String) g.id
+
+		def m = (List<Map>) g.members, ml = new ArrayList<Member>(m.size())
+		for (mo in m) {
+			def a = new HashMap(mo)
+			a.put('guild_id', gid)
+			a.putAll((Map) a.user)
+			ml.add(new Member(client, a))
+		}
+		g.members = new DiscordListCache(ml, client)
+
+		def p = (List<Map>) g.presences, pl = new ArrayList<Presence>(p.size())
+		for (po in p) {
+			def a = new HashMap(po)
+			a.put('guild_id', gid)
+			a.putAll((Map) a.user)
+			pl.add(new Presence(client, a))
+		}
+		g.presences = new DiscordListCache(pl, client)
+
+		def e = (List<Map>) g.emojis, el = new ArrayList<Emoji>(e.size())
+		for (eo in e) {
+			def a = new HashMap(eo)
+			a.put('guild_id', gid)
+			el.add(new Emoji(client, a))
+		}
+		g.emojis = new DiscordListCache(el, client)
+
+		def r = (List<Map>) g.roles, rl = new ArrayList<Role>(r.size())
+		for (ro in r) {
+			def a = new HashMap(ro)
+			a.put('guild_id', gid)
+			rl.add(new Role(client, a))
+		}
+		g.roles = new DiscordListCache(rl, client)
+
+		def c = (List<Map>) g.channels, cl = new ArrayList<Channel>(c.size())
+		for (co in c) cl.add(new Channel(client, thruChannel(new HashMap(co), gid)))
+		g.channels = new DiscordListCache(cl, client)
+
+		def vs = (List<Map>) g.voice_states, vsl = new ArrayList<VoiceState>(vs.size())
+		for (vso in vs) {
+			def a = new HashMap(vso)
+			a.put('guild_id', gid)
+			a.put('id', (String) a.user_id)
+			vsl.add(new VoiceState(client, a))
+		}
+		g.voice_states = new DiscordListCache(vsl, client)
+
+		g
 	}
 }
 
