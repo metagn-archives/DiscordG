@@ -15,8 +15,9 @@ i am about the list the pros and cons, but first some that might be one of both
 
 * Uses Groovy's JSON parsers which are very fast and/but directly return Java objects.
 
-* Caches use JSON objects instead of immutable objects. This also allows for raw Discord variables to be
-observed. So if you did `group.object.application_id`, you would get the application_id Discord gave.
+* Caches used to instantiate object classes on the go and used maps (what JDA uses now but i came up with a year before
+them),but now they're pass-by-reference mutable objects. The reason I changed this is because immutable state is barely
+needed in my book. Maybe I'll make it so you can copy objects.
 
 * No interfaces for Discord objects.
 
@@ -25,7 +26,7 @@ CHANGE to UPDATE, replacing spaces with _, being passed to a map of aliases and 
 event name. For example, "server deleted" => "SERVER DELETED" => "GUILD DELETED" => "GUILD_DELETED" => "GUILD_DELETE".
 This also means no event enum or classes.
 
-* Has raw listeners which take the JSON payload directly without the need for fluff DiscordG automatically adds.
+* Has raw listeners which take the JSON payload directly without the need for instantiated fluff.
 
 * Channel/message types are ints, but can be accessed as constants from interfaces that extend Types, such as
 MessageTypes, ChannelTypes etc. Also helper methods for channel types exist in channels.
@@ -37,19 +38,20 @@ MessageTypes, ChannelTypes etc. Also helper methods for channel types exist in c
 
 * Webhooks still need Client instances, but the Client doesn't have to login. For example:
 ```groovy
-def webhook = [webhook: true, id: 388383836469329933, token: "somethingludicrous"]
 def client = new Client()
+
+def webhook = [webhook: true, id: 388383836469329933, token: "somethingludicrous"]
 client.sendMessage(webhook, "Whats up")
 
 // or something hackier
 
-def client = new Client()
-def webhook = new Webhook(client, [id: 388383836469329933, token: "somethingludicrous"])
+def webhook = new Webhook(client)
+webhook.id = 388383836469329933
+webhook.token = "somethingludicrous"
 webhook.sendMessage("Whats up")
 
 // do note methods like webhook.name won't work for either of these. version superior to both:
 
-def client = new Client()
 def webhook = client.requestWebhook(388383836469329933, "somethingludicrous")
 ```
 
