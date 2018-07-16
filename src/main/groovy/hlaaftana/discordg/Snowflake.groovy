@@ -38,6 +38,13 @@ class Snowflake extends Number implements Comparable<Snowflake> {
 		new Snowflake((String) value)
 	}
 
+	static Set<Snowflake> swornStringSet(value) {
+		final val = (Collection<String>) value
+		def result = new HashSet<Snowflake>(val.size())
+		for (id in val) result.add(new Snowflake(id))
+		result
+	}
+
 	@CompileDynamic
 	static String dynamicId(a) { a.id?.toString() }
 

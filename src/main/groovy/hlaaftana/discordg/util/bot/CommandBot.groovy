@@ -2,6 +2,7 @@ package hlaaftana.discordg.util.bot
 
 import groovy.transform.*
 import hlaaftana.discordg.Client
+import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.Snowflake
 import hlaaftana.discordg.logic.BasicListenerSystem
 import hlaaftana.discordg.logic.ListenerSystem
@@ -216,15 +217,16 @@ abstract class CommandType {
 	List<String> captures(List<String> it) { it.tail() }
 }
 
+@CompileStatic
 trait Restricted {
 	boolean black = false
 	boolean white = false
-	Map<String, Set<String>> blacklist = [guild: new HashSet<>(),
-			channel: new HashSet<>(), author: new HashSet<>(),
-			role: new HashSet<>()]
-	Map<String, Set<String>> whitelist = [guild: new HashSet<>(),
-			channel: new HashSet<>(), author: new HashSet<>(),
-			role: new HashSet<>()]
+	Map<String, ? extends Set<Snowflake>> blacklist = [guild: new HashSet<Snowflake>(),
+			channel: new HashSet<Snowflake>(), author: new HashSet<Snowflake>(),
+			role: new HashSet<Snowflake>()]
+	Map<String, ? extends Set<Snowflake>> whitelist = [guild: new HashSet<Snowflake>(),
+			channel: new HashSet<Snowflake>(), author: new HashSet<Snowflake>(),
+			role: new HashSet<Snowflake>()]
 
 	def whitelist() { white = true; this }
 	def blacklist() { black = true; this }
@@ -269,19 +271,20 @@ trait Restricted {
 		if (white) {
 			for (e in whitelist)
 				wh |= !Collections.disjoint(e.value, e.key == 'role' ?
-						msg.member.roles : [msg."$e.key".id])
+						msg.member.roles : [((DiscordObject) msg.getProperty(e.key)).id])
 		}
 		if (black) {
 			for (e in whitelist)
 				bl |= !Collections.disjoint(e.value, e.key == 'role' ?
-						msg.member.roles : [msg."$e.key".id])
+						msg.member.roles : [((DiscordObject) msg.getProperty(e.key)).id])
 		}
 		wh && !bl
 	}
 }
 
+@CompileStatic
 trait Triggerable {
-	Set<CommandPattern> triggers = []
+	Set<CommandPattern> triggers = new HashSet<>()
 
 	def setTrigger(trigger) { triggers.clear(); invokeMethod('addTrigger', trigger) }
 
@@ -307,6 +310,7 @@ trait Triggerable {
 	@CompileStatic CommandPattern getTrigger() { triggers[0] }
 }
 
+@CompileStatic
 trait Aliasable {
 	Set<CommandPattern> aliases = []
 

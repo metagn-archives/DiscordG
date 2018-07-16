@@ -2,7 +2,7 @@ package hlaaftana.discordg
 
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
-import hlaaftana.discordg.collections.DiscordListCache
+import hlaaftana.discordg.collections.Cache
 import hlaaftana.discordg.objects.Member
 import hlaaftana.discordg.util.CasingType
 import hlaaftana.discordg.util.ConversionUtil
@@ -121,7 +121,7 @@ abstract class DiscordObject implements Comparable {
 		}
 	}
 
-	static <T extends DiscordObject> T find(DiscordListCache<T> cache, value) {
+	static <T extends DiscordObject> T find(Cache<T> cache, value) {
 		if (null == cache || cache.isEmpty() || null == value) return null
 		try {
 			final id = Snowflake.from(value)
@@ -132,7 +132,7 @@ abstract class DiscordObject implements Comparable {
 		}
 	}
 
-	static <T extends DiscordObject> List<T> findAll(DiscordListCache<T> cache, value) {
+	static <T extends DiscordObject> List<T> findAll(Cache<T> cache, value) {
 		if (null == cache || cache.isEmpty() || null == value) return null
 		try {
 			final id = Snowflake.from(value)
@@ -144,7 +144,7 @@ abstract class DiscordObject implements Comparable {
 		}
 	}
 
-	static <T extends DiscordObject> T findNested(DiscordListCache<? extends DiscordObject> cache, name, value) {
+	static <T extends DiscordObject> T findNested(Cache<? extends DiscordObject> cache, name, value) {
 		if (null == cache || cache.isEmpty() || null == value) return null
 		Snowflake id
 		String n
@@ -155,7 +155,7 @@ abstract class DiscordObject implements Comparable {
 		}
 		final prop = name.toString()
 		for (e in cache.entrySet()) {
-			def c = (DiscordListCache<T>) dynamicprop(e.value, prop)
+			def c = (Cache<T>) dynamicprop(e.value, prop)
 			if (null == c || c.isEmpty()) return null
 			if (null != id) {
 				final j = c[id]
@@ -168,7 +168,7 @@ abstract class DiscordObject implements Comparable {
 		null
 	}
 
-	static <T extends DiscordObject> List<T> findAllNested(DiscordListCache<? extends DiscordObject> cache, name, value) {
+	static <T extends DiscordObject> List<T> findAllNested(Cache<? extends DiscordObject> cache, name, value) {
 		if (null == cache || cache.isEmpty() || null == value) return null
 		Snowflake id
 		String n
@@ -180,7 +180,7 @@ abstract class DiscordObject implements Comparable {
 		final prop = name.toString()
 		def result = new ArrayList<T>()
 		for (e in cache.entrySet()) {
-			def c = (DiscordListCache<T>) dynamicprop(e.value, prop)
+			def c = (Cache<T>) dynamicprop(e.value, prop)
 			if (null == c || c.isEmpty()) continue
 			if (null != id) {
 				final j = c[id]
@@ -228,19 +228,19 @@ abstract class DiscordObject implements Comparable {
 		null
 	}
 
-	static <T extends DiscordObject> T findName(DiscordListCache<T> cache, value) {
+	static <T extends DiscordObject> T findName(Cache<T> cache, value) {
 		if (null == value || !cache) return null
 		def i = cache.list().find(nameClosure.rcurry(value))
 		null == i ? null : cache.get(i.id)
 	}
 
-	static Member findMemberName(DiscordListCache<Member> cache, value) {
+	static Member findMemberName(Cache<Member> cache, value) {
 		if (null == value || !cache) return null
 		def i = cache.list().find(memberNameClosure.rcurry(value))
 		null == i ? null : cache.get(i.id)
 	}
 
-	static <T extends DiscordObject> List<T> findAllName(DiscordListCache<T> cache, value) {
+	static <T extends DiscordObject> List<T> findAllName(Cache<T> cache, value) {
 		if (null == value || !cache) return null
 		def i = cache.list().findAll(nameClosure.rcurry(value))
 		if (i.empty) return []

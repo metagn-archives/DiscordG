@@ -7,7 +7,7 @@ import groovy.transform.stc.SimpleType
 import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.Permissions
 import hlaaftana.discordg.Snowflake
-import hlaaftana.discordg.collections.DiscordListCache
+import hlaaftana.discordg.collections.Cache
 
 import java.util.regex.Pattern
 
@@ -25,8 +25,8 @@ class Channel extends DiscordObject {
 	Integer position, type, bitrate, userLimit
 	boolean isPrivateField, nsfw
 	String name, categoryId, topic
-	DiscordListCache<User> recipientCache
-	DiscordListCache<PermissionOverwrite> permissionOverwriteCache
+	Cache<User> recipientCache
+	Cache<PermissionOverwrite> permissionOverwriteCache
 
 	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
 			id: 1, name: 2, topic: 3, guild_id: 4, last_message_id: 5,
@@ -64,19 +64,19 @@ class Channel extends DiscordObject {
 			nsfw = (boolean) value
 		} else if (f == 12) {
 			if (null == recipientCache)
-				recipientCache = new DiscordListCache<>(Collections.emptyList(), client)
+				recipientCache = new Cache<>()
 			final rs = (List<Map>) value
 			for (r in rs) recipientCache.add(new User(client, r))
 		} else if (f == 13) {
 			if (null == permissionOverwriteCache)
-				permissionOverwriteCache = new DiscordListCache<>(Collections.emptyList(), client)
+				permissionOverwriteCache = new Cache<>()
 			final rs = (List<Map>) value
 			for (r in rs) {
 				def po = new PermissionOverwrite(client, r)
 				po.channelId = id
 				permissionOverwriteCache.add(po)
 			}
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	String getMention() { "<#$id>" }
@@ -115,7 +115,7 @@ class Channel extends DiscordObject {
 		client.removeChannelRecipient(this, user)
 	}
 
-	DiscordListCache<PermissionOverwrite> getOverwriteCache() { permissionOverwriteCache }
+	Cache<PermissionOverwrite> getOverwriteCache() { permissionOverwriteCache }
 
 	List<PermissionOverwrite> getPermissionOverwrites() { overwrites }
 
@@ -391,7 +391,7 @@ class PermissionOverwrite extends DiscordObject {
 			deniedValue = (int) value
 		} else if (f == 5) {
 			type = (String) value
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	Permissions getAllowed() { new Permissions(allowedValue) }
@@ -428,7 +428,7 @@ class PermissionOverwrite extends DiscordObject {
 class Call extends DiscordObject {
 	Snowflake channelId, messageId
 	String regionId
-	List<String> ringingUserIds
+	Set<Snowflake> ringingUserIds
 	List<VoiceState> voiceStates
 	boolean unavailable
 
@@ -449,12 +449,12 @@ class Call extends DiscordObject {
 		} else if (f == 3) {
 			regionId = (String) value
 		} else if (f == 4) {
-			if (null == ringingUserIds) ringingUserIds = new ArrayList<>(ringingUserIds.size())
-			ringingUserIds.addAll((List<String>) value)
+			if (null == ringingUserIds) ringingUserIds = new HashSet<>()
+			ringingUserIds.addAll(Snowflake.swornStringSet(value))
 		} else if (f == 5) {
 			if (null == voiceStates) voiceStates = new ArrayList<>(voiceStates.size())
 			for (m in ((List<Map>) value)) voiceStates.add(new VoiceState(client, m))
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	Snowflake getId() { channelId }
