@@ -51,7 +51,7 @@ class Invite extends DiscordObject {
 			temporary = (boolean) value
 		} else if (f == 10) {
 			inviter = new User(client, (Map) value)
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	String getName() { code }

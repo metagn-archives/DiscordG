@@ -6,7 +6,7 @@ import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.MFALevelTypes
 import hlaaftana.discordg.Permissions
 import hlaaftana.discordg.Snowflake
-import hlaaftana.discordg.collections.DiscordListCache
+import hlaaftana.discordg.collections.Cache
 import hlaaftana.discordg.util.*
 import java.awt.Color
 
@@ -19,44 +19,159 @@ import java.util.regex.Pattern
  * @author Hlaaftana
  */
 @CompileStatic
+@InheritConstructors
 @SuppressWarnings('GroovyUnusedDeclaration')
 class Guild extends DiscordObject {
-	Guild(Client client, Map object) {
-		super(client, object)
+	Snowflake id, ownerId, afkChannelId, embedChannelId, systemChannelId, ownerApplicationId
+	String name, regionId, rawJoinedAt, iconHash, splashHash
+	int afkTimeout, verificationLevel, mfaLevel, memberCount, defaultMessageNotificationLevel, explicitContentFilterLevel
+	boolean embedEnabled, large, unavailable, ownerClient
+	List<String> features
+	Cache<Channel> channelCache
+	Cache<Role> roleCache
+	Cache<Member> memberCache
+	Cache<Presence> presenceCache
+	Cache<VoiceState> voiceStateCache
+	Cache<Emoji> emojiCache
+
+	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
+			id: 1, owner_id: 2, afk_channel_id: 3, widget_channel_id: 4, region: 5, joined_at: 6,
+			icon: 7, splash: 8, name: 9, system_channel_id: 10, application_id: 11,
+			afk_timeout: 12, verification_level: 13, mfa_level: 14, member_count: 15,
+			default_message_notifications: 16, explicit_content_filter: 17, widget_enabled: 18,
+			large: 19, unavailable: 20, owner: 21, features: 22, channels: 23, roles: 24, members: 25,
+			presences: 26, voice_states: 27, emojis: 28)
+
+	void jsonField(String name, value) {
+		jsonField(FIELDS.get(name), value)
 	}
 
-	String getRegionId() { (String) object.region }
-	String getRawJoinedAt() { (String) object.joined_at }
+	void jsonField(Integer field, value) {
+		if (null == field) return
+		int f = field.intValue()
+		if (f == 1) {
+			id = Snowflake.swornString(value)
+		} else if (f == 2) {
+			ownerId = Snowflake.swornString(value)
+		} else if (f == 3) {
+			afkChannelId = Snowflake.swornString(value)
+		} else if (f == 4) {
+			embedChannelId = Snowflake.swornString(value)
+		} else if (f == 5) {
+			regionId = (String) value
+		} else if (f == 6) {
+			rawJoinedAt = (String) value
+		} else if (f == 7) {
+			iconHash = (String) value
+		} else if (f == 8) {
+			splashHash = (String) value
+		} else if (f == 9) {
+			name = (String) value
+		} else if (f == 10) {
+			systemChannelId = Snowflake.swornString(value)
+		} else if (f == 11) {
+			ownerApplicationId = Snowflake.swornString(value)
+		} else if (f == 12) {
+			afkTimeout = (int) value
+		} else if (f == 13) {
+			verificationLevel = (int) value
+		} else if (f == 14) {
+			mfaLevel = (int) value
+		} else if (f == 15) {
+			memberCount = (int) value
+		} else if (f == 16) {
+			defaultMessageNotificationLevel = (int) value
+		} else if (f == 17) {
+			explicitContentFilterLevel = (int) value
+		} else if (f == 18) {
+			embedEnabled = (boolean) value
+		} else if (f == 19) {
+			large = (boolean) value
+		} else if (f == 20) {
+			unavailable = (boolean) value
+		} else if (f == 21) {
+			ownerClient = (boolean) value
+		} else if (f == 22) {
+			features = (List<String>) value
+		} else if (f == 23) {
+			if (null == channelCache) channelCache = new Cache<>()
+			final lis = (List<Map>) value
+			for (m in lis) {
+				def obj = new Channel(client)
+				obj.guildId = id
+				obj.fill(m)
+				channelCache.add(obj)
+			}
+		} else if (f == 24) {
+			if (null == roleCache) roleCache = new Cache<>()
+			final lis = (List<Map>) value
+			for (m in lis) {
+				def obj = new Role(client)
+				obj.guildId = id
+				obj.fill(m)
+				roleCache.add(obj)
+			}
+		} else if (f == 25) {
+			if (null == memberCache) memberCache = new Cache<>()
+			final lis = (List<Map>) value
+			for (m in lis) {
+				def obj = new Member(client)
+				obj.guildId = id
+				obj.fill(m)
+				memberCache.add(obj)
+			}
+		} else if (f == 26) {
+			if (null == presenceCache) presenceCache = new Cache<>()
+			final lis = (List<Map>) value
+			for (m in lis) {
+				def obj = new Presence(client)
+				obj.guildId = id
+				obj.fill(m)
+				presenceCache.add(obj)
+			}
+		} else if (f == 27) {
+			if (null == voiceStateCache) voiceStateCache = new Cache<>()
+			final lis = (List<Map>) value
+			for (m in lis) {
+				def obj = new VoiceState(client)
+				obj.guildId = id
+				obj.fill(m)
+				voiceStateCache.add(obj)
+			}
+		} else if (f == 28) {
+			if (null == emojiCache) emojiCache = new Cache<>()
+			final lis = (List<Map>) value
+			for (m in lis) {
+				def obj = new Emoji(client)
+				obj.guildId = id
+				obj.fill(m)
+				emojiCache.add(obj)
+			}
+		} else client.log.warn("Unknown field number $field for ${this.class}")
+	}
+
 	Date getJoinedAt() { ConversionUtil.fromJsonDate(rawJoinedAt) }
-	String getIconHash() { (String) object.icon }
 	String getIcon() {
 		iconHash ? "https://cdn.discordapp.com/icons/$id/${iconHash}.jpg" : ''
 	}
-	boolean hasIcon() { object.icon }
+	boolean hasIcon() { iconHash }
 	InputStream newIconInputStream() { inputStreamFromDiscord(icon) }
 	File downloadIcon(file) { downloadFileFromDiscord(icon, file) }
 
-	String getOwnerId() { (String) object.owner_id }
-	Member getOwner() { member(ownerId) }
+	Member getOwner() { memberCache[ownerId] }
 
-	Member getMe() { member(client) }
+	Member getMe() { memberCache[client.id] }
 	String changeNick(String newNick) { client.changeOwnGuildNick(id, newNick) }
 	String nick(String newNick) { changeNick(newNick) }
 	String editNick(String newNick) { changeNick(newNick) }
 	String resetNick() { changeNick('') }
 
-	Channel getDefaultChannel() { channel(id) ?: channels[0] }
-	Channel getAfkChannel() { channel(object.afk_channel_id) }
-	int getAfkTimeout() { (int) object.afk_timeout }
-	Channel getWidgetChannel() { channel(object.embed_channel_id) }
-	boolean isWidgetEnabled() { (boolean) object.embed_enabled }
-	boolean isLarge() { (boolean) object.large }
-	boolean isUnavailable() { (boolean) object.unavailable }
-	int getVerificationLevel() { (int) object.verification_level }
-	int getMfaLevel() { (int) object.mfa_level }
+	Channel getDefaultChannel() { channelCache[id] ?: channels[0] }
+	Channel getAfkChannel() { channelCache[afkChannelId] }
+	Channel getWidgetChannel() { channelCache[embedChannelId] }
 	boolean isMfaRequiredForStaff() { mfaLevel == MFALevelTypes.ELEVATED }
 
-	Role getDefaultRole() { role(id) }
+	Role getDefaultRole() { roleCache[id] }
 
 	Guild edit(Map data) {
 		client.editGuild(data, id)
@@ -102,11 +217,9 @@ class Guild extends DiscordObject {
 
 	Channel channel(id) { find(channelCache, id) }
 
-	DiscordListCache<Channel> getChannelCache() { (DiscordListCache<Channel>) object.channels }
 	List<Channel> getChannels() { channelCache.list() }
 	Map<Snowflake, Channel> getChannelMap() { channelCache.map() }
 
-	DiscordListCache<Role> getRoleCache() { (DiscordListCache<Role>) object.roles }
 	List<Role> getRoles() { roleCache.list() }
 	Map<Snowflake, Role> getRoleMap() { roleCache.map() }
 	Set<Snowflake> getUsedRoleIds() {
@@ -117,11 +230,9 @@ class Guild extends DiscordObject {
 
 	Role role(ass) { find(roleCache, ass) }
 
-	DiscordListCache<Member> getMemberCache() { (DiscordListCache<Member>) object.members }
 	List<Member> getMembers() { memberCache.list() }
 	Map<Snowflake, Member> getMemberMap() { memberCache.map() }
 
-	DiscordListCache<Presence> getPresenceCache() { (DiscordListCache<Presence>) object.presences }
 	List<Presence> getPresences() { presenceCache.list() }
 	Map<Snowflake, Presence> getPresenceMap() { presenceCache.map() }
 
@@ -151,8 +262,6 @@ class Guild extends DiscordObject {
 		client.requestBans(this)
 	}
 	
-	DiscordListCache<VoiceState> getVoiceStateCache() { (DiscordListCache<VoiceState>) object.voice_states }
-	
 	List<VoiceState> getVoiceStates() {
 		voiceStateCache.list()
 	}
@@ -177,9 +286,9 @@ class Guild extends DiscordObject {
 		client.createIntegration(this, type, id)
 	}
 
-	String getRegion() { (String) object.region }
+	String getRegion() { regionId }
 
-	void ban(user, int days=0) {
+	void ban(user, int days = 0) {
 		client.ban(this, user, days)
 	}
 
@@ -221,7 +330,7 @@ class Guild extends DiscordObject {
 		def rg = rp..<r.position
 		def dif = rp <=> r.position
 		Map x = [:]
-		roles.findAll { it.position in rg }.each { x[it.id] = it.position + dif }
+		for (it in roles) if (rg.contains(it.position)) x[it.id] = it.position + dif
 		editRolePositions(x)
 	}
 
@@ -231,7 +340,7 @@ class Guild extends DiscordObject {
 		def cg = cp..<c.position
 		def dif = cp <=> c.position
 		Map x = [:]
-		channels.findAll { it.position in cg }.each { x[it.id] = it.position + dif }
+		for (it in channels) if (cg.contains(it.position)) x[it.id] = it.position + dif
 		editChannelPositions(x)
 	}
 	
@@ -247,9 +356,7 @@ class Guild extends DiscordObject {
 
 	Member getLastMember() { members.max { it.joinedAt } }
 	Member getLatestMember() { members.max { it.joinedAt } }
-	int getMemberCount() { (int) object.member_count }
 
-	DiscordListCache<Emoji> getEmojiCache() { (DiscordListCache<Emoji>) object.emojis }
 	List<Emoji> getEmojis() { emojiCache.list() }
 	List<Emoji> getEmoji() { emojis }
 	Map<Snowflake, Emoji> getEmojiIdMap() { emojiCache.map() }
@@ -294,6 +401,12 @@ class Guild extends DiscordObject {
 		Snowflake channelId
 		boolean enabled
 
+		void jsonField(String name, value) {
+			if (name == 'channel_id') channelId = Snowflake.swornString(name)
+			else if (name == 'enabled') enabled = (boolean) value
+			else client.log.warn("Unknown field number $name for ${this.class}")
+		}
+
 		Snowflake getId() { channelId }
 		String getName() { channel.name }
 		Channel getChannel() { client.channel(channelId) }
@@ -303,38 +416,72 @@ class Guild extends DiscordObject {
 		}
 	}
 
-	static class Ban extends User {
-		Ban(Client client, Map object) { super(client, object + (Map) object.user) }
+	@InheritConstructors
+	static class Ban extends DiscordObject {
+		@Delegate User user
+		String reason
 
-		User getUser() { new User(client, (Map) object.user) }
-		String getReason() { (String) object.reason }
+		void jsonField(String name, value) {
+			if (name == 'user') user = new User(client, (Map) value)
+			else if (name == 'reason') reason = (String) value
+			else client.log.warn("Unknown field number $name for ${this.class}")
+		}
 	}
 }
 
 @CompileStatic
+@InheritConstructors
 @SuppressWarnings('GroovyUnusedDeclaration')
 class VoiceState extends DiscordObject {
-	VoiceState(Client client, Map object) { super(client, object) }
 
-	String getGuildId() { (String) object.guild_id }
-	String getChannelId() { (String) object.channel_id }
-	String getUserId() { (String) object.user_id }
+	Snowflake guildId, channelId, userId
+	String token, sessionId
+	boolean deaf, mute, selfDeaf, selfMute, suppress
+
+	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
+			guild_id: 1, channel_id: 2, user_id: 3, token: 4, session_id: 5,
+			deaf: 6, mute: 7, self_deaf: 8, self_mute: 9, suppress: 10)
+
+	void jsonField(String name, value) {
+		jsonField(FIELDS.get(name), value)
+	}
+
+	void jsonField(Integer field, value) {
+		if (null == field) return
+		int f = field.intValue()
+		if (f == 1) {
+			guildId = Snowflake.swornString(value)
+		} else if (f == 2) {
+			channelId = Snowflake.swornString(value)
+		} else if (f == 3) {
+			userId = Snowflake.swornString(value)
+		} else if (f == 4) {
+			token = (String) value
+		} else if (f == 5) {
+			sessionId = (String) value
+		} else if (f == 6) {
+			deaf = (boolean) value
+		} else if (f == 7) {
+			mute = (boolean) value
+		} else if (f == 8) {
+			selfDeaf = (boolean) value
+		} else if (f == 9) {
+			selfMute = (boolean) value
+		} else if (f == 10) {
+			suppress = (boolean) value
+		} else client.log.warn("Unknown field number $field for ${this.class}")
+	}
+
+	Snowflake getId() { null }
 	Channel getChannel() { client.channel(channelId) }
 	User getUser() { client.user(userId) }
 	Guild getGuild() { guildId ? client.guild(guildId) : channel.guild }
 	Channel getParent() { channel }
 	Member getMember() { guild.member(user) }
-	boolean isDeaf() { (boolean) object.deaf }
-	boolean isMute() { (boolean) object.mute }
 	boolean isDeafened() { deaf }
 	boolean isMuted() { mute }
-	boolean isSelfDeaf() { (boolean) object.self_deaf }
-	boolean isSelfMute() { (boolean) object.self_mute }
 	boolean isSelfDeafened() { selfDeaf }
 	boolean isSelfMuted() { selfMute }
-	boolean isSuppress() { (boolean) object.suppress }
-	String getToken() { (String) object.token }
-	String getSessionId() { (String) object.session_id }
 	String getName() { user.name }
 }
 
@@ -343,20 +490,59 @@ class VoiceState extends DiscordObject {
 class Integration extends DiscordObject {
 	Integration(Client client, Map object) { super(client, object) }
 
-	int getSubscriberCount() { (int) object.subscriber_count }
-	boolean isSyncing() { (boolean) object.syncing }
-	boolean isEnableEmoticons() { (boolean) object.enable_emoticons }
-	int getExpireBehaviour() { (int) object.expire_behaviour }
-	int getExpireGracePeriod() { (int) object.expire_grace_period }
-	User getUser() { new User(client, (Map) object.user) }
-	DiscordObject getAccount() { new DiscordObject(client, (Map) object.account) }
-	boolean isEnabled() { (boolean) object.enabled }
-	String getRoleId() { (String) object.role_id }
-	Role getRole() { client.role(roleId) }
+	Snowflake roleId
+	String integrationId, name, rawSyncedAt, type
+	int subscriberCount, expireBehavior, expireGracePeriod
+	User user
+	Map account
+	boolean syncing, enableEmoticons, enabled
+
+	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
+			role_id: 1, id: 2, name: 3, synced_at: 4, type: 5, subscriber_count: 6,
+			expire_behavior: 7, expire_grace_period: 8, user: 9, account: 10, syncing: 11,
+			enable_emoticons: 12, enabled: 13)
+
+	void jsonField(String name, value) {
+		jsonField(FIELDS.get(name), value)
+	}
+
+	void jsonField(Integer field, value) {
+		if (null == field) return
+		int f = field.intValue()
+		if (f == 1) {
+			roleId = Snowflake.swornString(value)
+		} else if (f == 2) {
+			integrationId = (String) value
+		} else if (f == 3) {
+			name = (String) value
+		} else if (f == 4) {
+			rawSyncedAt = (String) value
+		} else if (f == 5) {
+			type = (String) value
+		} else if (f == 6) {
+			subscriberCount = (int) value
+		} else if (f == 7) {
+			expireBehavior = (int) value
+		} else if (f == 8) {
+			expireGracePeriod = (int) value
+		} else if (f == 9) {
+			user = new User(client, (Map) value)
+		} else if (f == 10) {
+			account = (Map) value
+		} else if (f == 11) {
+			syncing = (boolean) value
+		} else if (f == 12) {
+			enableEmoticons = (boolean) value
+		} else if (f == 13) {
+			enabled = (boolean) value
+		} else client.log.warn("Unknown field number $field for ${this.class}")
+	}
+
+	Snowflake getId() { null }
+	int getExpireBehaviour() { expireBehavior }
+	Role getRole() { client.roleMap[roleId] }
 	Guild getGuild() { role.guild }
-	String getRawSyncedAt() { (String) object.synced_at }
 	Date getSyncedAt() { ConversionUtil.fromJsonDate(rawSyncedAt) }
-	String getType() { (String) object.type }
 	Integration edit(Map data) { client.editIntegration(data, guild, this) }
 	void delete() { client.deleteIntegration(guild, this) }
 	void sync() { client.syncIntegration(guild, this) }
@@ -368,16 +554,42 @@ class Integration extends DiscordObject {
 class Emoji extends DiscordObject {
 	static final Pattern REGEX = ~/<:(?<name>\w+):(?<from>\d+)>/
 
-	String getGuildId() { (String) object.guild_id }
-	Guild getGuild() { client.guild(guildId) }
+	Snowflake id, guildId
+	String name
+	Set<Snowflake> roleIds
+	boolean requiresColons, managed
+
+	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
+			roles: 1, require_colons: 2, managed: 3, guild_id: 4, id: 5, name: 6)
+
+	void jsonField(String name, value) {
+		jsonField(FIELDS.get(name), value)
+	}
+
+	void jsonField(Integer field, value) {
+		if (null == field) return
+		int f = field.intValue()
+		if (f == 1) {
+			roleIds = Snowflake.swornStringSet(value)
+		} else if (f == 2) {
+			requiresColons = (boolean) value
+		} else if (f == 3) {
+			managed = (boolean) value
+		} else if (f == 4) {
+			guildId = Snowflake.swornString(value)
+		} else if (f == 5) {
+			id = Snowflake.swornString(value)
+		} else if (f == 6) {
+			name = (String) value
+		} else client.log.warn("Unknown field number $field for ${this.class}")
+	}
+
+	Guild getGuild() { client.guildCache[guildId] }
 	Guild getParent() { guild }
-	List<String> getRoleIds() { (List<String>) object.roles }
-	List<Role> getRoles() { roleIds.collect(guild.&role) }
-	boolean requiresColons() { (boolean) object.require_colons }
-	boolean requireColons() { (boolean) object.require_colons }
-	boolean isRequiresColons() { (boolean) object.require_colons }
-	boolean isRequireColons() { (boolean) object.require_colons }
-	boolean isManaged() { (boolean) object.managed }
+	List<Role> getRoles() { guild.roleCache.scoop(roleIds) }
+	boolean requiresColons() { requiresColons }
+	boolean requireColons() { requiresColons }
+	boolean isRequireColons() { requiresColons }
 	String getUrl() { "https://cdn.discordapp.com/emojis/${id}.png" }
 	InputStream newInputStream() { inputStreamFromDiscord(url) }
 	File download(file) { downloadFileFromDiscord(url, file) }
@@ -448,7 +660,7 @@ class Role extends DiscordObject {
 			mentionable = (boolean) value
 		} else if (f == 9) {
 			name = (String) value
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	Color getColor() { new Color(colorValue) }
@@ -500,7 +712,7 @@ class Role extends DiscordObject {
 @SuppressWarnings('GroovyUnusedDeclaration')
 class Member extends DiscordObject {
 	Snowflake guildId
-	List<Snowflake> roleIds
+	Set<Snowflake> roleIds
 	@Delegate User user
 	String rawNick, rawJoinedAt
 	boolean mute, deaf
@@ -521,9 +733,7 @@ class Member extends DiscordObject {
 			if (null != user) user.fill map
 			else user = new User(client, map)
 		} else if (f == 2) {
-			final raw = (List<String>) value
-			roleIds = new ArrayList<>(raw.size())
-			for (i in raw) roleIds.add(new Snowflake(i))
+			roleIds = Snowflake.swornStringSet(value)
 		} else if (f == 3) {
 			rawNick = (String) value
 		} else if (f == 4) {
@@ -534,7 +744,7 @@ class Member extends DiscordObject {
 			mute = (boolean) value
 		} else if (f == 7) {
 			deaf = (boolean) value
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	String getNick() { rawNick ?: name }
@@ -680,7 +890,7 @@ class Presence extends DiscordObject {
 			user.fill((Map) value)
 		} else if (f == 5) {
 			lastModified = (long) value
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	Snowflake getId() { user.id }
@@ -713,7 +923,7 @@ class Game extends DiscordObject {
 			url = (String) value
 		} else if (f == 3) {
 			type = (int) value
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	Snowflake getId() { new Snowflake((long) type) }

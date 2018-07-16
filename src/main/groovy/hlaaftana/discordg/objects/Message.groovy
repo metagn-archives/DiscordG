@@ -32,7 +32,7 @@ class Message extends DiscordObject {
 	int type
 	User author
 	List<User> mentions
-	List<Snowflake> roleMentionIds
+	Set<Snowflake> roleMentionIds
 	List<Reaction> reactions
 	List<Attachment> attachments
 	List<Embed> embeds
@@ -79,9 +79,7 @@ class Message extends DiscordObject {
 			mentions = new ArrayList<>(lis.size())
 			for (m in lis) mentions.add(new User(client, m))
 		} else if (f == 14) {
-			final lis = (List<String>) value
-			roleMentionIds = new ArrayList<>(lis.size())
-			for (m in lis) roleMentionIds.add(new Snowflake(m))
+			roleMentionIds = Snowflake.swornStringSet(value)
 		} else if (f == 15) {
 			final lis = (List<Map>) value
 			reactions = new ArrayList<>(lis.size())
@@ -94,7 +92,7 @@ class Message extends DiscordObject {
 			final lis = (List<Map>) value
 			embeds = new ArrayList<>(lis.size())
 			for (m in lis) embeds.add(new Embed(client, m))
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	String getName() { content }
@@ -133,14 +131,8 @@ class Message extends DiscordObject {
 	List<DiscordObject> getMentions(boolean member) { mentions.collect { resolveMember(it, member) } }
 	List<DiscordObject> mentions(boolean member = false) { getMentions(member) }
 	List<Member> getMemberMentions() { mentions.collect { guild.memberCache[it.id] } }
-	List<Snowflake> getMentionedRoleIds() { roleMentionIds }
-	List<Role> getRoleMentions() {
-		final rmids = roleMentionIds
-		final g = guild
-		def result = new ArrayList<Role>(rmids.size())
-		for (id in rmids) result.add(g.roleCache[id])
-		result
-	}
+	Set<Snowflake> getMentionedRoleIds() { roleMentionIds }
+	List<Role> getRoleMentions() { guild.roleCache.scoop(roleMentionIds) }
 	List<Role> getMentionedRoles() { roleMentions }
 
 	List<Snowflake> getMentionedChannelIds() { channelIdMentions }
@@ -239,7 +231,7 @@ class Attachment extends DiscordObject {
 			height = (int) value
 		} else if (f == 8) {
 			size = (int) value
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	String getName() { filename }
@@ -300,7 +292,7 @@ class Embed extends DiscordObject {
 			final flds = (List<Map>) value
 			fields = new ArrayList<>(flds.size())
 			for (fi in flds) fields.add(new Field(client, fi))
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 	Snowflake getId() { null }
@@ -337,7 +329,7 @@ class Embed extends DiscordObject {
 				width = (int) value
 			} else if (f == 4) {
 				height = (int) value
-			} else println("Unknown field number $field for ${this.class}")
+			} else client.log.warn("Unknown field number $field for ${this.class}")
 		}
 
 		String getName() { url }
@@ -352,7 +344,7 @@ class Embed extends DiscordObject {
 		void jsonField(String name, value) {
 			if (name == 'name') this.name = (String) value
 			else if (name == 'url') url = (String) value
-			else println("Unknown field $name for ${this.class}")
+			else client.log.warn("Unknown field $name for ${this.class}")
 		}
 
 		InputStream newInputStream() { inputStreamFromDiscord(url) }
@@ -380,7 +372,7 @@ class Embed extends DiscordObject {
 				width = (int) value
 			} else if (f == 3) {
 				height = (int) value
-			} else println("Unknown field number $field for ${this.class}")
+			} else client.log.warn("Unknown field number $field for ${this.class}")
 		}
 
 		String getName() { url }
@@ -410,7 +402,7 @@ class Embed extends DiscordObject {
 				iconUrl = (String) value
 			} else if (f == 4) {
 				proxyIconUrl = (String) value
-			} else println("Unknown field number $field for ${this.class}")
+			} else client.log.warn("Unknown field number $field for ${this.class}")
 		}
 
 		InputStream newIconInputStream() { inputStreamFromDiscord(iconUrl) }
@@ -437,7 +429,7 @@ class Embed extends DiscordObject {
 				iconUrl = (String) value
 			} else if (f == 3) {
 				proxyIconUrl = (String) value
-			} else println("Unknown field number $field for ${this.class}")
+			} else client.log.warn("Unknown field number $field for ${this.class}")
 		}
 
 		String getName() { text }
@@ -466,7 +458,7 @@ class Embed extends DiscordObject {
 				this.value = (String) value
 			} else if (f == 3) {
 				inline = (boolean) value
-			} else println("Unknown field number $field for ${this.class}")
+			} else client.log.warn("Unknown field number $field for ${this.class}")
 		}
 	}
  }
@@ -499,7 +491,7 @@ class Reaction extends DiscordObject {
 			count = (int) value
 		} else if (f == 5) {
 			me = (boolean) value
-		} else println("Unknown field number $field for ${this.class}")
+		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
 

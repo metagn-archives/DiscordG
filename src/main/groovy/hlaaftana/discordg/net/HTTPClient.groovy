@@ -66,7 +66,7 @@ class HTTPClient {
 		50013: 'Missing Permissions',
 		50014: 'Invalid authentication token',
 		50015: 'Note is too long',
-		50016: 'Provided too few or too many messages to delete. Must provide get least 2 and fewer than 100 messages to delete.',
+		50016: 'Provided too few or too many messages to delete. Must provide at least 2 and fewer than 100 messages to delete.',
 	].asImmutable()
 	String baseUrl = defaultApi
 	Map<String, RateLimit> ratelimits = new HashMap<String, RateLimit>().asSynchronized()

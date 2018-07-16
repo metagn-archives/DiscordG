@@ -1,28 +1,51 @@
 package hlaaftana.discordg.objects
 
 import groovy.transform.CompileStatic
-import hlaaftana.discordg.Client
+import groovy.transform.InheritConstructors
 import hlaaftana.discordg.DiscordObject
+import hlaaftana.discordg.Snowflake
 
 @CompileStatic
+@InheritConstructors
 class Webhook extends DiscordObject {
-	Webhook(Client client, Map object) {
-		super(client, object)
+	Snowflake id, channelId, guildId
+	String name, avatarHash, token
+	User user
+
+	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
+			id: 1, name: 2, avatar: 3, token: 4, user: 5, channel_id: 5, guild_id: 6)
+
+	void jsonField(String name, value) {
+		jsonField(FIELDS.get(name), value)
 	}
 
-	String getName() { object.name ?: ((Map) object.user).username }
-	String getAvatarHash() { object.avatar ?: ((Map) object.user).avatar }
-	boolean hasAvatar() { object.avatar }
+	void jsonField(Integer field, value) {
+		if (null == field) return
+		int f = field.intValue()
+		if (f == 1) {
+			id = Snowflake.swornString(value)
+		} else if (f == 2) {
+			name = (String) value
+		} else if (f == 3) {
+			avatarHash = (String) value
+		} else if (f == 4) {
+			token = (String) value
+		} else if (f == 5) {
+			user = new User(client, (Map) value)
+		} else if (f == 6) {
+			channelId = Snowflake.swornString(value)
+		} else if (f == 7) {
+			guildId = Snowflake.swornString(value)
+		} else client.log.warn("Unknown field number $field for ${this.class}")
+	}
+
+	boolean hasAvatar() { avatarHash }
 	String getAvatar() { hasAvatar() ?
 		"https://cdn.discordapp.com/avatars/$id/${avatarHash}.jpg" : '' }
 	InputStream getAvatarInputStream() { inputStreamFromDiscord(avatar) }
 	File downloadAvatar(file) { downloadFileFromDiscord(avatar, file) }
-	User getUser() { object.user ? new User(client, (Map) object.user) : null }
-	String getChannelId() { (String) object.channel_id }
-	String getGuildId() { (String) object.guild_id }
-	Guild getGuild() { client.guild(guildId) }
-	Channel getChannel() { guild.channel(channelId) }
-	String getToken() { (String) object.token }
+	Guild getGuild() { null == guildId ? channel.guild : client.guildCache[guildId] }
+	Channel getChannel() { null == guildId ? client.channel(channelId) : guild.channelCache[channelId] }
 
 	Webhook retrieve() {
 		client.requestWebhook(id, token)

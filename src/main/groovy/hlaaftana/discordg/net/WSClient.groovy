@@ -1,7 +1,6 @@
 package hlaaftana.discordg.net
 
 import groovy.transform.CompileStatic
-import hlaaftana.discordg.collections.Cache
 
 import java.util.concurrent.*
 import java.util.zip.InflaterInputStream
@@ -9,7 +8,7 @@ import java.util.zip.InflaterInputStream
 import org.eclipse.jetty.websocket.api.*
 import hlaaftana.discordg.util.*
 import hlaaftana.discordg.*
-import hlaaftana.discordg.collections.DiscordListCache
+import hlaaftana.discordg.collections.Cache
 import hlaaftana.discordg.objects.*
 
 /**
@@ -96,29 +95,29 @@ class WSClient extends WebSocketAdapter {
 					}
 					client.fill(client.userObject = (Map<String, Object>) data.user)
 					client.sessionId = (String) data.session_id
-					if (client.copyReady) client.readyData = new Cache<>(data, client)
+					if (client.copyReady) client.readyData = new HashMap<>(data)
 
 					def gl = (List<Map<String, Object>>) data.guilds
 					def ga = new ArrayList<Guild>(gl.size())
 					for (g in gl) ga.add(new Guild(client, g))
-					client.guildCache = new DiscordListCache(ga, client)
+					client.guildCache = new Cache(ga)
 
 					def pcl = (List<Map<String, Object>>) data.private_channels
 					def pca = new ArrayList<Channel>(pcl.size())
 					for (pc in pcl) pca.add(new Channel(client, pc))
-					client.privateChannelCache = new DiscordListCache(pca, client)
+					client.privateChannelCache = new Cache(pca)
 
 					def pl = (List<Map<String, Object>>) data.presences
 					def pa = new ArrayList<Presence>(pl.size())
 					for (p in pl) pa.add(new Presence(client, p))
-					client.presenceCache = new DiscordListCache(pa, client)
+					client.presenceCache = new Cache(pa)
 
 					def r = data.relationships
 					if (r) {
 						def mr = (List<Map<String, Object>>) r
 						def x = new ArrayList<Relationship>(mr.size())
 						for (a in mr) x.add(new Relationship(client, a))
-						client.relationshipCache = new DiscordListCache<>(x, client)
+						client.relationshipCache = new Cache<>(x)
 					}
 
 					def ugs = data.user_guild_settings
@@ -126,7 +125,7 @@ class WSClient extends WebSocketAdapter {
 						def mugs = (List<Map<String, Object>>) ugs
 						def x = new HashMap<Snowflake, Map<String, Object>>(mugs.size())
 						for (a in mugs) x.put(Snowflake.swornString(a.guild_id), a)
-						client.userGuildSettingCache = new Cache<>(x, client)
+						client.userGuildSettingCache = new HashMap<>(x)
 					}
 
 					cachingState = LoadState.LOADED
@@ -378,10 +377,10 @@ class WSClient extends WebSocketAdapter {
 					j.channelId = Snowflake.swornString(c.id)
 					a.add(j)
 				}
-				c.permission_overwrites = new DiscordListCache<PermissionOverwrite>(a, client)
+				c.permission_overwrites = new Cache<PermissionOverwrite>(a)
 			}
 		} else if (c.recipients != null) {
-			c.recipients = new DiscordListCache<User>(((List<Map>) c.recipients).collect { new User(client, this) }, client)
+			c.recipients = new Cache<User>(((List<Map>) c.recipients).collect { new User(client, it) })
 		}
 		c
 	}
@@ -396,7 +395,7 @@ class WSClient extends WebSocketAdapter {
 			a.putAll((Map) a.user)
 			ml.add(new Member(client, a))
 		}
-		g.members = new DiscordListCache(ml, client)
+		g.members = new Cache(ml)
 
 		def p = (List<Map>) g.presences, pl = new ArrayList<Presence>(p.size())
 		for (po in p) {
@@ -405,7 +404,7 @@ class WSClient extends WebSocketAdapter {
 			a.putAll((Map) a.user)
 			pl.add(new Presence(client, a))
 		}
-		g.presences = new DiscordListCache(pl, client)
+		g.presences = new Cache(pl)
 
 		def e = (List<Map>) g.emojis, el = new ArrayList<Emoji>(e.size())
 		for (eo in e) {
@@ -413,7 +412,7 @@ class WSClient extends WebSocketAdapter {
 			a.put('guild_id', gid)
 			el.add(new Emoji(client, a))
 		}
-		g.emojis = new DiscordListCache(el, client)
+		g.emojis = new Cache(el)
 
 		def r = (List<Map>) g.roles, rl = new ArrayList<Role>(r.size())
 		for (ro in r) {
@@ -421,11 +420,11 @@ class WSClient extends WebSocketAdapter {
 			a.put('guild_id', gid)
 			rl.add(new Role(client, a))
 		}
-		g.roles = new DiscordListCache(rl, client)
+		g.roles = new Cache(rl)
 
 		def c = (List<Map>) g.channels, cl = new ArrayList<Channel>(c.size())
 		for (co in c) cl.add(new Channel(client, thruChannel(new HashMap(co), gid)))
-		g.channels = new DiscordListCache(cl, client)
+		g.channels = new Cache(cl)
 
 		def vs = (List<Map>) g.voice_states, vsl = new ArrayList<VoiceState>(vs.size())
 		for (vso in vs) {
@@ -434,7 +433,7 @@ class WSClient extends WebSocketAdapter {
 			a.put('id', (String) a.user_id)
 			vsl.add(new VoiceState(client, a))
 		}
-		g.voice_states = new DiscordListCache(vsl, client)
+		g.voice_states = new Cache(vsl)
 
 		g
 	}

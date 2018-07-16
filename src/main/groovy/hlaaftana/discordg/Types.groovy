@@ -2,12 +2,23 @@ package hlaaftana.discordg
 
 interface Types {}
 
+interface DefaultMessageNotificationLevelTypes extends Types {
+	final int ALL_MESSAGES = 0
+	final int ONLY_MENTIONS = 1
+}
+
+interface ExplicitContentFilterLevelTypes extends Types {
+	final int DISABLED = 0
+	final int MEMBERS_WITHOUT_ROLES = 1
+	final int ALL_MEMBERS = 2
+}
+
 interface VerificationLevelTypes extends Types {
 	final int NONE = 0
 	final int LOW = 1
 	final int MEDIUM = 2
 	final int HIGH = 3
-	final int TABLEFLIP = HIGH
+	final int VERY_HIGH = 4
 }
 
 interface MFALevelTypes extends Types {
