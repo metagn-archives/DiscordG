@@ -5,7 +5,7 @@ import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.Snowflake
 
 @CompileStatic
-class Cache<T extends DiscordObject> implements Map<Snowflake, T> {
+class Cache<T extends DiscordObject> implements Map<Snowflake, T>, Iterable<T> {
 	@Delegate Map<Snowflake, T> store
 
 	Cache(Map<Snowflake, T> map = new HashMap<>()) {
@@ -16,7 +16,7 @@ class Cache<T extends DiscordObject> implements Map<Snowflake, T> {
 		this(superlister(list))
 	}
 
-	private static Map<Snowflake, T> superlister(List<T> list) {
+	private static <T extends DiscordObject> Map<Snowflake, T> superlister(List<T> list) {
 		def r = new LinkedHashMap(list.size())
 		for (a in list) r.put(a.id, a)
 		r
@@ -62,7 +62,7 @@ class Cache<T extends DiscordObject> implements Map<Snowflake, T> {
 		result
 	}
 
-	Iterator<T> items() { store.values().iterator() }
+	Iterator<T> iterator() { store.values().iterator() }
 
 	Iterator<Entry<Snowflake, T>> withId() { store.entrySet().iterator() }
 }

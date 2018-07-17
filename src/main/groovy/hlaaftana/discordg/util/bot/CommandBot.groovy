@@ -217,7 +217,6 @@ abstract class CommandType {
 	List<String> captures(List<String> it) { it.tail() }
 }
 
-@CompileStatic
 trait Restricted {
 	boolean black = false
 	boolean white = false
@@ -282,7 +281,6 @@ trait Restricted {
 	}
 }
 
-@CompileStatic
 trait Triggerable {
 	Set<CommandPattern> triggers = new HashSet<>()
 
@@ -310,7 +308,6 @@ trait Triggerable {
 	@CompileStatic CommandPattern getTrigger() { triggers[0] }
 }
 
-@CompileStatic
 trait Aliasable {
 	Set<CommandPattern> aliases = []
 

@@ -211,7 +211,7 @@ class Client extends User {
 	}
 	HTTPClient http = new HTTPClient(this)
 	WSClient ws
-	Map<String, Object> readyData
+	Map readyData = new HashMap<>()
 	boolean cacheMessages = true
 	Map<Snowflake, Cache<Message>> messages = Collections.synchronizedMap(new HashMap<Snowflake, Cache<Message>>())
 	boolean cacheReactions = false
@@ -377,7 +377,7 @@ class Client extends User {
 	}
 
 	boolean anyUnavailableGuilds() {
-		for (g in guildCache) if (g.value.unavailable) return true
+		for (g in guildCache) if (g.unavailable) return true
 		false
 	}
 
@@ -411,8 +411,8 @@ class Client extends User {
 
 	Cache<Channel> getUserDmChannelCache() {
 		def dlc = new Cache<Channel>()
-		for (e in privateChannelCache) if (e.value.type == 1)
-			dlc.put(e.value.recipientCache.keySet()[0], e.value)
+		for (e in privateChannelCache) if (e.type == 1)
+			dlc.put(e.recipientCache.keySet()[0], e)
 		dlc
 	}
 
@@ -422,7 +422,7 @@ class Client extends User {
 
 	Cache<Channel> getDmChannelCache() {
 		def dlc = new Cache<Channel>()
-		for (e in privateChannelCache) if (e.value.type == 1) dlc.add(e.value)
+		for (e in privateChannelCache) if (e.type == 1) dlc.add(e)
 		dlc
 	}
 
@@ -459,20 +459,20 @@ class Client extends User {
 
 	List<Channel> getGuildChannels() {
 		def result = new ArrayList<Channel>()
-		for (e in guildCache) result.addAll(e.value.channelCache.list())
+		for (e in guildCache) result.addAll(e.channelCache.list())
 		result
 	}
 
 	Map<Snowflake, Channel> getGuildChannelMap() {
 		def result = new HashMap<Snowflake, Channel>()
-		for (e in guildCache) result.putAll(e.value.channelCache.map())
+		for (e in guildCache) result.putAll(e.channelCache.map())
 		result
 	}
 
 	Map<Snowflake, Snowflake> getChannelGuildIdMap() {
 		def result = new HashMap<Snowflake, Snowflake>()
-		for (e in guildCache) for (ce in (Cache<Channel>) e.value.channels) {
-			result.put ce.key, e.key
+		for (e in guildCache) for (ce in (Cache<Channel>) e.channels) {
+			result.put ce.id, e.id
 		}
 		result
 	}
@@ -531,15 +531,15 @@ class Client extends User {
 	Map<Snowflake, User> getUserMap() {
 		def result = new HashMap<Snowflake, User>()
 		for (e in guildCache) {
-			def m = e.value.memberCache
-			for (me in m) result.put(me.key, m.get(me.key).user)
+			def m = e.memberCache
+			for (me in m) result.put(me.id, m.get(me.id).user)
 		}
 		for (e in privateChannelCache) {
-			def m = e.value.recipientCache
-			for (me in m) result.put(me.key, m.get(me.key))
+			def m = e.recipientCache
+			for (me in m) result.put(me.id, m.get(me.id))
 		}
 		if (null != relationshipCache) for (e in relationshipCache) {
-			def r = relationshipCache.get(e.key).user
+			def r = relationshipCache.get(e.id).user
 			result.put(r.id, r)
 		}
 		result
@@ -648,8 +648,8 @@ class Client extends User {
 			presence.user = this
 			presence.game = game
 			presence.status = (String) payload.status
-			presence.guildId = s.key
-			s.value.presenceCache.add(presence)
+			presence.guildId = s.id
+			s.presenceCache.add(presence)
 		}
 		def presence = new Presence(this)
 		presence.user = this
@@ -675,7 +675,7 @@ class Client extends User {
 			void fire(String type, Map<String, Object> d) {
 				final g = Snowflake.from(d.guild_id)
 				final anyG = null != g
-				final gu = anyG ? guildCache[g] : null
+				final gu = anyG ? guildCache[g] : (Guild) null
 				final ch = Snowflake.from(d.channel_id)
 				switch (type) {
 				case 'GUILD_MEMBER_ADD':
@@ -766,7 +766,7 @@ class Client extends User {
 						def m = (Map) d.user
 						def i = Snowflake.swornString(m.id)
 						if (null == user(i)) for (e in privateChannelCache) {
-							def v = e.value.recipientCache
+							def v = e.recipientCache
 							if (v.containsKey(i)) v[i] = new User(Client.this, m)
 						}
 						if (d.status == 'offline') presenceCache.remove(i)
@@ -793,9 +793,8 @@ class Client extends User {
 					break
 				case 'VOICE_STATE_UPDATE':
 					def gi = g
-					if (null == g) {
-						for (e in guildCache) if (e.value.channelCache
-								.containsKey(ch)) gi = e.key
+					if (!anyG) {
+						for (e in guildCache) if (e.channelCache.containsKey(ch)) gi = e.id
 					}
 					def x = guildCache[gi].voiceStateCache
 					def id = Snowflake.swornString(d.id)
@@ -1440,7 +1439,7 @@ class Client extends User {
 		final ci = Snowflake.from(c)
 		final mi = Snowflake.from(m)
 		final chancache = messages[ci]
-		final cache = null == chancache ? null : chancache[mi]
+		final cache = null == chancache ? (Message) null : chancache[mi]
 		if (null != cache) cache
 		else if (request) requestMessage(ci, mi)
 		else null

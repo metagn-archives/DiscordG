@@ -37,8 +37,8 @@ class WSClient extends WebSocketAdapter {
 	boolean dispatch
 	boolean loaded
 
-	WSClient(Client client) {
-		this.client = client
+	WSClient(Client c) {
+		client = c
 		threadPool = Executors.newFixedThreadPool(client.threadPoolSize)
 	}
 
@@ -371,8 +371,9 @@ class WSClient extends WebSocketAdapter {
 		if (c.guild_id) {
 			def po = c.permission_overwrites
 			if (po instanceof List<Map<String, Object>>) {
-				def a = new ArrayList<PermissionOverwrite>(po.size())
-				for (x in po) {
+				final pol = (List<Map<String, Object>>) po
+				def a = new ArrayList<PermissionOverwrite>(pol.size())
+				for (x in pol) {
 					def j = new PermissionOverwrite(client, x)
 					j.channelId = Snowflake.swornString(c.id)
 					a.add(j)
@@ -386,52 +387,54 @@ class WSClient extends WebSocketAdapter {
 	}
 
 	Map thruGuild(Map g) {
-		def gid = (String) g.id
+		def gid = Snowflake.swornString(g.id)
 
-		def m = (List<Map>) g.members, ml = new ArrayList<Member>(m.size())
+		def m = (List<Map>) (g.members ?: []), ml = new ArrayList<Member>(m.size())
 		for (mo in m) {
-			def a = new HashMap(mo)
-			a.put('guild_id', gid)
-			a.putAll((Map) a.user)
-			ml.add(new Member(client, a))
+			def mem = new Member(client)
+			mem.guildId = gid
+			mem.fill(mo)
+			ml.add(mem)
 		}
 		g.members = new Cache(ml)
 
-		def p = (List<Map>) g.presences, pl = new ArrayList<Presence>(p.size())
+		def p = (List<Map>) (g.presences ?: []), pl = new ArrayList<Presence>(p.size())
 		for (po in p) {
-			def a = new HashMap(po)
-			a.put('guild_id', gid)
-			a.putAll((Map) a.user)
-			pl.add(new Presence(client, a))
+			def a = new Presence(client)
+			a.guildId = gid
+			a.fill(po)
+			pl.add(a)
 		}
 		g.presences = new Cache(pl)
 
-		def e = (List<Map>) g.emojis, el = new ArrayList<Emoji>(e.size())
+		def e = (List<Map>) (g.emojis ?: []), el = new ArrayList<Emoji>(e.size())
 		for (eo in e) {
-			def a = new HashMap(eo)
-			a.put('guild_id', gid)
-			el.add(new Emoji(client, a))
+			def a = new Emoji(client)
+			a.guildId = gid
+			a.fill(eo)
+			el.add(a)
 		}
 		g.emojis = new Cache(el)
 
-		def r = (List<Map>) g.roles, rl = new ArrayList<Role>(r.size())
+		def r = (List<Map>) (g.roles ?: []), rl = new ArrayList<Role>(r.size())
 		for (ro in r) {
-			def a = new HashMap(ro)
-			a.put('guild_id', gid)
-			rl.add(new Role(client, a))
+			def a = new Role(client)
+			a.guildId = gid
+			a.fill(ro)
+			rl.add(a)
 		}
 		g.roles = new Cache(rl)
 
-		def c = (List<Map>) g.channels, cl = new ArrayList<Channel>(c.size())
-		for (co in c) cl.add(new Channel(client, thruChannel(new HashMap(co), gid)))
+		def c = (List<Map>) (g.channels ?: []), cl = new ArrayList<Channel>(c.size())
+		for (co in c) cl.add(new Channel(client, thruChannel(new HashMap(co), gid.toString())))
 		g.channels = new Cache(cl)
 
-		def vs = (List<Map>) g.voice_states, vsl = new ArrayList<VoiceState>(vs.size())
+		def vs = (List<Map>) (g.voice_states ?: []), vsl = new ArrayList<VoiceState>(vs.size())
 		for (vso in vs) {
-			def a = new HashMap(vso)
-			a.put('guild_id', gid)
-			a.put('id', (String) a.user_id)
-			vsl.add(new VoiceState(client, a))
+			def a = new VoiceState(client)
+			a.guildId = gid
+			a.fill(vso)
+			vsl.add(a)
 		}
 		g.voice_states = new Cache(vsl)
 

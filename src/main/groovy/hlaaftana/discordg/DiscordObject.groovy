@@ -19,10 +19,8 @@ abstract class DiscordObject implements Comparable {
 		client = c
 	}
 
-	DiscordObject(Client c, Map obj) {
+	DiscordObject(Client c, Map<?, ?> obj) {
 		this(c)
-		def f = obj.id
-		if (f instanceof String) jsonField('id', (String) f)
 		fill(obj)
 	}
 
@@ -48,8 +46,10 @@ abstract class DiscordObject implements Comparable {
 		throw new UnsupportedOperationException("Can't get json field on ${this.class} (field $name)")
 	}*/
 
-	void fill(Map<String, Object> map) {
-		for (e in map.entrySet()) jsonField(e.key, e.value)
+	void fill(Map map) {
+		def f = map.id
+		if (f instanceof String) jsonField('id', (String) f)
+		for (e in map.entrySet()) if (e.key instanceof String) jsonField((String) e.key, e.value)
 	}
 
 	String toString() { name }
