@@ -224,7 +224,7 @@ class Guild extends DiscordObject {
 	Map<Snowflake, Role> getRoleMap() { roleCache.map() }
 	Set<Snowflake> getUsedRoleIds() {
 		def res = new HashSet()
-		for (e in memberCache) res.addAll(e.value.roleIds)
+		for (e in memberCache) res.addAll(e.roleIds)
 		res
 	}
 
@@ -362,7 +362,7 @@ class Guild extends DiscordObject {
 	Map<Snowflake, Emoji> getEmojiIdMap() { emojiCache.map() }
 	Map<String, Emoji> getEmojiNameMap() {
 		def res = new HashMap<String, Emoji>()
-		for (e in emojiCache) res.put(e.value.name, e.value)
+		for (e in emojiCache) res.put(e.name, e)
 		res
 	}
 
@@ -409,7 +409,13 @@ class Guild extends DiscordObject {
 
 		Snowflake getId() { channelId }
 		String getName() { channel.name }
-		Channel getChannel() { client.channel(channelId) }
+		Channel getChannel() {
+			for (final g : client.guildCache) {
+				final ch = g.channelCache[channelId]
+				if (null != ch) return ch
+			}
+			(Channel) null
+		}
 		Guild getGuild() { channel.guild }
 		Embed edit(Map data) {
 			client.editEmbed(data, guild, this)
@@ -418,7 +424,7 @@ class Guild extends DiscordObject {
 
 	@InheritConstructors
 	static class Ban extends DiscordObject {
-		@Delegate User user
+		@Delegate(excludes = ['getClient', 'getClass', 'toString']) User user
 		String reason
 
 		void jsonField(String name, value) {
@@ -433,7 +439,6 @@ class Guild extends DiscordObject {
 @InheritConstructors
 @SuppressWarnings('GroovyUnusedDeclaration')
 class VoiceState extends DiscordObject {
-
 	Snowflake guildId, channelId, userId
 	String token, sessionId
 	boolean deaf, mute, selfDeaf, selfMute, suppress
@@ -473,11 +478,25 @@ class VoiceState extends DiscordObject {
 	}
 
 	Snowflake getId() { null }
-	Channel getChannel() { client.channel(channelId) }
-	User getUser() { client.user(userId) }
-	Guild getGuild() { guildId ? client.guild(guildId) : channel.guild }
+	Channel getChannel() {
+		if (guildId) return getGuild(true).channelCache[channelId]
+		for (final e : client.guildCache) {
+			final ch = e.channelCache[userId]
+			if (null != ch) return ch
+		}
+		null
+	}
+	User getUser() { guildId ? getGuild(true).memberCache[userId].user : client.user(userId) }
+	Guild getGuild(boolean anyGuildId = guildId) { anyGuildId ? client.guildCache[guildId] : channel.guild }
 	Channel getParent() { channel }
-	Member getMember() { guild.member(user) }
+	Member getMember() {
+		if (guildId) return getGuild(true).memberCache[userId]
+		for (final e : client.guildCache) {
+			final mem = e.memberCache[userId]
+			if (null != mem) return mem
+		}
+		null
+	}
 	boolean isDeafened() { deaf }
 	boolean isMuted() { mute }
 	boolean isSelfDeafened() { selfDeaf }
@@ -540,7 +559,13 @@ class Integration extends DiscordObject {
 
 	Snowflake getId() { null }
 	int getExpireBehaviour() { expireBehavior }
-	Role getRole() { client.roleMap[roleId] }
+	Role getRole() {
+		for (final g : client.guildCache) {
+			final r = g.roleCache[roleId]
+			if (null != r) return r
+		}
+		(Role) null
+	}
 	Guild getGuild() { role.guild }
 	Date getSyncedAt() { ConversionUtil.fromJsonDate(rawSyncedAt) }
 	Integration edit(Map data) { client.editIntegration(data, guild, this) }
@@ -678,16 +703,14 @@ class Role extends DiscordObject {
 	String getMentionRegex() { MENTION_REGEX(id.toString()) }
 
 	List<Member> getMembers() {
-		def x = guild.memberCache.values()
-		def r = []
-		for (a in x) if (a.roleIds.contains(id)) r.add(a)
+		def r = new ArrayList<Member>()
+		for (final a : client.guildCache[guildId].memberCache) if (a.roleIds.contains(id)) r.add(a)
 		r
 	}
 
 	List<Snowflake> getMemberIds() {
-		def x = client.guildCache[guildId].memberCache.values()
-		def r = []
-		for (a in x) if (a.roleIds.contains(id)) r.add(a.id)
+		def r = new ArrayList<Snowflake>()
+		for (final a : client.guildCache[guildId].memberCache) if (a.roleIds.contains(id)) r.add(a.id)
 		r
 	}
 
@@ -713,7 +736,7 @@ class Role extends DiscordObject {
 class Member extends DiscordObject {
 	Snowflake guildId
 	Set<Snowflake> roleIds
-	@Delegate User user
+	@Delegate(excludes = ['getClient', 'getClass', 'toString']) User user
 	String rawNick, rawJoinedAt
 	boolean mute, deaf
 
@@ -729,9 +752,8 @@ class Member extends DiscordObject {
 		if (null == field) return
 		int f = field.intValue()
 		if (f == 1) {
-			final map = (Map) value
-			if (null != user) user.fill map
-			else user = new User(client, map)
+			if (null == user) user = new User(client)
+			user.fill((Map) value)
 		} else if (f == 2) {
 			roleIds = Snowflake.swornStringSet(value)
 		} else if (f == 3) {
@@ -884,6 +906,7 @@ class Presence extends DiscordObject {
 		} else if (f == 2) {
 			status = (String) value
 		} else if (f == 3) {
+			println value
 			game = new Game(client, (Map) value)
 		} else if (f == 4) {
 			if (null == user) user = new User(client)

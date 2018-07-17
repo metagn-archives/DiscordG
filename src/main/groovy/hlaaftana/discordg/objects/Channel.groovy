@@ -21,17 +21,17 @@ import java.util.regex.Pattern
 class Channel extends DiscordObject {
 	static final Pattern MENTION_REGEX = ~/<#(\d+)>/
 
-	Snowflake id, guildId, lastMessageId
+	Snowflake id, guildId, lastMessageId, categoryId
 	Integer position, type, bitrate, userLimit
 	boolean isPrivateField, nsfw
-	String name, categoryId, topic
+	String name, topic
 	Cache<User> recipientCache
 	Cache<PermissionOverwrite> permissionOverwriteCache
 
 	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
 			id: 1, name: 2, topic: 3, guild_id: 4, last_message_id: 5,
 			position: 6, type: 7, bitrate: 8, user_limit: 9,
-			is_private: 10, nsfw: 11, recipients: 12, permission_overwrites: 13)
+			is_private: 10, nsfw: 11, recipients: 12, permission_overwrites: 13, parent_id: 14)
 
 	void jsonField(String name, value) {
 		jsonField(FIELDS.get(name), value)
@@ -76,6 +76,8 @@ class Channel extends DiscordObject {
 				po.channelId = id
 				permissionOverwriteCache.add(po)
 			}
+		} else if (f == 14) {
+			categoryId = Snowflake.swornString(value)
 		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
@@ -93,7 +95,7 @@ class Channel extends DiscordObject {
 	boolean isGroup() { type == 3 }
 	boolean isInGuild() { text || voice || category }
 	boolean isCategory() { type == 4 }
-	Channel getCategory() { null == categoryId ? null : guild.channel(categoryId) }
+	Channel getCategory() { null == categoryId ? null : guild.channelCache[categoryId] }
 	Guild getGuild() { dm || group ? null : client.guildCache.get(guildId) }
 	List<User> getUsers() {
 		(List<User>) (inGuild ? members : (recipients + client.user))
