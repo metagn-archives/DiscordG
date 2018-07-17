@@ -40,6 +40,7 @@ abstract class DiscordObject implements Comparable {
 
 	abstract Snowflake getId()
 	abstract String getName()
+	// will get replaced with annotation processor later
 	abstract void jsonField(String name, value)
 
 	/*Object jsonField(String name) {
@@ -47,6 +48,7 @@ abstract class DiscordObject implements Comparable {
 	}*/
 
 	void fill(Map map) {
+		if (null == map) return
 		def f = map.id
 		if (f instanceof String) jsonField('id', (String) f)
 		for (e in map.entrySet()) if (e.key instanceof String) jsonField((String) e.key, e.value)

@@ -35,7 +35,7 @@ class Snowflake extends Number implements Comparable<Snowflake> {
 	}
 
 	static Snowflake swornString(value) {
-		new Snowflake((String) value)
+		null == value ? null : new Snowflake((String) value)
 	}
 
 	static Set<Snowflake> swornStringSet(value) {

@@ -269,11 +269,11 @@ class HTTPClient {
 			while (ratelimits[ratelimitUrl(rlUrl)]?.requests?.contains(id)) Thread.sleep 10
 		}
 		if (discard) {
-			Thread.start { ft.asStringAsync(new Callback<String>() {
+			ft.asStringAsync(new Callback<String>() {
 				void completed(HttpResponse<String> response) { handleResponse(req, rlUrl, response) }
 				void failed(UnirestException e) { throw e }
 				void cancelled() {}
-			}).get() }
+			})
 			null
 		} else handleResponse(req, rlUrl, ft.asString())
 	}

@@ -273,6 +273,12 @@ class Client extends User {
 
 	WSClient getWebSocketClient() { ws }
 
+	void jsonField(String name, value) {
+		final field = FIELDS.get(name)
+		if (null == field) return
+		super.jsonField(field, value)
+	}
+
 	def blacklist(event) { eventBlacklist.add(parseEvent(event)) }
 	def whitelist(event) { eventWhitelist.add(parseEvent(event)) }
 
@@ -1040,7 +1046,11 @@ class Client extends User {
 	List<Channel> editChannelPositions(Map mods, s) {
 		def sn = Snowflake.from(s)
 		http.jsonPatches("guilds/$sn/channels", mods.collect { k, v ->
-			[id: Snowflake.from(k), position: v]}).collect { new Channel(this, ws.thruChannel(it, sn.toString())) }
+			[id: Snowflake.from(k), position: v]}).collect {
+			def ch = new Channel(this, it)
+			ch.guildId = sn
+			ch
+		}
 	}
 
 	List<Webhook> requestGuildWebhooks(s) {

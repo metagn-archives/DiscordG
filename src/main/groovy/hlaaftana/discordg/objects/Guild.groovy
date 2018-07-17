@@ -25,7 +25,7 @@ class Guild extends DiscordObject {
 	Snowflake id, ownerId, afkChannelId, embedChannelId, systemChannelId, ownerApplicationId
 	String name, regionId, rawJoinedAt, iconHash, splashHash
 	int afkTimeout, verificationLevel, mfaLevel, memberCount, defaultMessageNotificationLevel, explicitContentFilterLevel
-	boolean embedEnabled, large, unavailable, ownerClient
+	boolean embedEnabled, large, unavailable, ownerClient, lazy
 	List<String> features
 	Cache<Channel> channelCache
 	Cache<Role> roleCache
@@ -40,10 +40,12 @@ class Guild extends DiscordObject {
 			afk_timeout: 12, verification_level: 13, mfa_level: 14, member_count: 15,
 			default_message_notifications: 16, explicit_content_filter: 17, widget_enabled: 18,
 			large: 19, unavailable: 20, owner: 21, features: 22, channels: 23, roles: 24, members: 25,
-			presences: 26, voice_states: 27, emojis: 28)
+			presences: 26, voice_states: 27, emojis: 28, lazy: 29)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -147,6 +149,8 @@ class Guild extends DiscordObject {
 				obj.fill(m)
 				emojiCache.add(obj)
 			}
+		} else if (f == 29) {
+			lazy = (boolean) value
 		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
@@ -448,7 +452,9 @@ class VoiceState extends DiscordObject {
 			deaf: 6, mute: 7, self_deaf: 8, self_mute: 9, suppress: 10)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -522,7 +528,9 @@ class Integration extends DiscordObject {
 			enable_emoticons: 12, enabled: 13)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -582,13 +590,16 @@ class Emoji extends DiscordObject {
 	Snowflake id, guildId
 	String name
 	Set<Snowflake> roleIds
-	boolean requiresColons, managed
+	boolean requiresColons, managed, animated
 
 	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
-			roles: 1, require_colons: 2, managed: 3, guild_id: 4, id: 5, name: 6)
+			roles: 1, require_colons: 2, managed: 3, guild_id: 4,
+			id: 5, name: 6, animated: 7)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -606,6 +617,8 @@ class Emoji extends DiscordObject {
 			id = Snowflake.swornString(value)
 		} else if (f == 6) {
 			name = (String) value
+		} else if (f == 7) {
+			animated = (boolean) value
 		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
@@ -661,7 +674,9 @@ class Role extends DiscordObject {
 			hoist: 6, managed: 7, mentionable: 8, name: 9)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -742,10 +757,12 @@ class Member extends DiscordObject {
 
 	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
 			user: 1, roles: 2, nick: 3, guild_id: 4, joined_at: 5,
-			mute: 6, deaf: 7)
+			mute: 6, deaf: 7, id: 8, username: 9, discriminator: 10, avatar: 11)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -766,6 +783,18 @@ class Member extends DiscordObject {
 			mute = (boolean) value
 		} else if (f == 7) {
 			deaf = (boolean) value
+		} else if (f == 8) {
+			if (null == user) user = new User(client)
+			user.id = Snowflake.swornString(value)
+		} else if (f == 9) {
+			if (null == user) user = new User(client)
+			user.username = (String) value
+		} else if (f == 10) {
+			if (null == user) user = new User(client)
+			user.avatarHash = (String) value
+		} else if (f == 11) {
+			if (null == user) user = new User(client)
+			user.discriminator = (String) value
 		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
@@ -886,16 +915,19 @@ class Region {
 @CompileStatic
 class Presence extends DiscordObject {
 	Snowflake guildId
-	String status
+	String status, nick
+	Set<Snowflake> roleIds
 	Game game
 	User user
 	long lastModified
 
 	private static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
-			guild_id: 1, status: 2, game: 3, user: 4, last_modified: 5)
+			guild_id: 1, status: 2, game: 3, user: 4, last_modified: 5, nick: 6, roles: 7)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -906,13 +938,16 @@ class Presence extends DiscordObject {
 		} else if (f == 2) {
 			status = (String) value
 		} else if (f == 3) {
-			println value
-			game = new Game(client, (Map) value)
+			game = null == value ? null : new Game(client, (Map) value)
 		} else if (f == 4) {
 			if (null == user) user = new User(client)
 			user.fill((Map) value)
 		} else if (f == 5) {
 			lastModified = (long) value
+		} else if (f == 6) {
+			nick = (String) value
+		} else if (f == 7) {
+			roleIds = Snowflake.swornStringSet(value)
 		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
@@ -929,12 +964,15 @@ class Presence extends DiscordObject {
 class Game extends DiscordObject {
 	String name, url
 	int type
+	Map timestamps
 
 	private static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
-			name: 1, url: 2, type: 3)
+			name: 1, url: 2, type: 3, timestamps: 4)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -946,6 +984,8 @@ class Game extends DiscordObject {
 			url = (String) value
 		} else if (f == 3) {
 			type = (int) value
+		} else if (f == 4) {
+			timestamps = (Map) value
 		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 

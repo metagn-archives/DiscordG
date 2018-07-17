@@ -162,25 +162,12 @@ class WSClient extends WebSocketAdapter {
 							/"channel_id":$data.channel_id,"from":$i,"bulk":true}}/)
 				}
 			}
-			boolean guildCreateInitial = false
-			if (type == 'CHANNEL_CREATE') thruChannel(data)
-			else if (type == 'GUILD_CREATE') {
-				guildCreateInitial = client.guildCache.containsKey(data.id)
-				thruGuild(data)
-			}
+			boolean guildCreateInitial = type == 'GUILD_CREATE' && client.guildCache.containsKey(data.id)
 			for (l in client.rawListeners) l.fire(type, data)
 			if (!client.listenerSystem.listeners[type]) return
 			data.rawType = type
 			data.timeReceived = receiveTime
 			data.seq = content.s
-			if (data.channel_id) data.channel = client.channel(data.channel_id)
-			if (data.guild_id) data.guild = client.guild(data.guild_id)
-			if (data.user_id) data.user = client.user(data.user_id)
-			if (data.message_id) data.message = ((Channel) data.channel).message(data.message_id)
-			if (data.user) {
-				data.user = client.user(data.user) ?: new User(client, (Map) data.user)
-				if (type.contains('MEMBER') && data.guild_id) data.member = ((Guild) data.guild).member(data.user)
-			}
 			if (data.id) {
 				if (type.contains('MEMBER')) data.member = ((Guild) data.guild).member(data.id)
 				else if (type.contains('GUILD')) data.guild = client.guild(data.id) ?: new Guild(client, data)
@@ -190,6 +177,14 @@ class WSClient extends WebSocketAdapter {
 					data.channel = client.channel(data.id) ?: new Channel(client, data)
 				else if (type.contains('MESSAGE'))
 					data.message = ((Channel) data.channel).message(data.id, false) ?: new Message(client, data)
+			}
+			if (data.channel_id) data.channel = client.channel(data.channel_id)
+			if (data.guild_id) data.guild = client.guild(data.guild_id)
+			if (data.user_id) data.user = client.user(data.user_id)
+			if (data.message_id) data.message = ((Channel) data.channel).message(data.message_id)
+			if (data.user) {
+				data.user = client.user(data.user) ?: new User(client, (Map) data.user)
+				if (type.contains('MEMBER') && data.guild_id) data.member = ((Guild) data.guild).member(data.user)
 			}
 			if (type.contains('MESSAGE')) {
 				data.respond = data.sendMessage = ((Channel) data.channel).&sendMessage
@@ -363,82 +358,6 @@ class WSClient extends WebSocketAdapter {
 		NOT_LOADED, LOADING, LOADED
 
 		boolean asBoolean() { this == LOADED }
-	}
-
-
-	Map thruChannel(Map c, String guildId = null) {
-		if (guildId) c.guild_id = guildId
-		if (c.guild_id) {
-			def po = c.permission_overwrites
-			if (po instanceof List<Map<String, Object>>) {
-				final pol = (List<Map<String, Object>>) po
-				def a = new ArrayList<PermissionOverwrite>(pol.size())
-				for (x in pol) {
-					def j = new PermissionOverwrite(client, x)
-					j.channelId = Snowflake.swornString(c.id)
-					a.add(j)
-				}
-				c.permission_overwrites = new Cache<PermissionOverwrite>(a)
-			}
-		} else if (c.recipients != null) {
-			c.recipients = new Cache<User>(((List<Map>) c.recipients).collect { new User(client, it) })
-		}
-		c
-	}
-
-	Map thruGuild(Map g) {
-		def gid = Snowflake.swornString(g.id)
-
-		def m = (List<Map>) (g.members ?: []), ml = new ArrayList<Member>(m.size())
-		for (mo in m) {
-			def mem = new Member(client)
-			mem.guildId = gid
-			mem.fill(mo)
-			ml.add(mem)
-		}
-		g.members = new Cache(ml)
-
-		def p = (List<Map>) (g.presences ?: []), pl = new ArrayList<Presence>(p.size())
-		for (po in p) {
-			def a = new Presence(client)
-			a.guildId = gid
-			a.fill(po)
-			pl.add(a)
-		}
-		g.presences = new Cache(pl)
-
-		def e = (List<Map>) (g.emojis ?: []), el = new ArrayList<Emoji>(e.size())
-		for (eo in e) {
-			def a = new Emoji(client)
-			a.guildId = gid
-			a.fill(eo)
-			el.add(a)
-		}
-		g.emojis = new Cache(el)
-
-		def r = (List<Map>) (g.roles ?: []), rl = new ArrayList<Role>(r.size())
-		for (ro in r) {
-			def a = new Role(client)
-			a.guildId = gid
-			a.fill(ro)
-			rl.add(a)
-		}
-		g.roles = new Cache(rl)
-
-		def c = (List<Map>) (g.channels ?: []), cl = new ArrayList<Channel>(c.size())
-		for (co in c) cl.add(new Channel(client, thruChannel(new HashMap(co), gid.toString())))
-		g.channels = new Cache(cl)
-
-		def vs = (List<Map>) (g.voice_states ?: []), vsl = new ArrayList<VoiceState>(vs.size())
-		for (vso in vs) {
-			def a = new VoiceState(client)
-			a.guildId = gid
-			a.fill(vso)
-			vsl.add(a)
-		}
-		g.voice_states = new Cache(vsl)
-
-		g
 	}
 }
 
