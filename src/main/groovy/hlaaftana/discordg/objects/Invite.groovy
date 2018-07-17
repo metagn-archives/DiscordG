@@ -25,7 +25,9 @@ class Invite extends DiscordObject {
 			inviter: 10)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {

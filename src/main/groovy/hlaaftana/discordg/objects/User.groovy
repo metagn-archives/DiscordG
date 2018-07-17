@@ -27,7 +27,9 @@ class User extends DiscordObject {
 			id: 1, username: 2, avatar: 3, discriminator: 4, email: 5, password: 5, bot: 6)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -142,7 +144,9 @@ class Connection extends DiscordObject {
 			id: 1, name: 2, description: 3, icon: 4, secret: 5, redirect_uris: 5, bot: 6)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -176,7 +180,9 @@ class Application extends DiscordObject {
 			id: 1, name: 2, description: 3, icon: 4, secret: 5, redirect_uris: 5, bot: 6)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -232,17 +238,20 @@ class Application extends DiscordObject {
 @CompileStatic
 @InheritConstructors
 class Profile extends DiscordObject {
-	@Delegate(excludes = ['getClient', 'getClass', 'toString']) User user
+	Snowflake id
+	@Delegate(excludes = ['getClient', 'getClass', 'toString', 'getId', 'setId']) User user
 	boolean premium
 	List<Map> accounts
 	Set<Snowflake> mutualGuildIds
 	Map<Snowflake, String> mutualGuildNickMap
 
 	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
-			user: 1, premium: 2, accounts: 3, mutual_guilds: 4)
+			user: 1, premium: 2, accounts: 3, mutual_guilds: 4, id: 5)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -263,6 +272,8 @@ class Profile extends DiscordObject {
 				mutualGuildIds.add(id)
 				mutualGuildNickMap.put(id, (String) m.nick)
 			}
+		} else if (f == 5) {
+			id = Snowflake.swornString(value)
 		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 

@@ -8,10 +8,10 @@ import hlaaftana.discordg.DiscordG
 
 import java.nio.charset.Charset
 
-/**
- * Methods as utilities for JSON using the groovy.json package.
- * @author Hlaaftana
- */
+// todo future directions parse JSON and build discord objects concurrently
+// like when we start parsing {"content": "blah" set message.content to blah
+// then when we get to {"content": "blah", "tts": true, set tts to true
+// or just parse ETF lol
 @CompileStatic
 class JSONUtil {
 	static JsonSlurper slurper = new JsonSlurper()

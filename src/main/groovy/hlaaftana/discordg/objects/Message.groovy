@@ -25,26 +25,35 @@ class Message extends DiscordObject {
 	}
 	static Comparator<Message> byTimestampAscending = Collections.reverseOrder(byTimestamp)
 
-	Snowflake id, channelId, webhookId
+	Snowflake id, channelId, webhookId, guildIdField
 	def nonce
 	String content, rawEditedAt, rawTimestamp
 	boolean tts, mentionsEveryone, pinned
 	int type
 	User author
+	Member memberField
 	List<User> mentions
 	Set<Snowflake> roleMentionIds
 	List<Reaction> reactions
 	List<Attachment> attachments
 	List<Embed> embeds
 
+	void fill(Map map) {
+		final gid = map.guild_id
+		if (null != gid) guildIdField = Snowflake.swornString(gid)
+		super.fill(map)
+	}
+
 	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
 			id: 1, channel_id: 2, webhook_id: 3, nonce: 4, content: 5,
 			edited_timestamp: 6, timestamp: 7, tts: 8, mention_everyone: 9,
 			pinned: 10, type: 11, author: 12, mentions: 13, mention_roles: 14,
-			reactions: 15, attachments: 16, embeds: 17)
+			reactions: 15, attachments: 16, embeds: 17, member: 18, guild_id: 19)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -92,6 +101,17 @@ class Message extends DiscordObject {
 			final lis = (List<Map>) value
 			embeds = new ArrayList<>(lis.size())
 			for (m in lis) embeds.add(new Embed(client, m))
+		} else if (f == 18) {
+			final map = (Map) value
+			if (null != guildIdField) {
+				def mem = new Member(client)
+				mem.guildId = guildIdField
+				mem.fill(map)
+				client.guildCache[guildIdField].memberCache[mem.id] = mem
+				memberField = mem
+			} else memberField = new Member(client, map)
+		} else if (f == 19) {
+			guildIdField = Snowflake.swornString(value)
 		} else client.log.warn("Unknown field number $field for ${this.class}")
 	}
 
@@ -109,17 +129,13 @@ class Message extends DiscordObject {
 	}
 
 	List<URL> getUrlObjects() { urls.collect(DefaultGroovyMethods.&toURL) }
-	DiscordObject getAuthor(boolean member) {
-		resolveMember(author, member)
-	}
-	DiscordObject author(boolean member = false) {
-		getAuthor(member)
-	}
+	DiscordObject getAuthor(boolean mem) { mem ? member : author }
+	DiscordObject author(boolean mem = false) { getAuthor(mem) }
 	User getSender() { author }
-	DiscordObject resolveMember(User user, boolean member = true) {
-		member ? guild?.memberCache[user.id] : user
+	DiscordObject resolveMember(User user, boolean mem = true) {
+		mem ? guild?.memberCache[user.id] : user
 	}
-	Member getMember() { (Member) author(true) }
+	Member getMember() { memberField ?: guild?.memberCache[author.id] }
 	boolean isByWebhook() { null != webhookId }
 	Webhook requestWebhook() { client.requestWebhook(webhookId) }
 
@@ -207,11 +223,13 @@ class Attachment extends DiscordObject {
 	int width, height, size
 
 	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
-			id: 2, filename: 3, url: 4, proxyUrl: 5,
+			id: 2, filename: 3, url: 4, proxy_url: 5,
 			width: 6, height: 7, size: 8)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -258,7 +276,9 @@ class Embed extends DiscordObject {
 			provider: 10, video: 11, footer: 12, author: 13, fields: 14)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -315,7 +335,9 @@ class Embed extends DiscordObject {
 				url: 1, proxyUrl: 2, width: 3, height: 4)
 
 		void jsonField(String name, value) {
-			jsonField(FIELDS.get(name), value)
+			final field = FIELDS.get(name)
+			if (null != field) jsonField(field, value)
+			else client.log.warn("Unknown field $name for ${this.class}")
 		}
 
 		void jsonField(Integer field, value) {
@@ -360,7 +382,9 @@ class Embed extends DiscordObject {
 				url: 1, width: 2, height: 3)
 
 		void jsonField(String name, value) {
-			jsonField(FIELDS.get(name), value)
+			final field = FIELDS.get(name)
+			if (null != field) jsonField(field, value)
+			else client.log.warn("Unknown field $name for ${this.class}")
 		}
 
 		void jsonField(Integer field, value) {
@@ -388,7 +412,9 @@ class Embed extends DiscordObject {
 				name: 1, url: 2, icon_url: 3, proxy_icon_url: 4)
 
 		void jsonField(String name, value) {
-			jsonField(FIELDS.get(name), value)
+			final field = FIELDS.get(name)
+			if (null != field) jsonField(field, value)
+			else client.log.warn("Unknown field $name for ${this.class}")
 		}
 
 		void jsonField(Integer field, value) {
@@ -417,7 +443,9 @@ class Embed extends DiscordObject {
 				text: 1, icon_url: 2, proxy_icon_url: 3)
 
 		void jsonField(String name, value) {
-			jsonField(FIELDS.get(name), value)
+			final field = FIELDS.get(name)
+			if (null != field) jsonField(field, value)
+			else client.log.warn("Unknown field $name for ${this.class}")
 		}
 
 		void jsonField(Integer field, value) {
@@ -446,7 +474,9 @@ class Embed extends DiscordObject {
 				name: 1, value: 2, inline: 3)
 
 		void jsonField(String name, value) {
-			jsonField(FIELDS.get(name), value)
+			final field = FIELDS.get(name)
+			if (null != field) jsonField(field, value)
+			else client.log.warn("Unknown field $name for ${this.class}")
 		}
 
 		void jsonField(Integer field, value) {
@@ -475,7 +505,9 @@ class Reaction extends DiscordObject {
 			emoji: 1, user_id: 2, count: 4, me: 5)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {

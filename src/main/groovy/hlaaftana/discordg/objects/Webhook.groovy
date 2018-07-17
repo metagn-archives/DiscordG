@@ -16,7 +16,9 @@ class Webhook extends DiscordObject {
 			id: 1, name: 2, avatar: 3, token: 4, user: 5, channel_id: 5, guild_id: 6)
 
 	void jsonField(String name, value) {
-		jsonField(FIELDS.get(name), value)
+		final field = FIELDS.get(name)
+		if (null != field) jsonField(field, value)
+		else client.log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
