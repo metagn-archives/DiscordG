@@ -184,6 +184,7 @@ class HTTPClient {
 
 	HttpURLConnection headerUp(HttpURLConnection req) {
 		if (null != client.token) req.setRequestProperty('Authorization', client.token)
+		println client.token
 		if (req.requestMethod != 'GET') req.setRequestProperty('Content-Type', 'application/json')
 		req.setRequestProperty('User-Agent', null != client ? client.fullUserAgent : DiscordG.USER_AGENT)
 		req

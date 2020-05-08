@@ -105,6 +105,7 @@ class Message extends DiscordObject {
 			final map = (Map) value
 			if (null != guildIdField) {
 				def mem = new Member(client)
+				mem.user = author
 				mem.guildId = guildIdField
 				mem.fill(map)
 				client.guildCache[guildIdField].memberCache[mem.id] = mem

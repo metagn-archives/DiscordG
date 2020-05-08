@@ -25,7 +25,7 @@ class ConversionUtil {
 	}
 
 	static byte[] getBytes(thing) {
-		try { (byte[]) invokeMethod('getBytes$', [thing] as Object[]) }
+		try { (byte[]) this.class.invokeMethod('getBytes$', [thing] as Object[]) }
 		catch (MissingMethodException ignore) { try { getBytesProperty(thing) }
 		catch (ex) { throw new UnsupportedOperationException("Cannot get byte array of $thing", ex) } }
 	}

@@ -51,6 +51,8 @@ abstract class DiscordObject implements Comparable {
 		if (null == map) return
 		def f = map.id
 		if (f instanceof String) jsonField('id', (String) f)
+		def auth = map.author
+		if (auth instanceof Map) jsonField('author', (Map) auth)
 		for (e in map.entrySet()) if (e.key instanceof String) jsonField((String) e.key, e.value)
 	}
 

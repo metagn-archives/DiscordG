@@ -176,7 +176,7 @@ class WSClient extends WebSocketAdapter {
 				else if (type.contains('CHANNEL'))
 					data.channel = client.channel(data.id) ?: new Channel(client, data)
 				else if (type.contains('MESSAGE'))
-					data.message = ((Channel) data.channel).message(data.id, false) ?: new Message(client, data)
+					data.message = client.channel(data.channel_id).message(data.id, false) ?: new Message(client, data)
 			}
 			if (data.channel_id) data.channel = client.channel(data.channel_id)
 			if (data.guild_id) data.guild = client.guild(data.guild_id)
