@@ -9,7 +9,7 @@ import static groovy.lang.Closure.DELEGATE_FIRST
 @CompileStatic
 class ClientBuilder {
 	Map options
-	@Delegate(excludes = ['client', 'toString', 'getClass', 'sendFile']) Client client
+	@Delegate(excludes = ['toString', 'getClass', 'sendFile']) Client client
 
 	ClientBuilder(Map options = [:]) {
 		client = new Client()

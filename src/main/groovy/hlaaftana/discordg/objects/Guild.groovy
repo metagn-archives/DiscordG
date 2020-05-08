@@ -428,7 +428,7 @@ class Guild extends DiscordObject {
 
 	@InheritConstructors
 	static class Ban extends DiscordObject {
-		@Delegate(excludes = ['getClient', 'getClass', 'toString']) User user
+		@Delegate(excludes = ['getClass', 'toString']) User user
 		String reason
 
 		void jsonField(String name, value) {
@@ -751,7 +751,7 @@ class Role extends DiscordObject {
 class Member extends DiscordObject {
 	Snowflake guildId
 	Set<Snowflake> roleIds
-	@Delegate(excludes = ['getClient', 'getClass', 'toString']) User user
+	@Delegate(excludeTypes = [Client]) User user
 	String rawNick, rawJoinedAt
 	boolean mute, deaf
 
@@ -762,14 +762,14 @@ class Member extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else super.getClient().log.warn("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
 		if (null == field) return
 		int f = field.intValue()
 		if (f == 1) {
-			if (null == user) user = new User(client)
+			if (null == user) user = new User(super.getClient())
 			user.fill((Map) value)
 		} else if (f == 2) {
 			roleIds = Snowflake.swornStringSet(value)

@@ -239,7 +239,7 @@ class Application extends DiscordObject {
 @InheritConstructors
 class Profile extends DiscordObject {
 	Snowflake id
-	@Delegate(excludes = ['getClient', 'getClass', 'toString', 'getId', 'setId']) User user
+	@Delegate(excludes = ['getClass', 'toString', 'getId']) User user
 	boolean premium
 	List<Map> accounts
 	Set<Snowflake> mutualGuildIds
@@ -283,7 +283,7 @@ class Profile extends DiscordObject {
 @CompileStatic
 @InheritConstructors
 class Relationship extends DiscordObject {
-	@Delegate(excludes = ['getClient', 'getClass', 'toString']) User user
+	@Delegate(excludes = ['getClass', 'toString']) User user
 	int type
 
 	void jsonField(String name, value) {

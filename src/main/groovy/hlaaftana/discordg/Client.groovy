@@ -96,7 +96,7 @@ class Client extends User {
 		beAnAsshole ? customUserAgent : "$DiscordG.USER_AGENT $customUserAgent"
 	}
 
-	String tokenPrefix
+	String tokenPrefix = 'Bot'
 	String rawToken
 	boolean botField
 	String email, emailField
@@ -256,7 +256,7 @@ class Client extends User {
 	}
 
 	void setToken(String newToken) {
-		rawToken = newToken
+		rawToken = newToken.startsWith('Bot ') ? newToken.substring(4) : newToken
 	}
 	
 	void setConfirmedBot(boolean ass) {
@@ -485,8 +485,8 @@ class Client extends User {
 
 	Member member(t) { (Member) findNested(guildCache, "memberCache", t) }
 	List<Member> members(t) { findAllNested(guildCache, "memberCache", t) }
-	Member member(s, u) { find(guildCache[Snowflake.from(s)].memberCache, u) }
-	List<Member> members(s, u) { findAll(guildCache[Snowflake.from(s)].memberCache, u) }
+	Member member(s, u) { this.<Member>find(guildCache[Snowflake.from(s)].memberCache, u) }
+	List<Member> members(s, u) { this.<Member>findAll(guildCache[Snowflake.from(s)].memberCache, u) }
 
 	User user(u) { (User) (member(u)?.user ?:
 			findNested(privateChannelCache, 'recipientCache', u) ?:
@@ -510,8 +510,8 @@ class Client extends User {
 
 	Role role(r) { (Role) findNested(guildCache, "roleCache", r) }
 	List<Role> roles(r) { findAllNested(guildCache, "roleCache", r) }
-	Role role(s, r) { find(guildCache[Snowflake.from(s)].roleCache, r) }
-	List<Role> roles(s, r) { findAll(guildCache[Snowflake.from(s)].roleCache, r) }
+	Role role(s, r) { this.<Role>find(guildCache[Snowflake.from(s)].roleCache, r) }
+	List<Role> roles(s, r) { this.<Role>findAll(guildCache[Snowflake.from(s)].roleCache, r) }
 
 	Call ongoingCall(c) { calls[Snowflake.from(c)] }
 
