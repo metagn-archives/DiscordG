@@ -1,5 +1,5 @@
 # DiscordG
-Discord library for Groovy. Documentation in https://hlaaftana.github.io/DiscordG downloads in releases page
+Discord library for Groovy. Documentation in https://metagodcore.github.io/Cringegodcord/ downloads in releases page
 
 Now youre likje "woa. why would you make one if theres already 3 javalibs (
 
