@@ -1,6 +1,7 @@
 package hlaaftana.discordg.net
 
 import groovy.transform.CompileStatic
+import hlaaftana.discordg.data.Snowflake
 
 import java.util.concurrent.*
 import java.util.zip.InflaterInputStream
@@ -9,7 +10,7 @@ import org.eclipse.jetty.websocket.api.*
 import hlaaftana.discordg.util.*
 import hlaaftana.discordg.*
 import hlaaftana.discordg.collections.Cache
-import hlaaftana.discordg.objects.*
+import hlaaftana.discordg.data.*
 
 /**
  * The websocket client for the API.
@@ -327,6 +328,7 @@ class WSClient extends WebSocketAdapter {
 		)
 		d.putAll(client.extraIdentifyData)
 		if (client.shardTuple) d.shard = client.shardTuple
+		if (client.intents) d.intents = client.intents.value
 		send(op: 2, d: d)
 	}
 

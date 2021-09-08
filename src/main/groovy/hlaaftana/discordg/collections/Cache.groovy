@@ -2,7 +2,7 @@ package hlaaftana.discordg.collections
 
 import groovy.transform.CompileStatic
 import hlaaftana.discordg.DiscordObject
-import hlaaftana.discordg.Snowflake
+import hlaaftana.discordg.data.Snowflake
 
 @CompileStatic
 class Cache<T extends DiscordObject> implements Map<Snowflake, T>, Iterable<T> {

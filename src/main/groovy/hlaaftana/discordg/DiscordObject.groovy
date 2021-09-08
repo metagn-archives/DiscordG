@@ -3,7 +3,8 @@ package hlaaftana.discordg
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
 import hlaaftana.discordg.collections.Cache
-import hlaaftana.discordg.objects.Member
+import hlaaftana.discordg.data.Snowflake
+import hlaaftana.discordg.data.Member
 import hlaaftana.discordg.util.CasingType
 import hlaaftana.discordg.util.ConversionUtil
 
@@ -215,10 +216,6 @@ abstract class DiscordObject implements Comparable {
 				(o.containsKey('name') && o.name == v)
 	}
 
-	private static final Closure<Boolean> memberNameClosure = { Map o, String v ->
-		((Map) o.user).username == v || o.nick == v
-	}
-
 	static Map findName(Collection<Map> ass, value) {
 		if (null == ass || ass.empty || null == value) return null
 		ass.find(nameClosure.rcurry(value.toString()))
@@ -234,14 +231,21 @@ abstract class DiscordObject implements Comparable {
 
 	static <T extends DiscordObject> T findName(Cache<T> cache, value) {
 		if (null == value || !cache) return null
-		def i = cache.list().find(nameClosure.rcurry(value))
-		null == i ? null : cache.get(i.id)
+		final s = value.toString()
+		final h = s.hashCode()
+		for (c in cache) if (c.name.hashCode() == h && c.name == s) return c
+		null
 	}
 
 	static Member findMemberName(Cache<Member> cache, value) {
 		if (null == value || !cache) return null
-		def i = cache.list().find(memberNameClosure.rcurry(value))
-		null == i ? null : cache.get(i.id)
+		final s = value.toString()
+		final h = s.hashCode()
+		for (c in cache)
+			if ((c.user.username.hashCode() == h && c.user.username == s) ||
+				(c.nick.hashCode() == h && c.nick == s))
+				return c
+		null
 	}
 
 	static <T extends DiscordObject> List<T> findAllName(Cache<T> cache, value) {

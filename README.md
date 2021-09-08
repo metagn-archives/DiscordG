@@ -1,19 +1,13 @@
 # DiscordG
 Discord library for Groovy. Documentation in https://metagodcore.github.io/Cringegodcord/ downloads in releases page
 
-Now youre likje "woa. why would you make one if theres already 3 javalibs (
-
 [JDA](https://github.com/DV8FromTheWorld/JDA)
 
 [Discord4J](https://github.com/austinv11/Discord4J)
 
 [Javacord](https://github.com/BtoBastian/Javacord)
 
-)""
-
-i am about the list the pros and cons, but first some that might be one of both
-
-* Uses Groovy's JSON parsers which are very fast and/but directly return Java objects.
+* Uses Groovy's JSON parsers
 
 * Caches used to instantiate object classes on the go and used maps (what JDA uses now but i came up with a year before
 them),but now they're pass-by-reference mutable objects. The reason I changed this is because immutable state is barely

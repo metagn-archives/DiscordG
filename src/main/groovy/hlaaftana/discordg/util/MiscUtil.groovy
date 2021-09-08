@@ -102,8 +102,9 @@ class MiscUtil {
 		coll[rand.nextInt(coll.size())]
 	}
 
+	static final ZoneId UTC_ID = TimeZone.getTimeZone('UTC').toZoneId()
 	static LocalDateTime dateToLDT(Date date = new Date(),
-		ZoneId tz = ZoneId.systemDefault()){
+		ZoneId tz = UTC_ID){
 		LocalDateTime.ofInstant(date.toInstant(), tz)
 	}
 

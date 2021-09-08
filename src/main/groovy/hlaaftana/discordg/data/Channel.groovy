@@ -1,12 +1,10 @@
-package hlaaftana.discordg.objects
+package hlaaftana.discordg.data
 
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 import groovy.transform.stc.ClosureParams
 import groovy.transform.stc.SimpleType
 import hlaaftana.discordg.DiscordObject
-import hlaaftana.discordg.Permissions
-import hlaaftana.discordg.Snowflake
 import hlaaftana.discordg.collections.Cache
 
 import java.util.regex.Pattern
@@ -38,7 +36,7 @@ class Channel extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -84,7 +82,7 @@ class Channel extends DiscordObject {
 			categoryId = Snowflake.swornString(value)
 		} else if (f == 15) {
 			rawLastPinTimestamp = (String) value
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	String getMention() { "<#$id>" }
@@ -147,25 +145,25 @@ class Channel extends DiscordObject {
 		if (this.private) return Permissions.PRIVATE_CHANNEL
 		Member member = guild.member(user)
 		if (!member) return Permissions.ALL_FALSE
-		def doodle = initialPerms.value
+		def doodle = new Permissions(initialPerms.value)
 		def owMap = overwriteCache
 		def everyoneOw = owMap[id]
 		if (everyoneOw) {
-			doodle &= ~everyoneOw.deniedValue
-			doodle |= everyoneOw.allowedValue
+			doodle.remove(everyoneOw.denied)
+			doodle.add(everyoneOw.allowed)
 		}
 		def roleOws = new ArrayList<PermissionOverwrite>()
 		for (r in member.roleIds) if (owMap.containsKey(r)) roleOws.add(owMap[r])
 		if (roleOws) for (r in roleOws) {
-			doodle &= ~r.deniedValue
-			doodle |= r.allowedValue
+			doodle.remove(r.denied)
+			doodle.add(r.allowed)
 		}
 		final userOw = owMap[member.id]
 		if (null != userOw) {
-			doodle &= ~userOw.deniedValue
-			doodle |= userOw.allowedValue
+			doodle.remove(userOw.denied)
+			doodle.add(userOw.allowed)
 		}
-		new Permissions(doodle)
+		doodle
 	}
 
 	Permissions permissionsFor(user) {
@@ -174,7 +172,7 @@ class Channel extends DiscordObject {
 
 	boolean canSee(user) {
 		if (this.private) recipientCache.containsKey(Snowflake.from(user))
-		else permissionsFor(user)[Permissions.BitOffsets.READ_MESSAGES]
+		else permissionsFor(user).has(Permission.READ_MESSAGES)
 	}
 
 	List<Invite> requestInvites() {
@@ -296,7 +294,7 @@ class Channel extends DiscordObject {
 	}
 
 	Message find(int number = 100, int maxTries = 10,
-	             @ClosureParams(value = SimpleType, options = "hlaaftana.discordg.objects.Message") Closure closure) {
+	             @ClosureParams(value = SimpleType, options = "hlaaftana.discordg.data.Message") Closure closure) {
 		List<Message> messages = logs(number)
 		Message ass = messages.find(closure)
 		if (ass) ass
@@ -346,8 +344,8 @@ class Channel extends DiscordObject {
 	}
 
 	boolean canJoin() {
-		Permissions ass = guild.me.permissionsFor(this)
-		ass[Permissions.BitOffsets.CONNECT] && (userLimit ? (!full || ass[Permissions.BitOffsets.MOVE_MEMBERS]) : true )
+		final perms = guild.me.user.permissionsFor(this)
+		perms.has(Permission.CONNECT) && (!userLimit || !full || perms.has(Permission.MOVE_MEMBERS))
 	}
 
 	void move(member) {
@@ -375,7 +373,7 @@ class Channel extends DiscordObject {
 @InheritConstructors
 @CompileStatic
 class PermissionOverwrite extends DiscordObject {
-	int allowedValue, deniedValue
+	long allowedValue, deniedValue
 	String type
 	Snowflake channelId, id
 
@@ -385,7 +383,7 @@ class PermissionOverwrite extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -396,12 +394,12 @@ class PermissionOverwrite extends DiscordObject {
 		} else if (f == 2) {
 			channelId = Snowflake.swornString(value)
 		} else if (f == 3) {
-			allowedValue = (int) value
+			allowedValue = value instanceof String ? value.toLong() : (long) value
 		} else if (f == 4) {
-			deniedValue = (int) value
+			deniedValue = value instanceof String ? value.toLong() : (long) value
 		} else if (f == 5) {
 			type = (String) value
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	Permissions getAllowed() { new Permissions(allowedValue) }
@@ -448,7 +446,7 @@ class Call extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -466,7 +464,7 @@ class Call extends DiscordObject {
 		} else if (f == 5) {
 			if (null == voiceStates) voiceStates = new ArrayList<>(voiceStates.size())
 			for (m in ((List<Map>) value)) voiceStates.add(new VoiceState(client, m))
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	Snowflake getId() { channelId }

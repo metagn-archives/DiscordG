@@ -1,9 +1,8 @@
-package hlaaftana.discordg.objects
+package hlaaftana.discordg.data
 
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.DiscordObject
-import hlaaftana.discordg.Snowflake
 import hlaaftana.discordg.util.*
 
 /**
@@ -27,7 +26,7 @@ class Invite extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -53,7 +52,7 @@ class Invite extends DiscordObject {
 			temporary = (boolean) value
 		} else if (f == 10) {
 			inviter = new User(client, (Map) value)
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	String getName() { code }

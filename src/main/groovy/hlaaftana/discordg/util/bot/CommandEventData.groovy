@@ -1,8 +1,8 @@
 package hlaaftana.discordg.util.bot
 
 import groovy.transform.CompileStatic
-import hlaaftana.discordg.objects.Channel
-import hlaaftana.discordg.objects.Message
+import hlaaftana.discordg.data.Channel
+import hlaaftana.discordg.data.Message
 
 @CompileStatic
 class CommandEventData {
