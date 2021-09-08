@@ -2,7 +2,6 @@ package hlaaftana.discordg.data
 
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
-import hlaaftana.discordg.DiscordObject
 
 @CompileStatic
 class Snowflake extends Number implements Comparable<Snowflake> {

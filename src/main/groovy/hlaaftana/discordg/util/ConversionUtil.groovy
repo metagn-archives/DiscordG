@@ -25,19 +25,23 @@ class ConversionUtil {
 	}
 
 	static byte[] getBytes(thing) {
-		try { (byte[]) this.class.invokeMethod('getBytes$', [thing] as Object[]) }
-		catch (MissingMethodException ignore) { try { getBytesProperty(thing) }
-		catch (ex) { throw new UnsupportedOperationException("Cannot get byte array of $thing", ex) } }
+		if (thing instanceof byte[]) (byte[]) thing
+		else if (thing instanceof File) ((File) thing).bytes
+		else if (thing instanceof InputStream) ((InputStream) thing).bytes
+		else if (thing instanceof URL) ((URL) thing).bytes
+		else if (thing instanceof String) ((String) thing).bytes
+		else if (thing instanceof ByteArrayOutputStream) ((ByteArrayOutputStream) thing).toByteArray()
+		else
+			try {
+				getBytesProperty(thing)
+			} catch (ex) {
+				throw new UnsupportedOperationException(
+					"Cannot get byte array of $thing with class $thing.class", ex)
+			}
 	}
 
 	@CompileDynamic
 	private static byte[] getBytesProperty(thing) { thing.bytes }
-	static byte[] getBytes$(byte[] thing) { thing }
-	static byte[] getBytes$(File thing) { thing.bytes }
-	static byte[] getBytes$(InputStream thing) { thing.bytes }
-	static byte[] getBytes$(URL thing) { thing.bytes }
-	static byte[] getBytes$(String thing) { thing.bytes }
-	static byte[] getBytes$(ByteArrayOutputStream stream) { stream.toByteArray() }
 
 	static boolean isImagable(thing) {
 		try{

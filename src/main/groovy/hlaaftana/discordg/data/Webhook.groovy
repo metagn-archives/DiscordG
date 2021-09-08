@@ -2,7 +2,6 @@ package hlaaftana.discordg.data
 
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
-import hlaaftana.discordg.DiscordObject
 
 @CompileStatic
 @InheritConstructors
@@ -32,7 +31,8 @@ class Webhook extends DiscordObject {
 		} else if (f == 4) {
 			token = (String) value
 		} else if (f == 5) {
-			user = new User(client, (Map) value)
+			user = new User(client)
+			user.fill((Map) value)
 		} else if (f == 6) {
 			channelId = Snowflake.swornString(value)
 		} else if (f == 7) {

@@ -90,11 +90,11 @@ class Permissions {
 
 	Permissions or(Permissions other) { new Permissions(value | other.value) }
 	Permissions and(Permissions other) { new Permissions(value & other.value) }
-	Permissions minus(Permissions other) { new Permissions(value & other.value.bitwiseNegate()) }
+	Permissions minus(Permissions other) { new Permissions((value & other.value.bitwiseNegate()).longValue()) }
 
 	Permissions or(Permission other) { new Permissions(value | other.value()) }
 	Permissions and(Permission other) { new Permissions(value & other.value()) }
-	Permissions minus(Permission other) { new Permissions(value & other.value().bitwiseNegate()) }
+	Permissions minus(Permission other) { new Permissions((value & other.value().bitwiseNegate()).longValue()) }
 
 	Permissions plus(Permissions other) { or(other) }
 	Permissions multiply(Permissions other) { and(other) }

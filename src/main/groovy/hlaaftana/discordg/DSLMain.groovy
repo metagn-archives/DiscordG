@@ -9,16 +9,16 @@ import hlaaftana.discordg.dsl.*
 @CompileStatic
 class DSLMain {
 	static void main(String[] args) {
-		ImportCustomizer imports = new ImportCustomizer()
+		def imports = new ImportCustomizer()
 		imports.addStarImports('hlaaftana.discordg', 'hlaaftana.discordg.dsl',
-				'hlaaftana.discordg.data', 'hlaaftana.discordg.status',
+				'hlaaftana.discordg.data',
 				'hlaaftana.discordg.net', 'hlaaftana.discordg.util', 'hlaaftana.discordg.util.bot',
 				'hlaaftana.discordg.exceptions', 'hlaaftana.discordg.logic')
-		CompilerConfiguration cc = new CompilerConfiguration()
+		def cc = new CompilerConfiguration()
 		cc.addCompilationCustomizers(imports)
 		cc.scriptBaseClass = DelegatingScript.name
-		GroovyShell sh = new GroovyShell(new Binding(), cc)
-		DelegatingScript script = (DelegatingScript) sh.parse(new File(args[0]))
+		def sh = new GroovyShell(new Binding(), cc)
+		def script = (DelegatingScript) sh.parse(new File(args[0]))
 		def dsl = new GroovyBot()
 		script.delegate = dsl
 		script.run()

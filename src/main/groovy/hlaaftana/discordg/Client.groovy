@@ -787,8 +787,14 @@ class Client extends User {
 						if (((Map) d.user).avatar) {
 							def m = guildCache[g].memberCache
 							def mem = m[id]
-							if (null != mem) mem.fill((Map) d.user)
-							else m.add(new Member(Client.this, d))
+							if (null != mem) mem.jsonField('user', d.user) //fill((Map) d.user)
+							else {
+								mem = new Member(Client.this)
+								mem.jsonField('id', d.id)
+								mem.jsonField('user', d.user)
+								mem.fill(d)
+								m.add(mem)
+							}
 						}
 						def pc = guildCache[g].presenceCache
 						if (d.status == 'offline') pc?.remove(id)

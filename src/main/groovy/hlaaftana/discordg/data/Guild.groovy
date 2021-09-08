@@ -2,7 +2,6 @@ package hlaaftana.discordg.data
 
 import groovy.transform.CompileStatic
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.collections.Cache
 import hlaaftana.discordg.util.*
 import java.awt.Color
@@ -429,7 +428,10 @@ class Guild extends DiscordObject {
 		String reason
 
 		void jsonField(String name, value) {
-			if (name == 'user') user = new User(client, (Map) value)
+			if (name == 'user') {
+				user = new User(client)
+				user.fill((Map) value)
+			}
 			else if (name == 'reason') reason = (String) value
 			else client.log.debug("Unknown field number $name for ${this.class}")
 		}
@@ -550,7 +552,8 @@ class Integration extends DiscordObject {
 		} else if (f == 8) {
 			expireGracePeriod = (int) value
 		} else if (f == 9) {
-			user = new User(client, (Map) value)
+			user = new User(client)
+			user.fill((Map) value)
 		} else if (f == 10) {
 			account = (Map) value
 		} else if (f == 11) {
@@ -948,7 +951,11 @@ class Presence extends DiscordObject {
 		} else if (f == 2) {
 			status = (String) value
 		} else if (f == 3) {
-			game = null == value ? null : new Game(client, (Map) value)
+			if (null == value) game = null
+			else {
+				game = new Game(client)
+				game.fill((Map) value)
+			}
 		} else if (f == 4) {
 			if (null == user) user = new User(client)
 			user.fill((Map) value)
