@@ -5,7 +5,9 @@ import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
 import groovy.transform.Memoized
 import hlaaftana.discordg.collections.Cache
-
+import hlaaftana.discordg.data.Intents
+import hlaaftana.discordg.data.Permissions
+import hlaaftana.discordg.data.Snowflake
 import hlaaftana.discordg.exceptions.MessageInvalidException
 
 import java.math.MathContext
@@ -15,7 +17,7 @@ import static hlaaftana.discordg.logic.ActionPool.create as newPool
 import hlaaftana.discordg.logic.*
 import hlaaftana.discordg.net.*
 import hlaaftana.discordg.util.*
-import hlaaftana.discordg.objects.*
+import hlaaftana.discordg.data.*
 
 import java.awt.Color
 import java.util.regex.Pattern
@@ -89,11 +91,11 @@ class Client extends User {
 	/**
 	 * Events DiscordG might send.
 	 */
-	static List<String> knownEvents = ['INITIAL_GUILD_CREATE', 'UNRECOGINZED', 'ALL'] + knownDiscordEvents
+	static List<String> knownEvents = ['INITIAL_GUILD_CREATE', 'UNRECOGNIZED', 'ALL'] + knownDiscordEvents
 
 	String customUserAgent = ''
 	String getFullUserAgent() {
-		beAnAsshole ? customUserAgent : "$DiscordG.USER_AGENT $customUserAgent"
+		userAccount ? customUserAgent : "$DiscordG.USER_AGENT $customUserAgent"
 	}
 
 	String tokenPrefix = 'Bot'
@@ -119,7 +121,7 @@ class Client extends User {
 	/**
 	 * discord gateway version, dont change unless you know what it is and want to
 	 */
-	int gatewayVersion = 6
+	int gatewayVersion = DiscordG.DEFAULT_GATEWAY_VERSION
 	/**
 	 * cache tokens from email and password logins. dont turn this off.
 	 */
@@ -168,6 +170,7 @@ class Client extends User {
 	 * only for bots and accounts at or over 100 guilds
 	 */
 	long guildTimeout = 30_000
+	boolean permissionsAreStrings = true
 	/**
 	 * whitelisted events
 	 */
@@ -180,7 +183,8 @@ class Client extends User {
 	 * for shards, [shardId, shardCount]
 	 */
 	Tuple2 shardTuple
-	boolean beAnAsshole = false
+	Intents intents
+	boolean userAccount = false
 	
 	Log logObj
 	Map<String, Object> extraIdentifyData = [:]
@@ -1023,14 +1027,20 @@ class Client extends User {
 
 	Role createRole(Map data, s) {
 		if (data.color instanceof Color) data.color = ((Color) data.color).RGB
-		if (data.permissions instanceof Permissions) data.permissions = ((Permissions) data.permissions).value
+		if (data.permissions instanceof Permissions) {
+			final perms = (Permissions) data.permissions
+			data.permissions = permissionsAreStrings ? perms.toString() : perms.toLong()
+		}
 		Role createdRole = new Role(this, http.jsonPost("guilds/${Snowflake.from(s)}/roles", [:]))
 		editRole(data, s, createdRole)
 	}
 
 	Role editRole(Map data, s, r) {
 		if (data.color instanceof Color) data.color = ((Color) data.color).RGB
-		if (data.permissions instanceof Permissions) data.permissions = ((Permissions) data.permissions).value
+		if (data.permissions instanceof Permissions) {
+			final perms = (Permissions) data.permissions
+			data.permissions = permissionsAreStrings ? perms.toString() : perms.toLong()
+		}
 		new Role(this, http.jsonPatch("guilds/${Snowflake.from(s)}/roles/${Snowflake.from(r)}", data))
 	}
 
@@ -1197,7 +1207,7 @@ class Client extends User {
 	}
 
 	void leaveGuild(s) {
-		http.discardDelete("users/@me/guilds/${Snowflake.from(s)}")
+		http.discardDelete("users/@me/guilds/${Snowflake.from(s)}", [:])
 	}
 
 	void deleteGuild(s) {
@@ -1512,11 +1522,11 @@ class Client extends User {
 				ConversionUtil.fromJsonDate((String) o2.timestamp).compareTo(
 						ConversionUtil.fromJsonDate((String) o1.timestamp))
 			}
-		})
+		}).collect { new Message(this, it) }
 		if (boundaryType in ['around', 'after']) l = l.reverse()
-		if (cached) for (a in l) messages[Snowflake.from(c)].add(new Message(this, a))
-		else messages[Snowflake.from(c)] = new Cache(l)
-		l.collect { new Message(this, it) }
+		if (cached) for (a in l) messages[Snowflake.from(c)].add(a)
+		else messages[Snowflake.from(c)] = new Cache<Message>(l)
+		l
 	}
 
 	List<Message> forceRequestChannelLogs(c, int m = 100, b = null,

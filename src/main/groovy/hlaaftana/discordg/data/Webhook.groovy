@@ -1,9 +1,8 @@
-package hlaaftana.discordg.objects
+package hlaaftana.discordg.data
 
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.DiscordObject
-import hlaaftana.discordg.Snowflake
 
 @CompileStatic
 @InheritConstructors
@@ -18,7 +17,7 @@ class Webhook extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -38,7 +37,7 @@ class Webhook extends DiscordObject {
 			channelId = Snowflake.swornString(value)
 		} else if (f == 7) {
 			guildId = Snowflake.swornString(value)
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	boolean hasAvatar() { avatarHash }

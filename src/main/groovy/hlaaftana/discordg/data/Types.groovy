@@ -1,4 +1,4 @@
-package hlaaftana.discordg
+package hlaaftana.discordg.data
 
 interface Types {}
 

@@ -4,9 +4,10 @@ import groovy.transform.CompileStatic
 
 @CompileStatic
 class DiscordG {
-	static final String VERSION = '5.0.3'
-	static final String GITHUB = 'https://github.com/hlaaftana/DiscordG'
+	static final String VERSION = '5.1.1'
+	static final String GITHUB = 'https://github.com/metagodcore/DiscordG'
 	static final String USER_AGENT = "groovy/$GroovySystem.version DiscordBot ($GITHUB, $VERSION)"
+	static final int DEFAULT_GATEWAY_VERSION = 9
 
 	static Client withLogin(String email, String password, boolean threaded = true) {
 		Client client = new Client()

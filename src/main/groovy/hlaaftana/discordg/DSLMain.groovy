@@ -11,7 +11,7 @@ class DSLMain {
 	static void main(String[] args) {
 		ImportCustomizer imports = new ImportCustomizer()
 		imports.addStarImports('hlaaftana.discordg', 'hlaaftana.discordg.dsl',
-				'hlaaftana.discordg.objects', 'hlaaftana.discordg.status',
+				'hlaaftana.discordg.data', 'hlaaftana.discordg.status',
 				'hlaaftana.discordg.net', 'hlaaftana.discordg.util', 'hlaaftana.discordg.util.bot',
 				'hlaaftana.discordg.exceptions', 'hlaaftana.discordg.logic')
 		CompilerConfiguration cc = new CompilerConfiguration()

@@ -1,10 +1,8 @@
-package hlaaftana.discordg.objects
+package hlaaftana.discordg.data
 
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 import hlaaftana.discordg.DiscordObject
-import hlaaftana.discordg.Permissions
-import hlaaftana.discordg.Snowflake
 import hlaaftana.discordg.util.*
 import org.codehaus.groovy.runtime.DefaultGroovyMethods
 
@@ -53,7 +51,7 @@ class Message extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -113,7 +111,7 @@ class Message extends DiscordObject {
 			} else memberField = new Member(client, map)
 		} else if (f == 19) {
 			guildIdField = Snowflake.swornString(value)
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	String getName() { content }
@@ -230,7 +228,7 @@ class Attachment extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -250,7 +248,7 @@ class Attachment extends DiscordObject {
 			height = (int) value
 		} else if (f == 8) {
 			size = (int) value
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	String getName() { filename }
@@ -279,7 +277,7 @@ class Embed extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -313,7 +311,7 @@ class Embed extends DiscordObject {
 			final flds = (List<Map>) value
 			fields = new ArrayList<>(flds.size())
 			for (fi in flds) fields.add(new Field(client, fi))
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	Snowflake getId() { null }
@@ -338,7 +336,7 @@ class Embed extends DiscordObject {
 		void jsonField(String name, value) {
 			final field = FIELDS.get(name)
 			if (null != field) jsonField(field, value)
-			else client.log.warn("Unknown field $name for ${this.class}")
+			else client.log.debug("Unknown field $name for ${this.class}")
 		}
 
 		void jsonField(Integer field, value) {
@@ -352,7 +350,7 @@ class Embed extends DiscordObject {
 				width = (int) value
 			} else if (f == 4) {
 				height = (int) value
-			} else client.log.warn("Unknown field number $field for ${this.class}")
+			} else client.log.debug("Unknown field number $field for ${this.class}")
 		}
 
 		String getName() { url }
@@ -367,7 +365,7 @@ class Embed extends DiscordObject {
 		void jsonField(String name, value) {
 			if (name == 'name') this.name = (String) value
 			else if (name == 'url') url = (String) value
-			else client.log.warn("Unknown field $name for ${this.class}")
+			else client.log.debug("Unknown field $name for ${this.class}")
 		}
 
 		InputStream newInputStream() { inputStreamFromDiscord(url) }
@@ -385,7 +383,7 @@ class Embed extends DiscordObject {
 		void jsonField(String name, value) {
 			final field = FIELDS.get(name)
 			if (null != field) jsonField(field, value)
-			else client.log.warn("Unknown field $name for ${this.class}")
+			else client.log.debug("Unknown field $name for ${this.class}")
 		}
 
 		void jsonField(Integer field, value) {
@@ -397,7 +395,7 @@ class Embed extends DiscordObject {
 				width = (int) value
 			} else if (f == 3) {
 				height = (int) value
-			} else client.log.warn("Unknown field number $field for ${this.class}")
+			} else client.log.debug("Unknown field number $field for ${this.class}")
 		}
 
 		String getName() { url }
@@ -415,7 +413,7 @@ class Embed extends DiscordObject {
 		void jsonField(String name, value) {
 			final field = FIELDS.get(name)
 			if (null != field) jsonField(field, value)
-			else client.log.warn("Unknown field $name for ${this.class}")
+			else client.log.debug("Unknown field $name for ${this.class}")
 		}
 
 		void jsonField(Integer field, value) {
@@ -429,7 +427,7 @@ class Embed extends DiscordObject {
 				iconUrl = (String) value
 			} else if (f == 4) {
 				proxyIconUrl = (String) value
-			} else client.log.warn("Unknown field number $field for ${this.class}")
+			} else client.log.debug("Unknown field number $field for ${this.class}")
 		}
 
 		InputStream newIconInputStream() { inputStreamFromDiscord(iconUrl) }
@@ -446,7 +444,7 @@ class Embed extends DiscordObject {
 		void jsonField(String name, value) {
 			final field = FIELDS.get(name)
 			if (null != field) jsonField(field, value)
-			else client.log.warn("Unknown field $name for ${this.class}")
+			else client.log.debug("Unknown field $name for ${this.class}")
 		}
 
 		void jsonField(Integer field, value) {
@@ -458,7 +456,7 @@ class Embed extends DiscordObject {
 				iconUrl = (String) value
 			} else if (f == 3) {
 				proxyIconUrl = (String) value
-			} else client.log.warn("Unknown field number $field for ${this.class}")
+			} else client.log.debug("Unknown field number $field for ${this.class}")
 		}
 
 		String getName() { text }
@@ -477,7 +475,7 @@ class Embed extends DiscordObject {
 		void jsonField(String name, value) {
 			final field = FIELDS.get(name)
 			if (null != field) jsonField(field, value)
-			else client.log.warn("Unknown field $name for ${this.class}")
+			else client.log.debug("Unknown field $name for ${this.class}")
 		}
 
 		void jsonField(Integer field, value) {
@@ -489,7 +487,7 @@ class Embed extends DiscordObject {
 				this.value = (String) value
 			} else if (f == 3) {
 				inline = (boolean) value
-			} else client.log.warn("Unknown field number $field for ${this.class}")
+			} else client.log.debug("Unknown field number $field for ${this.class}")
 		}
 	}
  }
@@ -508,7 +506,7 @@ class Reaction extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -524,7 +522,7 @@ class Reaction extends DiscordObject {
 			count = (int) value
 		} else if (f == 5) {
 			me = (boolean) value
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 

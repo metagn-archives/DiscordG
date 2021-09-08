@@ -3,10 +3,10 @@ package hlaaftana.discordg.util.bot
 import groovy.transform.*
 import hlaaftana.discordg.Client
 import hlaaftana.discordg.DiscordObject
-import hlaaftana.discordg.Snowflake
+import hlaaftana.discordg.data.Snowflake
 import hlaaftana.discordg.logic.BasicListenerSystem
 import hlaaftana.discordg.logic.ListenerSystem
-import hlaaftana.discordg.objects.Message
+import hlaaftana.discordg.data.Message
 import hlaaftana.discordg.util.Log
 
 import java.util.regex.Matcher

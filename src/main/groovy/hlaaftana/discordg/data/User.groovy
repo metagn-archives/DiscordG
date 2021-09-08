@@ -1,12 +1,10 @@
-package hlaaftana.discordg.objects
+package hlaaftana.discordg.data
 
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 
 import hlaaftana.discordg.Client
 import hlaaftana.discordg.DiscordObject
-import hlaaftana.discordg.Permissions
-import hlaaftana.discordg.Snowflake
 
 import java.util.regex.Pattern
 
@@ -29,7 +27,7 @@ class User extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -49,7 +47,7 @@ class User extends DiscordObject {
 			password = (String) value
 		} else if (f == 7) {
 			bot = (boolean) value
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	List<Presence> getPresences() { client.members(this)*.presence - (Object) null }
@@ -146,7 +144,7 @@ class Connection extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -164,7 +162,7 @@ class Connection extends DiscordObject {
 			final lis = (List<Map>) value
 			if (null == integrations) integrations = new ArrayList<>(lis.size())
 			for (m in lis) integrations.add(new Integration(client, m))
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 }
 
@@ -182,7 +180,7 @@ class Application extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -202,7 +200,7 @@ class Application extends DiscordObject {
 			redirectUris = (List<String>) value
 		} else if (f == 7) {
 			bot = (Map) value
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	Map getBotAccount() { botAccount }
@@ -251,7 +249,7 @@ class Profile extends DiscordObject {
 	void jsonField(String name, value) {
 		final field = FIELDS.get(name)
 		if (null != field) jsonField(field, value)
-		else client.log.warn("Unknown field $name for ${this.class}")
+		else client.log.debug("Unknown field $name for ${this.class}")
 	}
 
 	void jsonField(Integer field, value) {
@@ -274,7 +272,7 @@ class Profile extends DiscordObject {
 			}
 		} else if (f == 5) {
 			id = Snowflake.swornString(value)
-		} else client.log.warn("Unknown field number $field for ${this.class}")
+		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 
 	List<Guild> getMutualGuilds() { client.guildCache.scoop(mutualGuildIds) }
@@ -289,6 +287,6 @@ class Relationship extends DiscordObject {
 	void jsonField(String name, value) {
 		if (name == 'user') user = new User(client, (Map) value)
 		else if (name == 'type') type = (int) value
-		else client.log.warn("Unknown field number $name for ${this.class}")
+		else client.log.debug("Unknown field number $name for ${this.class}")
 	}
 }

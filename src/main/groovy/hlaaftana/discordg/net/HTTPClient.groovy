@@ -30,7 +30,7 @@ class HTTPClient {
 	static String discordApi = 'https://discordapp.com/api/'
 	static String canaryApi = 'https://canary.discordapp.com/api/'
 	static String ptbApi = 'https://ptb.discordapp.com/api/'
-	static String defaultApi = discordApi + 'v6/'
+	static String defaultApi = discordApi + "v$DiscordG.DEFAULT_GATEWAY_VERSION/"
 	static String latestApi = defaultApi
 	static final Map<Integer, String> ERROR_CODES = [
 		10001: 'Unknown Account',
