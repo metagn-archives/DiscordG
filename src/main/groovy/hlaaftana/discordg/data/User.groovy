@@ -4,7 +4,6 @@ import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.DiscordObject
 
 import java.util.regex.Pattern
 
@@ -256,7 +255,8 @@ class Profile extends DiscordObject {
 		if (null == field) return
 		int f = field.intValue()
 		if (f == 1) {
-			user = new User(client, (Map) value)
+			user = new User(client)
+			user.fill((Map) value)
 		} else if (f == 2) {
 			premium = (boolean) value
 		} else if (f == 3) {
@@ -285,7 +285,10 @@ class Relationship extends DiscordObject {
 	int type
 
 	void jsonField(String name, value) {
-		if (name == 'user') user = new User(client, (Map) value)
+		if (name == 'user') {
+			user = new User(client)
+			user.fill((Map) value)
+		}
 		else if (name == 'type') type = (int) value
 		else client.log.debug("Unknown field number $name for ${this.class}")
 	}

@@ -2,7 +2,7 @@ package hlaaftana.discordg.net
 
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
-import hlaaftana.discordg.DiscordObject
+import hlaaftana.discordg.data.DiscordObject
 import hlaaftana.discordg.data.Snowflake
 
 @InheritConstructors

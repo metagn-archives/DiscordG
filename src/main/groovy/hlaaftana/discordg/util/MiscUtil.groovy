@@ -248,6 +248,17 @@ abstract class CasingType {
 			words.join('-')
 		}
 	}
+	static final CasingType spaced = new CasingType() {
+		@CompileStatic
+		List<String> toWords(String words) {
+			words.tokenize()
+		}
+
+		@CompileStatic
+		String fromWords(List<String> words) {
+			words.join(' ')
+		}
+	}
 	
 	abstract List<String> toWords(String words)
 	abstract String fromWords(List<String> words)

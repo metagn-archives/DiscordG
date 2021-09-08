@@ -2,7 +2,6 @@ package hlaaftana.discordg.data
 
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
-import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.util.*
 import org.codehaus.groovy.runtime.DefaultGroovyMethods
 
@@ -80,11 +79,16 @@ class Message extends DiscordObject {
 		} else if (f == 11) {
 			type = (int) value
 		} else if (f == 12) {
-			author = new User(client, (Map) value)
+			author = new User(client)
+			author.fill((Map) value)
 		} else if (f == 13) {
 			final lis = (List<Map>) value
 			mentions = new ArrayList<>(lis.size())
-			for (m in lis) mentions.add(new User(client, m))
+			for (m in lis) {
+				def us = new User(client)
+				us.fill(m)
+				mentions.add(us)
+			}
 		} else if (f == 14) {
 			roleMentionIds = Snowflake.swornStringSet(value)
 		} else if (f == 15) {
@@ -296,17 +300,23 @@ class Embed extends DiscordObject {
 		} else if (f == 7) {
 			color = (int) value
 		} else if (f == 8) {
-			thumbnail = new Image(client, (Map) value)
+			thumbnail = new Image(client)
+			thumbnail.fill((Map) value)
 		} else if (f == 9) {
-			image = new Image(client, (Map) value)
+			image = new Image(client)
+			image.fill((Map) value)
 		} else if (f == 10) {
-			provider = new Provider(client, (Map) value)
+			provider = new Provider(client)
+			provider.fill((Map) value)
 		} else if (f == 11) {
-			video = new Video(client, (Map) value)
+			video = new Video(client)
+			video.fill((Map) value)
 		} else if (f == 12) {
-			footer = new Footer(client, (Map) value)
+			footer = new Footer(client)
+			footer.fill((Map) value)
 		} else if (f == 13) {
-			author = new Author(client, (Map) value)
+			author = new Author(client)
+			author.fill((Map) value)
 		} else if (f == 14) {
 			final flds = (List<Map>) value
 			fields = new ArrayList<>(flds.size())

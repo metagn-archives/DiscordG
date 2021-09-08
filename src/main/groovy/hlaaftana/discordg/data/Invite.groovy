@@ -2,7 +2,6 @@ package hlaaftana.discordg.data
 
 import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
-import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.util.*
 
 /**
@@ -51,7 +50,8 @@ class Invite extends DiscordObject {
 		} else if (f == 9) {
 			temporary = (boolean) value
 		} else if (f == 10) {
-			inviter = new User(client, (Map) value)
+			inviter = new User(client)
+			inviter.fill((Map) value)
 		} else client.log.debug("Unknown field number $field for ${this.class}")
 	}
 

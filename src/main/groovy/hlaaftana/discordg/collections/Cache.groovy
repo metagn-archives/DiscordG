@@ -1,7 +1,7 @@
 package hlaaftana.discordg.collections
 
 import groovy.transform.CompileStatic
-import hlaaftana.discordg.DiscordObject
+import hlaaftana.discordg.data.DiscordObject
 import hlaaftana.discordg.data.Snowflake
 
 @CompileStatic

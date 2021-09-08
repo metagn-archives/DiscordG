@@ -2,7 +2,7 @@ package hlaaftana.discordg.util.bot
 
 import groovy.transform.*
 import hlaaftana.discordg.Client
-import hlaaftana.discordg.DiscordObject
+import hlaaftana.discordg.data.DiscordObject
 import hlaaftana.discordg.data.Snowflake
 import hlaaftana.discordg.logic.BasicListenerSystem
 import hlaaftana.discordg.logic.ListenerSystem
@@ -24,11 +24,9 @@ class CommandBot implements Triggerable {
 	Client client
 	List<Command> commands = []
 	Map<String, Closure> extraCommandArgs = [:]
-	boolean acceptOwnCommands = false
+	boolean acceptOwnCommands = false, singleCommandPerMessage = true
 	boolean loggedIn = false
-	Closure commandListener
-	Closure commandRunnerListener
-	Closure exceptionListener
+	Closure commandListener, commandRunnerListener, exceptionListener
 	Closure<String> formatter
 	ListenerSystem<BotEventData> listenerSystem = new BasicListenerSystem<>()
 	String token
@@ -87,6 +85,43 @@ class CommandBot implements Triggerable {
 		client.login(token, true)
 	}
 
+	void execute(CommandEventData commandEvent) {
+		listenerSystem.dispatchEvent(Events.COMMAND, new BotCommandEventData(this, commandEvent))
+	}
+
+	boolean process(Message msg) {
+		if (singleCommandPerMessage) {
+			def match = match(msg)
+			if (null == match) return false
+			execute(match)
+		} else {
+			def matches = matches(msg)
+			if (matches.empty) return false
+			for (match in matches) execute(match)
+		}
+		true
+	}
+
+	CommandEventData match(Message msg) {
+		for (c in new ArrayList<Command>(commands)) {
+			CommandEventData match
+			if (null != (match = c.match(msg))) {
+				return match
+			}
+		}
+		null
+	}
+
+
+	List<CommandEventData> matches(Message msg) {
+		def result = new ArrayList<CommandEventData>()
+		for (c in new ArrayList<Command>(commands)) {
+			CommandEventData match
+			if (null != (match = c.match(msg))) result.add(match)
+		}
+		result
+	}
+
 	/**
 	 * Starts the bot. You don't have to enter any parameters if you ran #login already.
 	 * @param email - the email to log in with.
@@ -108,21 +143,9 @@ class CommandBot implements Triggerable {
 		}
 		commandListener = client.addListener('message') { Map data ->
 			if (!acceptOwnCommands && ((Map) data.author).id == client.id) return
-			boolean anyPassed = false
 			Message msg = (Message) data.message
-			for (c in new ArrayList<Command>(commands)){
-				Tuple2<CommandPattern, CommandPattern> match
-				if ((match = c.match(msg))){
-					anyPassed = true
-
-					CommandEventData ced = new CommandEventData(c, match.second, match.first,
-							c.arguments(msg), msg)
-
-					listenerSystem.dispatchEvent(Events.COMMAND, new BotCommandEventData(this, ced))
-				}
-			}
-
-			if (!anyPassed) listenerSystem.dispatchEvent(Events.NO_COMMAND, new BotMapEventData(this, data))
+			boolean success = process(msg)
+			if (!success) listenerSystem.dispatchEvent(Events.NO_COMMAND, new BotMapEventData(this, data))
 		}
 		listenerSystem.dispatchEvent(Events.INITIALIZE, null)
 		if (!(null == token || loggedIn)) login(token)
@@ -379,51 +402,15 @@ class Command implements Triggerable, Aliasable, Restricted {
 	}
 
 	/// null if no match
-	Tuple2<CommandPattern, CommandPattern> match(Message msg) {
+	CommandEventData match(Message msg) {
 		if (!allows(msg)) return null
-		for (List<CommandPattern> x in (List<List<CommandPattern>>) [triggers, aliases].combinations())
-			if (x[0].allows(msg) && x[1].allows(msg) && msg.content ==~ type.matchCommand(x[0], x[1]))
-				return new Tuple2(x[0], x[1])
+		for (List<CommandPattern> x in (List<List<CommandPattern>>) [triggers, aliases].combinations()) {
+			Matcher matcher
+			if (x[0].allows(msg) && x[1].allows(msg) &&
+				(matcher = msg.content =~ type.matchCommand(x[0], x[1])).matches())
+				return new CommandEventData(this, x[1], x[0], matcher, msg)
+		}
 		null
-	}
-
-	Matcher matcher(Message msg) {
-		def pair = match(msg)
-		if (!pair) return null
-		msg.content =~ type.matchCommand(pair.first, pair.second)
-	}
-
-	/**
-	 * Gets the text after the command trigger for this command.
-	 * @param d - the event data.
-	 * @return the arguments as a string.
-	 */
-	String arguments(Message msg) {
-		try{
-			msg.content.substring(allCaptures(msg)[0].length()).trim()
-		}catch (ignored) {
-			''
-		}
-	}
-
-	// only for regex
-	List captures(Message msg) {
-		type.captures(allCaptures(msg))
-	}
-
-	// only for regex
-	List<String> allCaptures(Message msg) {
-		def aa = matcher(msg).collect()
-		String[] rid = []
-		if (aa instanceof String) rid = [aa]
-		else if (null != aa[0])
-			if (aa[0] instanceof String) rid = [(String) aa[0]]
-			else rid = aa[0] as String[]
-		List<String> res = []
-		for (int i = 1; i < rid.size(); ++i) {
-			res[i - 1] = rid[i] ?: ''
-		}
-		res
 	}
 
 	/**

@@ -4,7 +4,6 @@ import groovy.transform.CompileStatic
 import groovy.transform.InheritConstructors
 import groovy.transform.stc.ClosureParams
 import groovy.transform.stc.SimpleType
-import hlaaftana.discordg.DiscordObject
 import hlaaftana.discordg.collections.Cache
 
 import java.util.regex.Pattern

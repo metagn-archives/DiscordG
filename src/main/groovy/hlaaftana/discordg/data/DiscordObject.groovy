@@ -1,10 +1,9 @@
-package hlaaftana.discordg
+package hlaaftana.discordg.data
 
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
+import hlaaftana.discordg.Client
 import hlaaftana.discordg.collections.Cache
-import hlaaftana.discordg.data.Snowflake
-import hlaaftana.discordg.data.Member
 import hlaaftana.discordg.util.CasingType
 import hlaaftana.discordg.util.ConversionUtil
 
@@ -54,7 +53,10 @@ abstract class DiscordObject implements Comparable {
 		if (f instanceof String) jsonField('id', (String) f)
 		def auth = map.author
 		if (auth instanceof Map) jsonField('author', (Map) auth)
-		for (e in map.entrySet()) if (e.key instanceof String) jsonField((String) e.key, e.value)
+		//if (this instanceof User && !map.containsKey('discriminator')) new Exception().printStackTrace()
+		for (e in map.entrySet()) {
+			if (e.key instanceof String) jsonField((String) e.key, e.value)
+		}
 	}
 
 	String toString() { name }
