@@ -9,6 +9,7 @@
 /output/
 *.ps1
 /gradlew
+/gradlew.bat
 /.gradle/
 /build/
 /gradle/
