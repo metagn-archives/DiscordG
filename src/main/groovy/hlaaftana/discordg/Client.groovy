@@ -777,7 +777,10 @@ class Client extends User {
 						def i = Snowflake.swornString(m.id)
 						if (null == user(i)) for (e in privateChannelCache) {
 							def v = e.recipientCache
-							if (v.containsKey(i)) v[i] = new User(Client.this, m)
+							if (v.containsKey(i)) {
+                                v[i] = new User(Client.this)
+								v[i].fill(m)
+                            }
 						}
 						if (d.status == 'offline') presenceCache.remove(i)
 						else presenceCache[i] = new Presence(Client.this, m)

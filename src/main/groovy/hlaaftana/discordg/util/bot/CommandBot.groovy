@@ -483,7 +483,7 @@ class DSLCommand extends Command {
 	           @DelegatesTo(value = CommandEventData, strategy = Closure.DELEGATE_FIRST) Closure response,
 	           CommandBot parentT, alias, trigger = []) {
 		super(parentT, alias, trigger)
-		this.response = (Closure) response.clone()
+		this.response = (Closure) response?.clone()
 		info.each(this.&putAt)
 		if (parentT instanceof CommandBot && parentT.extraCommandArgs)
 			extraArgs << parentT.extraCommandArgs

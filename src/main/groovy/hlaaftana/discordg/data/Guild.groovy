@@ -765,7 +765,10 @@ class Member extends DiscordObject {
 	}
 
 	Member(Client c, Map<?, ?> obj) {
-		super(c, obj)
+		super(c)
+		if (null != obj.id) jsonField('id', obj.id)
+		if (null != obj.user) jsonField('user', obj.user)
+		fill(obj)
 	}
 
 	static final Map<String, Integer> FIELDS = Collections.unmodifiableMap(
