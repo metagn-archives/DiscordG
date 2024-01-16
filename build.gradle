@@ -3,9 +3,9 @@ apply plugin: 'idea'
 apply plugin: 'application'
 
 version = "5.1.1"
-group = "hlaaftana"
+group = "metagn"
 archivesBaseName = "DiscordG"
-mainClassName = "hlaaftana.discordg.DSLMain"
+mainClassName = "metagn.discordg.DSLMain"
 
 jar {
 	from { configurations.compile.findAll { !it.path.contains("groovy") }.collect { it.directory ? it : zipTree(it) } }

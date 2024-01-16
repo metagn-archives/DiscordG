@@ -1,4 +1,4 @@
-import hlaaftana.discordg.*
+import metagn.discordg.*
 
 // This example doesn't really teach you anything about the API, just wanted to help beginners.
 Client client

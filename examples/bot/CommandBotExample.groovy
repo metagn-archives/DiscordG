@@ -1,5 +1,5 @@
-import hlaaftana.discordg.util.bot.CommandBot
-import hlaaftana.discordg.util.bot.CommandEventData
+import metagn.discordg.util.bot.CommandBot
+import metagn.discordg.util.bot.CommandEventData
 
 CommandBot bot = new CommandBot(triggers: ["!", "\$"])
 

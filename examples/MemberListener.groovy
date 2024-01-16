@@ -1,4 +1,4 @@
-import hlaaftana.discordg.*
+import metagn.discordg.*
 
 Client client = DiscordG.withToken args[0]
 
